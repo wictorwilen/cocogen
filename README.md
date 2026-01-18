@@ -1,27 +1,46 @@
 # cocogen
 
-A TypeSpec-driven generator (run via `npx`) for scaffolding Microsoft Graph External Connections (Microsoft 365 Copilot connectors) projects.
+[![npm version](https://img.shields.io/npm/v/@wictorwilen/cocogen.svg)](https://www.npmjs.com/package/@wictorwilen/cocogen)
+[![npm downloads](https://img.shields.io/npm/dm/@wictorwilen/cocogen.svg)](https://www.npmjs.com/package/@wictorwilen/cocogen)
+[![license](https://img.shields.io/npm/l/@wictorwilen/cocogen.svg)](https://github.com/wictorwilen/cocogen/blob/main/LICENSE)
+[![node version](https://img.shields.io/node/v/@wictorwilen/cocogen.svg)](https://www.npmjs.com/package/@wictorwilen/cocogen)
 
-- Input: a TypeSpec (`.tsp`) file describing the external item schema
-- Output: a runnable project in TypeScript/Node.js or C#/.NET that can:
-  - create an external connection
-  - register/update the schema
-  - ingest content from CSV (with a swappable datasource abstraction)
+🚀 **Ship Microsoft 365 Copilot connectors fast** — from a single TypeSpec file to a runnable, production-ready project.
 
-Design spec: see docs/architecture.md
+`cocogen` is a TypeSpec-driven generator (run via `npx`) for scaffolding Microsoft Graph External Connections (Microsoft 365 Copilot connectors) projects.
+
+**You bring:** a `.tsp` schema.  
+**You get:** a runnable TypeScript or C# connector project with clear defaults, great structure, and a friendly CLI. ✨
+
+## Why cocogen? 💡
+- **Schema-first workflow** — define your external item once in TypeSpec.
+- **Runnables out of the box** — provision connections, register schemas, and ingest data.
+- **People connectors ready** — profile source registration and person entity mappings.
+- **Preview-aware** — beta features like `contentCategory` are supported with a flag.
+- **Swappable datasource** — CSV included, plug in your own source easily.
+- **Safe updates** — regenerate only schema-derived code via `cocogen update`.
+
+## What you can do with the generated project 🔧
+- ✅ Create or update an external connection
+- ✅ Patch schema changes
+- ✅ Ingest items from CSV (or your own datasource)
+- ✅ Retry throttled requests with backoff + logging
+- ✅ Customize transforms without losing changes on update
+
+Design spec: see [docs/architecture.md](https://github.com/wictorwilen/cocogen/blob/main/docs/architecture.md)
 
 End-user guide:
-- docs/end-user.md
+- [docs/end-user.md](https://github.com/wictorwilen/cocogen/blob/main/docs/end-user.md)
 
 ## TypeSpec format
 `cocogen` expects a single “item model” decorated with `@coco.item()` and a single ID property decorated with `@coco.id`.
 
 Start here:
-- docs/typespec.md
+- [docs/typespec.md](https://github.com/wictorwilen/cocogen/blob/main/docs/typespec.md)
 
 Examples:
-- examples/content-connector.tsp
-- examples/people-connector.tsp
+- [examples/content-connector.tsp](https://github.com/wictorwilen/cocogen/blob/main/examples/content-connector.tsp)
+- [examples/people-connector.tsp](https://github.com/wictorwilen/cocogen/blob/main/examples/people-connector.tsp)
 
 ## Requirements
 - Node.js 22+ (the generator targets Node 22 LTS)
