@@ -315,7 +315,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
     "utf8"
   );
 
-  if (ir.connection.contentCategory === "people" && personEntityDefaults.length > 0) {
+  if (personEntityDefaults.length > 0) {
     await writeFile(
       path.join(outDir, "src", "schema", "personEntityDefaults.ts"),
       await renderTemplate("ts/src/generated/personEntityDefaults.ts.ejs", {
@@ -609,7 +609,7 @@ function sampleValueForType(type: PropertyType): string {
     case "dateTimeCollection":
       return "2024-01-01T00:00:00Z;2024-01-02T00:00:00Z";
     case "principal":
-      return '{"id":"00000000-0000-0000-0000-000000000000","type":"user"}';
+      return 'alice@contoso.com';
     case "string":
     default:
       return "sample";
@@ -868,7 +868,7 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
     "utf8"
   );
 
-  if (ir.connection.contentCategory === "people" && personEntityDefaults.length > 0) {
+  if (personEntityDefaults.length > 0) {
     await writeFile(
       path.join(outDir, "Schema", "PersonEntityDefaults.cs"),
       await renderTemplate("dotnet/Generated/PersonEntityDefaults.cs.ejs", {

@@ -178,6 +178,23 @@ describe("loadIrFromTypeSpec", () => {
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/missing a people label/i);
   });
 
+  test("allows principal entity mapping without people labels", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        @coco.source("manager", "userPrincipalName")
+        projectManager: coco.Principal;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    const prop = ir.properties.find((p) => p.name === "projectManager");
+    expect(prop?.type).toBe("principal");
+    expect(prop?.personEntity?.fields[0]?.path).toBe("userPrincipalName");
+  });
+
   test("errors on invalid source settings", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

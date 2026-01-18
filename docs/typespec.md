@@ -176,6 +176,8 @@ If omitted, `cocogen` will also consider the TypeSpec doc comment on the propert
 
 Overrides the emitted Graph schema property name.
 
+Use this when your TypeSpec property name is not Graph-safe (non‑alphanumeric or > 32 chars), or when you want a friendly TypeSpec name while emitting a compliant Graph name.
+
 This is useful to satisfy Graph naming constraints:
 - names must be alphanumeric only (`A-Z`, `a-z`, `0-9`)
 - max length is 32
@@ -208,6 +210,7 @@ Maps a CSV header to a destination property or people-entity field.
 Notes:
 - For people entity mappings, `to` is recommended and should be the entity JSON path. If you omit it, cocogen will skip defaults and you must build JSON yourself in generated transforms/overrides.
 - For non-people connectors, omit `to` (equivalent to `@coco.source("header")`).
+- For `coco.Principal`, you may provide `to` to build the principal JSON payload (for example `@coco.source("manager", "userPrincipalName")`).
 - For people connectors, any property with a people label should define at least one `@coco.source(..., to)` mapping; otherwise validation warns and you must implement the mapping manually.
 
 ### People entity fields with `@coco.source(..., to)`

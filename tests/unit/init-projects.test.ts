@@ -224,6 +224,6 @@ model Item {
     const csv = await readFile(path.join(outDir, "data.csv"), "utf8");
     expect(csv).toContain("Software Engineer");
     expect(csv).toContain('"header,with,comma"');
-    expect(csv).toContain("00000000-0000-0000-0000-000000000000");
+    expect(csv).toContain("alice@contoso.com");
   });
 });

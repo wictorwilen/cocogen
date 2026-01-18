@@ -134,7 +134,8 @@ function getSourceSettings(program: Program, prop: ModelProperty, fallbackName: 
 
 function getPersonEntityMapping(
   program: Program,
-  prop: ModelProperty
+  prop: ModelProperty,
+  propertyType: PropertyType
 ): {
   entity:
     | "userAccountInformation"
@@ -203,6 +204,13 @@ function getPersonEntityMapping(
 
   if (fields.length === 0) return undefined;
   if (!entity) {
+    if (propertyType === "principal") {
+      return {
+        entity: "userAccountInformation",
+        fields,
+      };
+    }
+
     throw new CocogenError(
       `Property '${prop.name}' maps people entity fields but is missing a people label. Add @coco.label("person...").`
     );
@@ -360,11 +368,12 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
     const aliases = getStringArray(program, COCOGEN_STATE_PROPERTY_ALIASES, prop);
     const description = getDescription(program, prop);
 
-    const personEntity = getPersonEntityMapping(program, prop);
+    const propertyType = mapTypeToPropertyType(program, prop.type);
+    const personEntity = getPersonEntityMapping(program, prop, propertyType);
 
     return {
       name,
-      type: mapTypeToPropertyType(program, prop.type),
+      type: propertyType,
       ...(description ? { description } : {}),
       labels,
       aliases,
