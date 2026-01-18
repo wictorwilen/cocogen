@@ -1,0 +1,31 @@
+// Auto-generated property transforms.
+// Regenerated on every cocogen update.
+
+import {
+  parseBoolean,
+  parseNumber,
+  parseNumberCollection,
+  parseString,
+  parseStringCollection,
+  readSourceValue
+} from "../datasource/csv.js";
+
+export abstract class PropertyTransformBase {
+  public transformProperty<T>(name: string, row: Record<string, unknown>): T {
+    switch (name) {
+<% for (const prop of properties) { -%>
+      case <%= JSON.stringify(prop.name) %>:
+        return this.transform<%= prop.transformName %>(row) as T;
+<% } -%>
+      default:
+        throw new Error(`Unknown property '${name}'.`);
+    }
+  }
+
+<% for (const prop of properties) { -%>
+  protected transform<%= prop.transformName %>(row: Record<string, unknown>): <%= prop.tsType %> {
+    return <%- prop.expression %>;
+  }
+
+<% } -%>
+}

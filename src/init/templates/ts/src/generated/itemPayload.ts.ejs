@@ -1,11 +1,11 @@
-import type { Item } from "./model.js";
+import type { <%= itemTypeName %> } from "./model.js";
 import { contentPropertyName, idPropertyName } from "./constants.js";
 
-export function getItemId(item: Item): string {
+export function getItemId(item: <%= itemTypeName %>): string {
   return String((item as any)[idPropertyName] ?? "");
 }
 
-export function toExternalItem(item: Item): {
+export function toExternalItem(item: <%= itemTypeName %>): {
   acl: Array<{ type: string; value: string; accessType: string }>;
   properties: Record<string, unknown>;
   content?: { type: string; value: string };

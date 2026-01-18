@@ -1,4 +1,4 @@
-import { cp, mkdir, stat } from "node:fs/promises";
+import { cp, mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 const repoRoot = path.resolve(new URL("..", import.meta.url).pathname);
@@ -18,6 +18,10 @@ async function exists(p) {
 if (!(await exists(srcDir))) {
   // Nothing to copy (shouldn't happen in normal dev flows).
   process.exit(0);
+}
+
+if (await exists(destDir)) {
+  await rm(destDir, { recursive: true, force: true });
 }
 
 await mkdir(path.dirname(destDir), { recursive: true });

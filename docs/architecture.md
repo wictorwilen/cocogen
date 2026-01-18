@@ -156,7 +156,7 @@ People connectors (preview) helpers:
   - personAnniversaries → personAnniversary
   - personNote → personAnnotation
 
-Generated projects include a `personEntityOverrides` file (TS/.NET) so you can customize how entity JSON is built (for example, adding skill proficiency). Default mappings are generated from the TypeSpec fields.
+Generated projects include a `PropertyTransform` override (TS/.NET) so you can customize how values and entity JSON are built. Defaults are generated in `PropertyTransformBase` from the TypeSpec fields.
 
 Validation rule:
 - People-labeled properties should define at least one `@coco.source(..., to)` mapping so the generator can build default JSON entity payloads. If omitted, validation warns and you must implement mapping manually in generated transforms/overrides.

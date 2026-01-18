@@ -8,5 +8,5 @@ namespace <%= namespaceName %>.Datasource;
 // Implement this interface to swap CSV for an API, database, or other system.
 public interface IItemSource
 {
-    IAsyncEnumerable<Item> GetItemsAsync(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<<%= itemTypeName %>> GetItemsAsync(CancellationToken cancellationToken = default);
 }

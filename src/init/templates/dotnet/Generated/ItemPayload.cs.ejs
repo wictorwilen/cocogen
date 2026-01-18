@@ -5,12 +5,12 @@ namespace <%= namespaceName %>.Schema;
 
 public static class ItemPayload
 {
-    public static string GetItemId(Item item)
+    public static string GetItemId(<%= itemTypeName %> item)
     {
         return <%- itemIdExpression %>;
     }
 
-    public static ExternalItem ToExternalItem(Item item)
+    public static ExternalItem ToExternalItem(<%= itemTypeName %> item)
     {
         var props = new Properties
         {

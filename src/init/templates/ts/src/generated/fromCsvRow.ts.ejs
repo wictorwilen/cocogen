@@ -1,43 +1,12 @@
-import type { Item } from "./model.js";
-import {
-  parseBoolean,
-  parseNumber,
-  parseNumberCollection,
-  parseString,
-  parseStringCollection,
-  readSourceValue
-} from "../datasource/csv.js";
-<% if (propertyTransforms.length > 0) { -%>
-import {
-<% for (const prop of propertyTransforms) { -%>
-  transform<%= prop.transformName %>,
-<% } -%>
-} from "./propertyTransforms.js";
-<% } -%>
-<% if (hasPersonEntities) { -%>
-import { buildPersonEntityDefault, buildPersonEntityDefaultCollection } from "./personEntityDefaults.js";
-import { transformPersonEntity, transformPersonEntityCollection } from "./personEntityOverrides.js";
-<% } -%>
+import type { <%= itemTypeName %> } from "./model.js";
+import { PropertyTransform } from "./propertyTransform.js";
 
-export function fromCsvRow(row: Record<string, unknown>): Item {
+const transforms = new PropertyTransform();
+
+export function fromCsvRow(row: Record<string, unknown>): <%= itemTypeName %> {
   return {
 <% for (const prop of properties) { -%>
-  <% if (prop.expression) { -%>
-    <%= prop.name %>: <%= prop.isCollection ? "transformPersonEntityCollection" : "transformPersonEntity" %>(
-      <%= JSON.stringify(prop.name) %>,
-      row,
-      <%= prop.isCollection ? "buildPersonEntityDefaultCollection" : "buildPersonEntityDefault" %>(
-        <%= JSON.stringify(prop.name) %>,
-        row
-      )
-    ),
-  <% } else { -%>
-    <% if (prop.isExplicitSource) { -%>
-    <%= prop.name %>: transform<%= prop.transformName %>(readSourceValue(row, <%= JSON.stringify(prop.csvHeaders) %>)),
-    <% } else { -%>
-    <%= prop.name %>: transform<%= prop.transformName %>(row),
-    <% } -%>
-  <% } -%>
+    <%= prop.name %>: transforms.transformProperty<%= prop.tsType ? `<${prop.tsType}>` : "" %>(<%= JSON.stringify(prop.name) %>, row),
 <% } -%>
   };
 }

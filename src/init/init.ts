@@ -86,15 +86,10 @@ function toCsIdentifier(name: string): string {
 
 function toTsIdentifier(name: string): string {
   const parts = name.split(/[^A-Za-z0-9]+/g).filter(Boolean);
-  if (parts.length === 0) return "item";
+  if (parts.length === 0) return "Item";
 
-  const [first, ...rest] = parts;
-  const camel = [
-    first.slice(0, 1).toLowerCase() + first.slice(1),
-    ...rest.map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)),
-  ].join("");
-
-  const sanitized = camel.replaceAll(/[^A-Za-z0-9_]/g, "_");
+  const pascal = parts.map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)).join("");
+  const sanitized = pascal.replaceAll(/[^A-Za-z0-9_]/g, "_");
   return /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
 }
 
@@ -181,7 +176,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
     tsType: toTsType(p.type),
   }));
 
-  const fromCsvProperties = ir.properties.map((p) => {
+  const transformProperties = ir.properties.map((p) => {
     const parser = (() => {
       switch (p.type) {
         case "stringCollection":
@@ -220,40 +215,19 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
             ))
       : null;
 
+    const expression = personEntity
+      ? personEntity
+      : `${parser}(readSourceValue(row, ${JSON.stringify(p.source.csvHeaders)}))`;
+
     return {
       name: p.name,
-      csvHeaders: p.source.csvHeaders,
       parser,
-      expression: personEntity,
+      expression,
       isCollection: p.type === "stringCollection",
-      isExplicitSource: p.source.explicit ?? false,
       transformName: toTsIdentifier(p.name),
       tsType: toTsType(p.type),
     };
   });
-
-  const personEntityDefaults = ir.properties
-    .filter((p) => p.personEntity)
-    .map((p) => ({
-      name: p.name,
-      isCollection: p.type === "stringCollection",
-      expression:
-        p.type === "stringCollection"
-          ? buildTsPersonEntityCollectionExpression(
-              (p.personEntity?.fields ?? []).map((field) => ({
-                path: field.path,
-                source: field.source,
-              }))
-            )
-          : buildTsPersonEntityExpression(
-              (p.personEntity?.fields ?? []).map((field) => ({
-                path: field.path,
-                source: field.source,
-              }))
-            ),
-    }));
-
-  const propertyTransforms = fromCsvProperties.filter((p) => !p.expression);
 
   await writeFile(
     path.join(outDir, "src", "schema", "model.ts"),
@@ -295,12 +269,21 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
     "utf8"
   );
 
-  if (propertyTransforms.length > 0) {
+  await writeFile(
+    path.join(outDir, "src", "schema", "propertyTransformBase.ts"),
+    await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
+      properties: transformProperties,
+    }),
+    "utf8"
+  );
+
+  const transformOverridesPath = path.join(outDir, "src", "schema", "propertyTransform.ts");
+  try {
+    await access(transformOverridesPath);
+  } catch {
     await writeFile(
-      path.join(outDir, "src", "schema", "propertyTransforms.ts"),
-      await renderTemplate("ts/src/generated/propertyTransforms.ts.ejs", {
-        properties: propertyTransforms,
-      }),
+      transformOverridesPath,
+      await renderTemplate("ts/src/propertyTransform.ts.ejs", {}),
       "utf8"
     );
   }
@@ -308,40 +291,11 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   await writeFile(
     path.join(outDir, "src", "schema", "fromCsvRow.ts"),
     await renderTemplate("ts/src/generated/fromCsvRow.ts.ejs", {
-      properties: fromCsvProperties,
-      hasPersonEntities: personEntityDefaults.length > 0,
-      propertyTransforms,
+      properties: transformProperties,
+      itemTypeName: ir.item.typeName,
     }),
     "utf8"
   );
-
-  if (personEntityDefaults.length > 0) {
-    await writeFile(
-      path.join(outDir, "src", "schema", "personEntityDefaults.ts"),
-      await renderTemplate("ts/src/generated/personEntityDefaults.ts.ejs", {
-        defaults: personEntityDefaults,
-      }),
-      "utf8"
-    );
-
-    const overridesPath = path.join(outDir, "src", "schema", "personEntityOverrides.ts");
-    try {
-      await access(overridesPath);
-    } catch {
-      const entityOverrides = {
-        scalarNames: personEntityDefaults.filter((p) => !p.isCollection).map((p) => p.name),
-        collectionNames: personEntityDefaults.filter((p) => p.isCollection).map((p) => p.name),
-      };
-      await writeFile(
-        overridesPath,
-        await renderTemplate("ts/src/personEntityOverrides.ts.ejs", {
-          scalarNames: entityOverrides.scalarNames,
-          collectionNames: entityOverrides.collectionNames,
-        }),
-        "utf8"
-      );
-    }
-  }
 
   const propertiesObjectLines = ir.properties
     .flatMap((p) => {
@@ -363,6 +317,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
     await renderTemplate("ts/src/generated/itemPayload.ts.ejs", {
       propertiesObjectLines,
       contentBlock,
+      itemTypeName: ir.item.typeName,
     }),
     "utf8"
   );
@@ -487,23 +442,54 @@ function buildObjectTree(fields: PersonEntityField[]): Record<string, unknown> {
 
 function buildTsPersonEntityExpression(fields: PersonEntityField[]): string {
   const tree = buildObjectTree(fields);
+  const indentUnit = "  ";
 
-  const renderNode = (node: Record<string, unknown>): string => {
+  const renderNode = (node: Record<string, unknown>, level: number): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const headers = JSON.stringify(field.source.csvHeaders);
-        return `${JSON.stringify(key)}: parseString(readSourceValue(row, ${headers}))`;
+        return `${childIndent}${JSON.stringify(key)}: parseString(readSourceValue(row, ${headers}))`;
       }
-      return `${JSON.stringify(key)}: ${renderNode(value as Record<string, unknown>)}`;
+      return `${childIndent}${JSON.stringify(key)}: ${renderNode(value as Record<string, unknown>, level + 1)}`;
     });
-    return `{ ${entries.join(", ")} }`;
+    return `{
+${entries.join(",\n")}
+${indent}}`;
   };
 
-  return `JSON.stringify(${renderNode(tree)})`;
+  const rendered = renderNode(tree, 2);
+  return `JSON.stringify(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)})`;
 }
 
 function buildTsPersonEntityCollectionExpression(fields: PersonEntityField[]): string {
+  const indentUnit = "  ";
+  const renderNode = (node: Record<string, unknown>, level: number, valueVar: string): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        return `${childIndent}${JSON.stringify(key)}: ${valueVar}`;
+      }
+      return `${childIndent}${JSON.stringify(key)}: ${renderNode(value as Record<string, unknown>, level + 1, valueVar)}`;
+    });
+    return `{
+${entries.join(",\n")}
+${indent}}`;
+  };
+
+  if (fields.length === 1) {
+    const tree = buildObjectTree(fields);
+    const field = fields[0]!;
+    const headers = JSON.stringify(field.source.csvHeaders);
+    const rendered = renderNode(tree, 2, "value");
+
+    return `parseStringCollection(readSourceValue(row, ${headers}))
+  .map((value) => JSON.stringify(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)}))`;
+  }
+
   const tree = buildObjectTree(fields);
   const fieldVarByPath = new Map<string, string>();
   const fieldLines = fields.map((field, index) => {
@@ -513,16 +499,18 @@ function buildTsPersonEntityCollectionExpression(fields: PersonEntityField[]): s
     return `  const ${varName} = parseStringCollection(readSourceValue(row, ${headers}));`;
   });
 
-  const renderNode = (node: Record<string, unknown>): string => {
+  const renderNodeMany = (node: Record<string, unknown>): string => {
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const varName = fieldVarByPath.get(field.path) ?? "";
-        return `${JSON.stringify(key)}: getValue(${varName}, index)`;
+        return `${indentUnit.repeat(2)}${JSON.stringify(key)}: getValue(${varName}, index)`;
       }
-      return `${JSON.stringify(key)}: ${renderNode(value as Record<string, unknown>)}`;
+      return `${indentUnit.repeat(2)}${JSON.stringify(key)}: ${renderNodeMany(value as Record<string, unknown>)}`;
     });
-    return `{ ${entries.join(", ")} }`;
+    return `{
+${entries.join(",\n")}
+${indentUnit}}`;
   };
 
   const fieldVars = [...fieldVarByPath.values()].join(", ");
@@ -530,29 +518,58 @@ function buildTsPersonEntityCollectionExpression(fields: PersonEntityField[]): s
     ? `const lengths = [${fieldVars}].map((value) => value.length);`
     : "const lengths = [0];";
 
-  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(${renderNode(tree)}));\n  }\n  return results;\n})()`;
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(\n      ${renderNodeMany(tree)}\n    ));\n  }\n  return results;\n})()`;
 }
 
 function buildCsPersonEntityExpression(fields: PersonEntityField[]): string {
   const tree = buildObjectTree(fields);
+  const indentUnit = "    ";
 
-  const renderNode = (node: Record<string, unknown>): string => {
+  const renderNode = (node: Record<string, unknown>, level: number): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-        return `[${JSON.stringify(key)}] = ParseString(row, ${headers})`;
+        return `${childIndent}[${JSON.stringify(key)}] = ParseString(row, ${headers})`;
       }
-      return `[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>)}`;
+      return `${childIndent}[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>, level + 1)}`;
     });
 
-    return `new Dictionary<string, object?> { ${entries.join(", ")} }`;
+    return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
   };
 
-  return `JsonSerializer.Serialize(${renderNode(tree)})`;
+  const rendered = renderNode(tree, 2);
+  return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)})`;
 }
 
 function buildCsPersonEntityCollectionExpression(fields: PersonEntityField[]): string {
+  const indentUnit = "    ";
+  const renderNode = (node: Record<string, unknown>, level: number, valueVar: string): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        return `${childIndent}[${JSON.stringify(key)}] = ${valueVar}`;
+      }
+      return `${childIndent}[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>, level + 1, valueVar)}`;
+    });
+
+    return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
+  };
+
+  if (fields.length === 1) {
+    const tree = buildObjectTree(fields);
+    const field = fields[0]!;
+    const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
+    const rendered = renderNode(tree, 3, "value");
+
+    return `CsvParser.ParseStringCollection(row, ${headers})
+            .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${rendered}\n${indentUnit.repeat(3)}))
+            .ToList()`;
+  }
+
   const tree = buildObjectTree(fields);
   const fieldVarByPath = new Map<string, string>();
   const fieldLines = fields.map((field, index) => {
@@ -562,17 +579,17 @@ function buildCsPersonEntityCollectionExpression(fields: PersonEntityField[]): s
     return `        var ${varName} = CsvParser.ParseStringCollection(row, ${headers});`;
   });
 
-  const renderNode = (node: Record<string, unknown>): string => {
+  const renderNodeMany = (node: Record<string, unknown>): string => {
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const varName = fieldVarByPath.get(field.path) ?? "";
-        return `[${JSON.stringify(key)}] = GetValue(${varName}, index)`;
+        return `${indentUnit.repeat(3)}[${JSON.stringify(key)}] = GetValue(${varName}, index)`;
       }
-      return `[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>)}`;
+      return `${indentUnit.repeat(3)}[${JSON.stringify(key)}] = ${renderNodeMany(value as Record<string, unknown>)}`;
     });
 
-    return `new Dictionary<string, object?> { ${entries.join(", ")} }`;
+    return `new Dictionary<string, object?>\n${indentUnit.repeat(2)}{\n${entries.join(",\n")}\n${indentUnit.repeat(2)}}`;
   };
 
   const fieldVars = [...fieldVarByPath.values()];
@@ -580,7 +597,7 @@ function buildCsPersonEntityCollectionExpression(fields: PersonEntityField[]): s
     ? `        var maxLen = new[] { ${fieldVars.map((v) => `${v}.Count`).join(", ")} }.Max();`
     : "        var maxLen = 0;";
 
-  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${renderNode(tree)}));\n        }\n        return results;\n    }).Invoke()`;
+  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${renderNodeMany(tree)}));\n        }\n        return results;\n    }).Invoke()`;
 }
 
 function csvEscape(value: string): string {
@@ -678,14 +695,11 @@ function buildSampleCsv(ir: ConnectorIr): string {
 async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceName: string): Promise<void> {
   await mkdir(path.join(outDir, "Schema"), { recursive: true });
 
-  const properties = ir.properties.map((p) => ({
-    name: p.name,
-    csName: toCsIdentifier(p.name),
-    csType: toCsType(p.type),
-    csvHeaders: p.source.csvHeaders,
-    isExplicitSource: p.source.explicit ?? false,
-    isCollection: p.type === "stringCollection",
-    personEntity: p.personEntity
+  const properties = ir.properties.map((p) => {
+    const parseFn = toCsParseFunction(p.type);
+    const csvHeadersLiteral = `new[] { ${p.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
+    const isCollection = p.type === "stringCollection";
+    const personEntity = p.personEntity
       ? {
           entity: p.personEntity.entity,
           fields: p.personEntity.fields.map((field) => ({
@@ -693,15 +707,31 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
             source: field.source,
           })),
         }
-      : null,
-    parseFn: toCsParseFunction(p.type),
-    graphTypeEnumName: toGraphPropertyTypeEnumName(p.type),
-    description: p.description,
-    labels: p.labels,
-    aliases: p.aliases,
-    search: p.search,
-    type: p.type,
-  }));
+      : null;
+    const transformExpression = personEntity
+      ? isCollection
+        ? buildCsPersonEntityCollectionExpression(personEntity.fields)
+        : buildCsPersonEntityExpression(personEntity.fields)
+      : `${parseFn}(row, ${csvHeadersLiteral})`;
+
+    return {
+      name: p.name,
+      csName: toCsIdentifier(p.name),
+      csType: toCsType(p.type),
+      csvHeaders: p.source.csvHeaders,
+      csvHeadersLiteral,
+      isCollection,
+      personEntity,
+      parseFn,
+      transformExpression,
+      graphTypeEnumName: toGraphPropertyTypeEnumName(p.type),
+      description: p.description,
+      labels: p.labels,
+      aliases: p.aliases,
+      search: p.search,
+      type: p.type,
+    };
+  });
 
   const schemaPropertyLines = properties
     .map((p) => {
@@ -752,32 +782,9 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
   const constructorArgLines = properties
     .map((p, index) => {
       const comma = index < properties.length - 1 ? "," : "";
-      if (p.personEntity) {
-        const method = p.isCollection ? "TransformCollection" : "Transform";
-        const defaults = p.isCollection ? "BuildDefaultCollection" : "BuildDefault";
-        return `            PersonEntityOverrides.${method}(${JSON.stringify(
-          p.name
-        )}, row, PersonEntityDefaults.${defaults}(${JSON.stringify(p.name)}, row))${comma}`;
-      }
-      const headersLiteral = `new[] { ${p.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-      if (p.isExplicitSource) {
-        return `            PropertyTransforms.Transform${p.csName}(CsvParser.ReadValue(row, ${headersLiteral}))${comma}`;
-      }
-      return `            PropertyTransforms.Transform${p.csName}(row)${comma}`;
+      return `            (${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row)${comma}`;
     })
     .join("\n");
-
-  const personEntityDefaults = properties
-    .filter((p) => p.personEntity)
-    .map((p) => ({
-      name: p.name,
-      isCollection: p.isCollection,
-      expression: p.isCollection
-        ? buildCsPersonEntityCollectionExpression(p.personEntity!.fields)
-        : buildCsPersonEntityExpression(p.personEntity!.fields),
-    }));
-
-  const propertyTransforms = properties.filter((p) => !p.personEntity);
 
   const propertiesObjectLines = properties
     .flatMap((p) => {
@@ -848,12 +855,24 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
     "utf8"
   );
 
-  if (propertyTransforms.length > 0) {
+  await writeFile(
+    path.join(outDir, "Schema", "PropertyTransformBase.cs"),
+    await renderTemplate("dotnet/Generated/PropertyTransformBase.cs.ejs", {
+      namespaceName,
+      properties,
+      usesPersonEntity: properties.some((p) => p.personEntity),
+    }),
+    "utf8"
+  );
+
+  const transformOverridesPath = path.join(outDir, "Schema", "PropertyTransform.cs");
+  try {
+    await access(transformOverridesPath);
+  } catch {
     await writeFile(
-      path.join(outDir, "Schema", "PropertyTransforms.cs"),
-      await renderTemplate("dotnet/Generated/PropertyTransforms.cs.ejs", {
+      transformOverridesPath,
+      await renderTemplate("dotnet/PropertyTransform.cs.ejs", {
         namespaceName,
-        properties: propertyTransforms,
       }),
       "utf8"
     );
@@ -863,45 +882,18 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
     path.join(outDir, "Schema", "FromCsvRow.cs"),
     await renderTemplate("dotnet/Generated/FromCsvRow.cs.ejs", {
       namespaceName,
+      itemTypeName: ir.item.typeName,
       constructorArgLines,
     }),
     "utf8"
   );
 
-  if (personEntityDefaults.length > 0) {
-    await writeFile(
-      path.join(outDir, "Schema", "PersonEntityDefaults.cs"),
-      await renderTemplate("dotnet/Generated/PersonEntityDefaults.cs.ejs", {
-        namespaceName,
-        defaults: personEntityDefaults,
-      }),
-      "utf8"
-    );
-
-    const overridesPath = path.join(outDir, "Schema", "PersonEntityOverrides.cs");
-    try {
-      await access(overridesPath);
-    } catch {
-      const entityOverrides = {
-        scalarNames: personEntityDefaults.filter((p) => !p.isCollection).map((p) => p.name),
-        collectionNames: personEntityDefaults.filter((p) => p.isCollection).map((p) => p.name),
-      };
-      await writeFile(
-        overridesPath,
-        await renderTemplate("dotnet/PersonEntityOverrides.cs.ejs", {
-          namespaceName,
-          scalarNames: entityOverrides.scalarNames,
-          collectionNames: entityOverrides.collectionNames,
-        }),
-        "utf8"
-      );
-    }
-  }
 
   await writeFile(
     path.join(outDir, "Schema", "ItemPayload.cs"),
     await renderTemplate("dotnet/Generated/ItemPayload.cs.ejs", {
       namespaceName,
+      itemTypeName: ir.item.typeName,
       itemIdExpression,
       propertiesObjectLines,
       contentBlock,
@@ -1037,7 +1029,10 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
   );
   await writeFile(
     path.join(outDir, "README.md"),
-    await renderTemplate("ts/README.md.ejs", { isPeopleConnector: ir.connection.contentCategory === "people" }),
+    await renderTemplate("ts/README.md.ejs", {
+      isPeopleConnector: ir.connection.contentCategory === "people",
+      itemTypeName: ir.item.typeName,
+    }),
     "utf8"
   );
   const copiedTspPath = path.join(outDir, "schema.tsp");
@@ -1064,17 +1059,18 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
     await renderTemplate("ts/src/cli.ts.ejs", {
       graphBaseUrl: graphBaseUrl(ir),
       isPeopleConnector: ir.connection.contentCategory === "people",
+      itemTypeName: ir.item.typeName,
     }),
     "utf8"
   );
   await writeFile(
     path.join(outDir, "src", "datasource", "itemSource.ts"),
-    await renderTemplate("ts/src/datasource/itemSource.ts.ejs", {}),
+    await renderTemplate("ts/src/datasource/itemSource.ts.ejs", { itemTypeName: ir.item.typeName }),
     "utf8"
   );
   await writeFile(
     path.join(outDir, "src", "datasource", "csvItemSource.ts"),
-    await renderTemplate("ts/src/datasource/csvItemSource.ts.ejs", {}),
+    await renderTemplate("ts/src/datasource/csvItemSource.ts.ejs", { itemTypeName: ir.item.typeName }),
     "utf8"
   );
 
@@ -1138,6 +1134,7 @@ export async function initDotnetProject(
     path.join(outDir, "Program.cs"),
     await renderTemplate("dotnet/Program.commandline.cs.ejs", {
       namespaceName,
+      itemTypeName: ir.item.typeName,
       isPeopleConnector: ir.connection.contentCategory === "people",
       graphApiVersion: ir.connection.graphApiVersion,
     }),
@@ -1146,13 +1143,13 @@ export async function initDotnetProject(
 
   await writeFile(
     path.join(outDir, "Datasource", "IItemSource.cs"),
-    await renderTemplate("dotnet/Datasource/IItemSource.cs.ejs", { namespaceName }),
+    await renderTemplate("dotnet/Datasource/IItemSource.cs.ejs", { namespaceName, itemTypeName: ir.item.typeName }),
     "utf8"
   );
 
   await writeFile(
     path.join(outDir, "Datasource", "CsvItemSource.cs"),
-    await renderTemplate("dotnet/Datasource/CsvItemSource.cs.ejs", { namespaceName }),
+    await renderTemplate("dotnet/Datasource/CsvItemSource.cs.ejs", { namespaceName, itemTypeName: ir.item.typeName }),
     "utf8"
   );
 
@@ -1180,7 +1177,10 @@ export async function initDotnetProject(
 
   await writeFile(
     path.join(outDir, "README.md"),
-    await renderTemplate("dotnet/README.md.ejs", { isPeopleConnector: ir.connection.contentCategory === "people" }),
+    await renderTemplate("dotnet/README.md.ejs", {
+      isPeopleConnector: ir.connection.contentCategory === "people",
+      itemTypeName: ir.item.typeName,
+    }),
     "utf8"
   );
 

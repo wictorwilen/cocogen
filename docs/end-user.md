@@ -124,7 +124,7 @@ npx @wictorwilen/cocogen@latest update --out ./my-connector --tsp ../schema.tsp
 
 ### Layout and what you can edit
 - `src/schema/**` — generated files. These are overwritten by `cocogen update`.
-- `src/schema/personEntityOverrides.ts` — created once for people connectors; safe for manual edits.
+- `src/schema/propertyTransform.ts` — created once; safe for manual edits.
 - `src/datasource/**` — **editable**. Customize how items are read (CSV, APIs, databases).
 - `src/cli.ts` — **editable**. Controls provisioning/ingestion commands.
 - `src/index.ts` — **editable**. Main entrypoint and pipeline composition.
@@ -146,7 +146,7 @@ Ingest debugging flags:
 ### Where to customize mapping
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
 - Generated mapping helpers live in `src/schema/*` and are overwritten on update.
-- For people connectors, use `src/schema/personEntityOverrides.ts` for manual entity tweaks (safe file).
+- Use `src/schema/propertyTransform.ts` for manual mapping tweaks (safe file).
 - For advanced transforms, extend the ingestion pipeline in `src/index.ts` or `src/datasource/*`.
 
 ### Switching from CSV to another datasource (TypeScript)
@@ -158,7 +158,7 @@ Ingest debugging flags:
 
 ### Layout and what you can edit
 - `Schema/**` — generated files. These are overwritten by `cocogen update`.
-- `Schema/PersonEntityOverrides.cs` — created once for people connectors; safe for manual edits.
+- `Schema/PropertyTransform.cs` — created once; safe for manual edits.
 - `Datasource/**` — **editable**. Customize how items are read (CSV, APIs, databases).
 - `Program.cs` and `Program.commandline.cs` — **editable**. CLI and pipeline wiring.
 - `appsettings.json` — configuration values (client credentials, connection defaults, CSV path).
@@ -178,7 +178,7 @@ Ingest debugging flags:
 ### Where to customize mapping
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
 - Generated mapping helpers live in `Schema/*` and are overwritten on update.
-- For people connectors, use `Schema/PersonEntityOverrides.cs` for manual entity tweaks (safe file).
+- Use `Schema/PropertyTransform.cs` for manual mapping tweaks (safe file).
 - For advanced transforms, extend the ingestion pipeline in `Program.cs` or `Datasource/*`.
 
 ### Switching from CSV to another datasource (.NET)
@@ -203,8 +203,9 @@ Ingest debugging flags:
 - Use `@coco.source("header", "entity.path")` to map CSV columns into the profile entity fields.
 - For collection properties (`string[]`), CSV values can be separated with `;` and will be aligned by index.
 - For custom entity shaping, edit the overrides file (safe file):
-  - TS: `src/schema/personEntityOverrides.ts`
-  - .NET: `Schema/PersonEntityOverrides.cs`
+- For custom entity shaping, edit the overrides file (safe file):
+  - TS: `src/schema/propertyTransform.ts`
+  - .NET: `Schema/PropertyTransform.cs`
 
 ## 8) Troubleshooting
 

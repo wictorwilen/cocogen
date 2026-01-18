@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { parse } from "csv-parse";
 
-import type { Item } from "../schema/model.js";
+import type { <%= itemTypeName %> } from "../schema/model.js";
 import type { ItemSource } from "./itemSource.js";
 import { fromCsvRow } from "../schema/fromCsvRow.js";
 
@@ -9,7 +9,7 @@ import { fromCsvRow } from "../schema/fromCsvRow.js";
 export class CsvItemSource implements ItemSource {
   constructor(private readonly filePath: string) {}
 
-  async *getItems(): AsyncIterable<Item> {
+  async *getItems(): AsyncIterable<<%= itemTypeName %>> {
     const parser = parse({
       columns: true,
       skip_empty_lines: true,

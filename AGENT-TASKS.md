@@ -32,6 +32,9 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Added script to regenerate example outputs in tmp (TS + .NET) ✅
+- Fixed template copy to refresh dist templates ✅
+- Guarded `toTsIdentifier` against empty parts ✅
 - Rebranded generator/package to cocogen + coco namespace ✅
 - Dropped gcgen legacy config support ✅
 - Renamed generated .NET constants class ✅
@@ -52,6 +55,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Added package.json + tspconfig.yaml in init-tsp ✅
 - Allowed people labels without entity mappings (warning + manual transform) ✅
 - Allowed principal entity mapping with @coco.source(..., to) ✅
+- Unified property transforms into base/override classes ✅
 - Added end-user documentation guide ✅
 - Documented TypeSpec schema format (decorators, rules, examples) ✅
 - Added `@coco.profileSource` defaults + priority wiring ✅

@@ -62,7 +62,7 @@ describe("people connector job title mapping", () => {
     const positionProp = schema.properties?.find((prop) => prop.name === "workPosition");
     expect(positionProp?.labels).toContain("personCurrentPosition");
 
-    const defaultsPath = path.join(outDir, "src", "schema", "personEntityDefaults.ts");
+    const defaultsPath = path.join(outDir, "src", "schema", "propertyTransformBase.ts");
     const defaultsSource = await readFile(defaultsPath, "utf8");
     expect(defaultsSource).toContain("detail");
     expect(defaultsSource).toContain("jobTitle");

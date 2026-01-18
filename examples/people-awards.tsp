@@ -1,0 +1,26 @@
+import "@wictorwilen/cocogen";
+using coco;
+
+// People connectors use Graph /beta. Use --use-preview-features with cocogen validate/init/update.
+// Optional: set defaults for profile source registration.
+// @coco.profileSource({ webUrl: "https://contoso.com/people", displayName: "Contoso HR", priority: "first" })
+
+@coco.connection({ contentCategory: "people" })
+@coco.profileSource(
+  {
+    webUrl: "https://contoso.com/awards",
+    displayName: "Contoso Awards",
+    priority: "last",
+  }
+)
+@coco.item()
+model PersonProfile {
+  @coco.id
+  @coco.label("personAccount")
+  @coco.source("UPN", "userPrincipalName")
+  account: string;
+
+  @coco.label("personAwards")
+  @coco.source("Awards")
+  awards: string[];
+}

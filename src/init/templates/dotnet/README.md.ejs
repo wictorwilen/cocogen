@@ -33,8 +33,7 @@ Run `npm install` in this folder to fetch the TypeSpec library.
 ## Customizing the project
 - **Schema and fields**: edit `schema.tsp` (copied into this folder) and run `cocogen update --out .` to regenerate `Schema/`.
 - **Ingestion**: replace the datasource in `Datasource/` (CSV is the default) and wire it in `Program.cs`.
-- **People connectors**: customize entity payloads in `Schema/PersonEntityOverrides.cs` (kept on updates).
-- **Property transforms**: edit `Schema/PropertyTransforms.cs` to customize per-field parsing/mapping.
+- **Property transforms**: edit `Schema/PropertyTransform.cs` (kept on updates) to customize per-field parsing/mapping.
 - **Connection defaults**: `@coco.connection` can set `connectionId` and `connectionDescription` defaults for `appsettings.json`.
 - **Profile source defaults**: `@coco.profileSource` sets defaults for `ProfileSource` settings (people connectors only).
 - **Access control**: edit `Schema/ItemPayload.cs` to change ACL behavior.
@@ -49,8 +48,8 @@ Note: `--dry-run` does not require Azure AD or connection settings.
 
 ## Switching from CSV to another datasource
 1) Implement `IItemSource` in `Datasource/`.
-2) If your source yields raw records, map them to `Item` using `FromCsvRow`-style logic.
+2) If your source yields raw records, map them to `<%= itemTypeName %>` using `FromCsvRow`-style logic.
 3) Update `Program.cs` to instantiate your new source instead of `CsvItemSource`.
 
-Tip: keep the `IAsyncEnumerable<Item>` pattern for large datasets.
+Tip: keep the `IAsyncEnumerable<<%= itemTypeName %>>` pattern for large datasets.
 

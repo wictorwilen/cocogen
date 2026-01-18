@@ -1,16 +1,5 @@
-<% if (itemTypeName === "Item") { -%>
-export type Item = {
-<% for (const prop of properties) { -%>
-  <%= prop.name %>: <%= prop.tsType %>;
-<% } -%>
-};
-<% } else { -%>
-
 export type <%= itemTypeName %> = {
 <% for (const prop of properties) { -%>
   <%= prop.name %>: <%= prop.tsType %>;
 <% } -%>
 };
-
-export type Item = <%= itemTypeName %>;
-<% } -%>

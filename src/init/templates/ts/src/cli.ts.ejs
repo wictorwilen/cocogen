@@ -3,7 +3,7 @@ import "dotenv/config";
 import { Command } from "commander";
 import { ClientSecretCredential } from "@azure/identity";
 
-import type { Item } from "./schema/model.js";
+import type { <%= itemTypeName %> } from "./schema/model.js";
 import {
   contentCategory,
   connectionId as defaultConnectionId,
@@ -217,7 +217,7 @@ async function deleteConnection(): Promise<void> {
   console.log("ok: deleted");
 }
 
-async function putItem(connectionId: string, item: Item, verbose: boolean): Promise<void> {
+async function putItem(connectionId: string, item: <%= itemTypeName %>, verbose: boolean): Promise<void> {
   const itemId = getItemId(item);
   const url = `${GRAPH_BASE_URL}/external/connections/${connectionId}/items/${encodeURIComponent(itemId)}`;
 

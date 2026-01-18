@@ -254,7 +254,7 @@ Notes:
   - `personAnniversaries` → `personAnniversary`
   - `personNote` → `personAnnotation`
 
-Generated people-connector projects include `personEntityDefaults` and `personEntityOverrides` under the schema folder (TS: `src/schema`, .NET: `Schema/`). Defaults are regenerated from TypeSpec; overrides are created once and meant for your edits (for example, combine a skill name and proficiency into `skillProficiency`).
+Generated projects include a `PropertyTransformBase` (regenerated) and `PropertyTransform` override (kept) under the schema folder (TS: `src/schema`, .NET: `Schema/`). Customize `PropertyTransform` to shape entity JSON (for example, combine a skill name and proficiency into `skillProficiency`).
 
 Multi-value CSV handling:
 - For people entity **collections** (`string[]`), CSV values can be separated with `;` (for example, `TypeScript;Python`).
@@ -263,7 +263,7 @@ Multi-value CSV handling:
 
 ### Generated property transform samples
 
-When `@coco.source` is present, the transform receives the source column value. When omitted, it receives the full row.
+`cocogen` generates a `PropertyTransformBase` with default implementations and a `PropertyTransform` override you can edit. Defaults always receive the full row and read the configured CSV headers.
 
 TypeSpec:
 
@@ -278,26 +278,31 @@ status: string;
 Generated (TS):
 
 ```ts
-export function transformBody(value: unknown): string {
-  return parseString(value);
-}
+export abstract class PropertyTransformBase {
+  protected transformBody(row: Record<string, unknown>): string {
+    return parseString(readSourceValue(row, ["body"]));
+  }
 
-export function transformStatus(row: Record<string, unknown>): string {
-  return parseString(readSourceValue(row, ["status"]));
+  protected transformStatus(row: Record<string, unknown>): string {
+    return parseString(readSourceValue(row, ["status"]));
+  }
 }
 ```
 
 Generated (.NET):
 
 ```csharp
-public static string TransformBody(string? value)
+public abstract class PropertyTransformBase
 {
-    return CsvParser.ParseString(value);
-}
+    protected virtual string TransformBody(IReadOnlyDictionary<string, string?> row)
+    {
+        return CsvParser.ParseString(row, new[] { "body" });
+    }
 
-public static string TransformStatus(IReadOnlyDictionary<string, string?> row)
-{
-    return CsvParser.ParseString(row, new[] { "status" });
+    protected virtual string TransformStatus(IReadOnlyDictionary<string, string?> row)
+    {
+        return CsvParser.ParseString(row, new[] { "status" });
+    }
 }
 ```
 

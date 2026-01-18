@@ -156,7 +156,7 @@ async Task ProvisionAsync()
     Console.WriteLine("ok: provisioned");
 }
 
-async Task PutItemAsync(GraphServiceClient graph, string connectionId, Item item, bool verbose)
+async Task PutItemAsync(GraphServiceClient graph, string connectionId, <%= itemTypeName %> item, bool verbose)
 {
     var itemId = ItemPayload.GetItemId(item);
 

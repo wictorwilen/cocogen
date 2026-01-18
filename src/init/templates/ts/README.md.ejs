@@ -29,8 +29,7 @@ Run `npm install` to fetch the TypeSpec library.
 ## Customizing the project
 - **Schema and fields**: edit `schema.tsp` (copied into this folder) and run `cocogen update --out .` to regenerate `src/schema`.
 - **Ingestion**: replace the datasource in `src/datasource` (CSV is the default) and wire it in `src/cli.ts`.
-- **People connectors**: customize entity payloads in `src/schema/personEntityOverrides.ts` (kept on updates).
-- **Property transforms**: edit `src/schema/propertyTransforms.ts` to customize per-field parsing/mapping.
+- **Property transforms**: edit `src/schema/propertyTransform.ts` (kept on updates) to customize per-field parsing/mapping.
 - **Connection defaults**: `@coco.connection` can set `connectionId` and `connectionDescription` defaults for `.env.example`.
 - **Profile source defaults**: `@coco.profileSource` sets defaults for `PROFILE_SOURCE_*` (people connectors only).
 - **Access control**: edit `src/schema/itemPayload.ts` to change ACL behavior.
@@ -45,10 +44,10 @@ Note: `--dry-run` does not require CONNECTION_ID, but you still need it for real
 
 ## Switching from CSV to another datasource
 1) Implement `ItemSource` in `src/datasource`.
-2) If your source yields raw records, map them to `Item` using `fromCsvRow`-style logic.
+2) If your source yields raw records, map them to `<%= itemTypeName %>` using `fromCsvRow`-style logic.
 3) Update `src/cli.ts` to instantiate your new source instead of `CsvItemSource`.
 
-Tip: keep the streaming `AsyncIterable<Item>` pattern for large datasets.
+Tip: keep the streaming `AsyncIterable<<%= itemTypeName %>>` pattern for large datasets.
 
 ## Multiple connections
 This generated CLI currently targets a single connection ID from environment variables. Multi-connection support is planned for a future version.

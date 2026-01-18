@@ -45,7 +45,7 @@ describe("people connector collection entity defaults", () => {
 
     expect(result.code).toBe(0);
 
-    const defaultsPath = path.join(outDir, "src", "schema", "personEntityDefaults.ts");
+    const defaultsPath = path.join(outDir, "src", "schema", "propertyTransformBase.ts");
     const defaultsSource = await readFile(defaultsPath, "utf8");
 
     expect(defaultsSource).toMatch(/parseStringCollection/);

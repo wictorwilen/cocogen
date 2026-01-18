@@ -5,9 +5,10 @@ namespace <%= namespaceName %>.Schema;
 
 public static class FromCsvRow
 {
-    public static Item Parse(IReadOnlyDictionary<string, string?> row)
+    public static <%= itemTypeName %> Parse(IReadOnlyDictionary<string, string?> row)
     {
-        return new Item(
+        var transforms = new PropertyTransform();
+        return new <%= itemTypeName %>(
 <%- constructorArgLines %>
         );
     }

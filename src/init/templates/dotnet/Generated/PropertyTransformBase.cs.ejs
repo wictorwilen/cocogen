@@ -1,0 +1,31 @@
+using System;
+using System.Collections.Generic;
+<% if (usesPersonEntity) { -%>
+using System.Linq;
+using System.Text.Json;
+<% } -%>
+using <%= namespaceName %>.Datasource;
+
+namespace <%= namespaceName %>.Schema;
+
+public abstract class PropertyTransformBase
+{
+    public object TransformProperty(string name, IReadOnlyDictionary<string, string?> row)
+    {
+        return name switch
+        {
+<% for (const prop of properties) { -%>
+            <%= JSON.stringify(prop.name) %> => Transform<%= prop.csName %>(row),
+<% } -%>
+            _ => throw new ArgumentOutOfRangeException(nameof(name), $"Unknown property '{name}'."),
+        };
+    }
+
+<% for (const prop of properties) { -%>
+    protected virtual <%= prop.csType %> Transform<%= prop.csName %>(IReadOnlyDictionary<string, string?> row)
+    {
+        return <%- prop.transformExpression %>;
+    }
+
+<% } -%>
+}

@@ -183,34 +183,34 @@ model Item {
     expect(model).toContain("Status");
   });
 
-  test("initTsProject generates person entity defaults for people schema", async () => {
+  test("initTsProject generates property transform base for people schema", async () => {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "people-project");
 
     await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
-    const defaults = await readFile(path.join(outDir, "src", "schema", "personEntityDefaults.ts"), "utf8");
-    expect(defaults).toContain("skills");
-    expect(defaults).toContain("displayName");
-    expect(defaults).toContain("userPrincipalName");
+    const transforms = await readFile(path.join(outDir, "src", "schema", "propertyTransformBase.ts"), "utf8");
+    expect(transforms).toContain("skills");
+    expect(transforms).toContain("displayName");
+    expect(transforms).toContain("userPrincipalName");
   });
 
-  test("initDotnetProject generates person entity defaults and preserves overrides", async () => {
+  test("initDotnetProject generates property transform base and preserves overrides", async () => {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "people-dotnet");
 
     await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
-    const defaults = await readFile(path.join(outDir, "Schema", "PersonEntityDefaults.cs"), "utf8");
+    const defaults = await readFile(path.join(outDir, "Schema", "PropertyTransformBase.cs"), "utf8");
     expect(defaults).toContain("skill");
 
-    const overrides = await readFile(path.join(outDir, "Schema", "PersonEntityOverrides.cs"), "utf8");
-    expect(overrides).toContain("PersonEntityOverrides");
+    const overrides = await readFile(path.join(outDir, "Schema", "PropertyTransform.cs"), "utf8");
+    expect(overrides).toContain("PropertyTransform");
 
     await updateProject({ outDir, usePreviewFeatures: true });
-    const overridesAfter = await readFile(path.join(outDir, "Schema", "PersonEntityOverrides.cs"), "utf8");
+    const overridesAfter = await readFile(path.join(outDir, "Schema", "PropertyTransform.cs"), "utf8");
     expect(overridesAfter).toBe(overrides);
   });
 
