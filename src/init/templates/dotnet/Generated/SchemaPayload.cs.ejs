@@ -1,0 +1,18 @@
+<% const graphNs = graphApiVersion === "beta" ? "Microsoft.Graph.Beta" : "Microsoft.Graph"; -%>
+using <%= graphNs %>.Models.ExternalConnectors;
+
+namespace <%= namespaceName %>.Schema;
+
+public static class SchemaPayload
+{
+    public static global::<%= graphNs %>.Models.ExternalConnectors.Schema BuildSchema()
+    {
+        return new global::<%= graphNs %>.Models.ExternalConnectors.Schema
+        {
+            Properties = new List<Property>
+            {
+<%- schemaPropertyLines %>
+            }
+        };
+    }
+}

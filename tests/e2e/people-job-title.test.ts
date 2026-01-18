@@ -1,0 +1,71 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
+import { describe, expect, test } from "vitest";
+
+import { runNode, writeTempTspFile } from "../test-utils.js";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+function distCliPath(): string {
+  return path.join(repoRoot, "dist", "cli.js");
+}
+
+function extractSchemaPayload(source: string): unknown {
+  const match = source.match(/export const schemaPayload = ([\s\S]*?) as const;\s*$/m);
+  if (!match) {
+    throw new Error("Failed to extract schemaPayload from generated file.");
+  }
+
+  return JSON.parse(match[1]);
+}
+
+describe("people connector job title mapping", () => {
+  test("maps job title CSV column to personCurrentPosition workPosition", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.connection({ contentCategory: "people" })
+      @coco.item()
+      model PersonProfile {
+        @coco.id
+        @coco.label("personAccount")
+        @coco.source("upn", "userPrincipalName")
+        userPrincipalName: string;
+
+        @coco.label("personCurrentPosition")
+        @coco.source("job title", "detail.jobTitle")
+        @coco.source("company", "detail.company.displayName")
+        @coco.source("employee id", "detail.employeeId")
+        workPosition: string;
+      }
+    `);
+
+    const outDir = path.join(path.dirname(entry), "out-people-jobtitle");
+    const result = await runNode(
+      [distCliPath(), "init", "--tsp", entry, "--out", outDir, "--lang", "ts", "--use-preview-features"],
+      {
+      cwd: repoRoot,
+      env: {
+        NO_COLOR: "1",
+        CI: "1",
+      },
+      }
+    );
+
+    expect(result.code).toBe(0);
+
+    const schemaPath = path.join(outDir, "src", "schema", "schemaPayload.ts");
+    const schemaSource = await readFile(schemaPath, "utf8");
+    const schema = extractSchemaPayload(schemaSource) as { properties?: Array<{ name: string; labels?: string[] }> };
+
+    const positionProp = schema.properties?.find((prop) => prop.name === "workPosition");
+    expect(positionProp?.labels).toContain("personCurrentPosition");
+
+    const defaultsPath = path.join(outDir, "src", "schema", "personEntityDefaults.ts");
+    const defaultsSource = await readFile(defaultsPath, "utf8");
+    expect(defaultsSource).toContain("detail");
+    expect(defaultsSource).toContain("jobTitle");
+    expect(defaultsSource).toContain("\"job title\"");
+  });
+});

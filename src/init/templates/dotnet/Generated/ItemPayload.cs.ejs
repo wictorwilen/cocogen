@@ -1,0 +1,41 @@
+<% const graphNs = graphApiVersion === "beta" ? "Microsoft.Graph.Beta" : "Microsoft.Graph"; -%>
+using <%= graphNs %>.Models.ExternalConnectors;
+
+namespace <%= namespaceName %>.Schema;
+
+public static class ItemPayload
+{
+    public static string GetItemId(Item item)
+    {
+        return <%- itemIdExpression %>;
+    }
+
+    public static ExternalItem ToExternalItem(Item item)
+    {
+        var props = new Properties
+        {
+            AdditionalData = new Dictionary<string, object>
+            {
+<%- propertiesObjectLines %>
+            }
+        };
+
+        var externalItem = new ExternalItem
+        {
+            Acl = new List<Acl>
+            {
+                new Acl
+                {
+                    Type = AclType.Everyone,
+                    Value = "everyone",
+                    AccessType = AccessType.Grant,
+                }
+            },
+            Properties = props,
+        };
+
+<%- contentBlock %>
+
+        return externalItem;
+    }
+}

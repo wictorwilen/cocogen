@@ -1,0 +1,36 @@
+// User-editable overrides for people connector entity mapping.
+// This file is created once and will not be overwritten by cocogen update.
+
+export function transformPersonEntity(
+  name: string,
+  row: Record<string, unknown>,
+  value: string
+): string {
+  switch (name) {
+<% for (const propName of names) { -%>
+    case <%= JSON.stringify(propName) %>:
+      // TODO: customize mapping for this entity. Example for skillProficiency:
+      // return JSON.stringify({ displayName: String(row["skill"] ?? ""), proficiency: String(row["proficiency"] ?? "") });
+      return value;
+<% } -%>
+    default:
+      return value;
+  }
+}
+
+export function transformPersonEntityCollection(
+  name: string,
+  row: Record<string, unknown>,
+  value: string[]
+): string[] {
+  switch (name) {
+<% for (const propName of names) { -%>
+    case <%= JSON.stringify(propName) %>:
+      // TODO: customize mapping for this collection entity. Example for skills:
+      // return [JSON.stringify({ displayName: String(row["skill"] ?? ""), proficiency: String(row["proficiency"] ?? "") })];
+      return value;
+<% } -%>
+    default:
+      return value;
+  }
+}

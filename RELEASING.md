@@ -1,9 +1,9 @@
-# Releasing `@wictorwilen/gcgen`
+# Releasing `@wictorwilen/cocogen`
 
 This repo publishes to npm via GitHub Actions when you push a semver tag.
 
 ## Prerequisites (one-time)
-- Create an npm automation token with publish permissions for `@wictorwilen/gcgen`.
+- Create an npm automation token with publish permissions for `@wictorwilen/cocogen`.
 - Add it as a GitHub Actions secret named `NPM_TOKEN`.
 - Ensure the npm package scope is configured for public publishing.
   - This repo sets `publishConfig.access = "public"` in package.json.
@@ -27,7 +27,7 @@ This repo publishes to npm via GitHub Actions when you push a semver tag.
 
 6) Verify the publish.
    - Check the GitHub Actions run for “Release (npm)”.
-   - Confirm on npm: `npm view @wictorwilen/gcgen version`
+   - Confirm on npm: `npm view @wictorwilen/cocogen version`
 
 ## Notes
 - The publish workflow builds from the tagged commit and runs `npm publish --provenance --access public`.

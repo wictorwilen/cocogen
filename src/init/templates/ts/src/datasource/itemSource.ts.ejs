@@ -1,0 +1,8 @@
+import type { Item } from "../schema/model.js";
+
+// Contract for any datasource that yields Items for ingestion.
+// Implement this interface to swap CSV for an API, database, or other system.
+export interface ItemSource {
+  // Return items as an async iterable (streaming preferred).
+  getItems(): AsyncIterable<Item>;
+}

@@ -1,0 +1,25 @@
+import { createReadStream } from "node:fs";
+import { parse } from "csv-parse";
+
+import type { Item } from "../schema/model.js";
+import type { ItemSource } from "./itemSource.js";
+import { fromCsvRow } from "../schema/fromCsvRow.js";
+
+// CSV-based datasource (default). Replace with your own ItemSource as needed.
+export class CsvItemSource implements ItemSource {
+  constructor(private readonly filePath: string) {}
+
+  async *getItems(): AsyncIterable<Item> {
+    const parser = parse({
+      columns: true,
+      skip_empty_lines: true,
+      trim: true
+    });
+
+    const stream = createReadStream(this.filePath, { encoding: "utf8" }).pipe(parser);
+
+    for await (const row of stream as AsyncIterable<Record<string, unknown>>) {
+      yield fromCsvRow(row);
+    }
+  }
+}

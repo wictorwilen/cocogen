@@ -1,7 +1,7 @@
-# Copilot instructions for gcgen
+# Copilot instructions for cocogen
 
 ## Mission
-Build `gcgen`: an `npx`-runnable generator that reads TypeSpec (`.tsp`) and scaffolds runnable Microsoft Graph connector projects.
+Build `cocogen`: an `npx`-runnable generator that reads TypeSpec (`.tsp`) and scaffolds runnable Microsoft Copilot connector projects.
 
 ## Hard constraints
 - **All generator code must be written in TypeScript.**

@@ -1,0 +1,42 @@
+using System.Globalization;
+using System.Runtime.CompilerServices;
+
+using CsvHelper;
+
+using <%= namespaceName %>.Schema;
+
+namespace <%= namespaceName %>.Datasource;
+
+// CSV-based datasource (default). Replace with your own IItemSource as needed.
+public sealed class CsvItemSource : IItemSource
+{
+    private readonly string _csvPath;
+
+    public CsvItemSource(string csvPath)
+    {
+        _csvPath = csvPath;
+    }
+
+    public async IAsyncEnumerable<Item> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // CsvHelper is sync; we still expose async enumeration for consistency.
+        using var reader = new StreamReader(_csvPath);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        await csv.ReadAsync();
+        csv.ReadHeader();
+
+        while (await csv.ReadAsync())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var row = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var header in csv.HeaderRecord ?? Array.Empty<string>())
+            {
+                row[header] = csv.GetField(header);
+            }
+
+            yield return FromCsvRow.Parse(row);
+        }
+    }
+}

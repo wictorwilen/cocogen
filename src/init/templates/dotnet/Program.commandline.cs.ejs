@@ -1,0 +1,426 @@
+using Azure.Core;
+using Azure.Identity;
+using Microsoft.Extensions.Configuration;
+<% if (graphApiVersion === "beta") { -%>
+using Microsoft.Graph.Beta;
+using Microsoft.Graph.Beta.Models.ExternalConnectors;
+using Microsoft.Graph.Beta.Models.ODataErrors;
+<% } else { -%>
+using Microsoft.Graph;
+using Microsoft.Graph.Models.ExternalConnectors;
+using Microsoft.Graph.Models.ODataErrors;
+<% } -%>
+using Microsoft.Kiota.Abstractions;
+using Microsoft.Kiota.Abstractions.Serialization;
+using System.CommandLine;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+
+using <%= namespaceName %>.Datasource;
+using <%= namespaceName %>.Schema;
+
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile("appsettings.Development.json", optional: true)
+    .AddEnvironmentVariables()
+    .Build();
+
+string RequiredSetting(string key, string? fallback = null)
+{
+    var value = configuration[key];
+    if (string.IsNullOrWhiteSpace(value))
+        value = fallback;
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        var envKey = key.Replace(":", "__");
+        throw new InvalidOperationException(
+            $"Missing configuration: {key}. Set '{key}' in appsettings.json or set the env var '{envKey}'."
+        );
+    }
+    return value;
+}
+
+string ConnectionId() => RequiredSetting("Connection:Id");
+string ConnectionName() => RequiredSetting("Connection:Name");
+string ConnectionDescription() => RequiredSetting("Connection:Description");
+<% if (isPeopleConnector) { -%>
+string ProfileSourceWebUrl() => RequiredSetting("ProfileSource:WebUrl", SchemaConstants.ProfileSourceWebUrl);
+string ProfileSourceDisplayName() => configuration["ProfileSource:DisplayName"]
+    ?? SchemaConstants.ProfileSourceDisplayName
+    ?? ConnectionName();
+string ProfileSourcePriority()
+{
+    var raw = configuration["ProfileSource:Priority"] ?? SchemaConstants.ProfileSourcePriority ?? "first";
+    var value = raw.Trim().ToLowerInvariant();
+    if (value is not "first" and not "last")
+        throw new InvalidOperationException("ProfileSource:Priority must be 'first' or 'last'.");
+    return value;
+}
+<% } -%>
+
+ClientSecretCredential CreateCredential()
+{
+    var tenantId = RequiredSetting("AzureAd:TenantId");
+    var clientId = RequiredSetting("AzureAd:ClientId");
+    var clientSecret = RequiredSetting("AzureAd:ClientSecret");
+    return new ClientSecretCredential(tenantId, clientId, clientSecret);
+}
+
+GraphServiceClient CreateGraphClient()
+{
+    var credential = CreateCredential();
+    var graph = new GraphServiceClient(credential, new[] { "https://graph.microsoft.com/.default" });
+    graph.RequestAdapter.BaseUrl = SchemaConstants.GraphBaseUrl;
+    return graph;
+}
+
+<% if (isPeopleConnector) { -%>
+async Task<string> GetAccessTokenAsync(ClientSecretCredential credential)
+{
+    var token = await credential.GetTokenAsync(
+        new TokenRequestContext(new[] { "https://graph.microsoft.com/.default" })
+    );
+    return token.Token;
+}
+
+async Task<HttpResponseMessage> GraphRequestAsync(ClientSecretCredential credential, HttpMethod method, string url, object? body = null)
+{
+    using var http = new HttpClient();
+    var token = await GetAccessTokenAsync(credential);
+    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+    var request = new HttpRequestMessage(method, url);
+    if (body is not null)
+    {
+        var json = JsonSerializer.Serialize(body);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+    }
+
+    return await http.SendAsync(request);
+}
+<% } -%>
+
+bool IsStatus(ApiException ex, int statusCode)
+{
+    return ex.ResponseStatusCode is int sc && sc == statusCode;
+}
+
+async Task EnsureConnectionAsync(GraphServiceClient graph, string connectionId)
+{
+    try
+    {
+        await graph.External.Connections[connectionId].GetAsync();
+        return;
+    }
+    catch (ApiException ex) when (IsStatus(ex, 404))
+    {
+        // Create below.
+    }
+
+    var connection = new ExternalConnection
+    {
+        Id = connectionId,
+        Name = ConnectionName(),
+        Description = ConnectionDescription(),
+    };
+
+    if (!string.IsNullOrWhiteSpace(SchemaConstants.ContentCategory))
+    {
+        // contentCategory is currently only exposed on the /beta endpoint.
+        connection.AdditionalData ??= new Dictionary<string, object>();
+        connection.AdditionalData["contentCategory"] = SchemaConstants.ContentCategory!;
+    }
+
+    await graph.External.Connections.PostAsync(connection);
+}
+
+async Task PatchSchemaAsync(GraphServiceClient graph, string connectionId)
+{
+    var schema = SchemaPayload.BuildSchema();
+    await graph.External.Connections[connectionId].Schema.PatchAsync(schema);
+}
+
+async Task ProvisionAsync()
+{
+    var graph = CreateGraphClient();
+    var connectionId = ConnectionId();
+
+    await EnsureConnectionAsync(graph, connectionId);
+    await PatchSchemaAsync(graph, connectionId);
+<% if (isPeopleConnector) { -%>
+    await RegisterProfileSourceAsync(connectionId);
+<% } -%>
+
+    Console.WriteLine("ok: provisioned");
+}
+
+async Task PutItemAsync(GraphServiceClient graph, string connectionId, Item item, bool verbose)
+{
+    var itemId = ItemPayload.GetItemId(item);
+
+    var externalItem = ItemPayload.ToExternalItem(item);
+    if (verbose)
+    {
+        var url = $"{graph.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl}/external/connections/{connectionId}/items/{Uri.EscapeDataString(itemId)}";
+        Console.WriteLine("verbose: PUT " + url);
+        Console.WriteLine("verbose: payload " + JsonSerializer.Serialize(externalItem, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    // NOTE: The external connectors surface may not expose a typed PutAsync on all SDK versions.
+    // We still use the Graph SDK's request adapter and models for a strongly-typed payload.
+    var requestInfo = new RequestInformation
+    {
+        HttpMethod = Method.PUT,
+        UrlTemplate = "{+baseurl}/external/connections/{connectionId}/items/{itemId}",
+        PathParameters = new Dictionary<string, object>
+        {
+            { "baseurl", graph.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl },
+            { "connectionId", connectionId },
+            { "itemId", itemId },
+        },
+    };
+
+    requestInfo.Headers.Add("Accept", "application/json");
+    requestInfo.SetContentFromParsable(graph.RequestAdapter, "application/json", externalItem);
+
+    var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+    {
+        { "4XX", ODataError.CreateFromDiscriminatorValue },
+        { "5XX", ODataError.CreateFromDiscriminatorValue },
+    };
+
+    await graph.RequestAdapter.SendAsync<ExternalItem>(
+        requestInfo,
+        ExternalItem.CreateFromDiscriminatorValue,
+        errorMapping
+    );
+}
+
+async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose)
+{
+    GraphServiceClient? graph = null;
+    string? connectionId = null;
+    if (!dryRun)
+    {
+        graph = CreateGraphClient();
+        connectionId = ConnectionId();
+    }
+
+    var configuredCsv = configuration["Csv:Path"] ?? "data.csv";
+    var path = string.IsNullOrWhiteSpace(csvPath) ? configuredCsv : csvPath;
+
+    // Swap this for any IItemSource implementation (API, DB, queue, etc.).
+    IItemSource source = new CsvItemSource(path);
+
+    var count = 0;
+    await foreach (var item in source.GetItemsAsync())
+    {
+        if (limit.HasValue && count >= limit.Value)
+            break;
+        if (!dryRun)
+        {
+            await PutItemAsync(graph!, connectionId!, item, verbose);
+        }
+        else if (verbose)
+        {
+            Console.WriteLine("verbose: DRY RUN payload " + JsonSerializer.Serialize(ItemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
+        }
+        count++;
+    }
+
+    Console.WriteLine($"ok: ingested {count} item(s)");
+}
+
+<% if (isPeopleConnector) { -%>
+async Task RegisterProfileSourceAsync(string connectionId)
+{
+    var credential = CreateCredential();
+    var webUrl = ProfileSourceWebUrl();
+    var displayName = ProfileSourceDisplayName();
+    var priority = ProfileSourcePriority();
+
+    var payload = new Dictionary<string, object?>
+    {
+        ["sourceId"] = connectionId,
+        ["displayName"] = displayName,
+        ["webUrl"] = webUrl,
+    };
+
+    var create = await GraphRequestAsync(
+        credential,
+        HttpMethod.Post,
+        $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources",
+        payload
+    );
+
+    if (!create.IsSuccessStatusCode && create.StatusCode != System.Net.HttpStatusCode.Conflict)
+    {
+        var text = await create.Content.ReadAsStringAsync();
+        throw new InvalidOperationException($"Failed to register profile source (HTTP {(int)create.StatusCode}): {text}");
+    }
+
+    var sourceUrl = $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')";
+    await UpdateProfileSourcePrecedenceAsync(credential, sourceUrl, include: true, priority: priority);
+}
+
+async Task UnregisterProfileSourceAsync(string connectionId)
+{
+    var credential = CreateCredential();
+    var sourceUrl = $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')";
+
+    await UpdateProfileSourcePrecedenceAsync(credential, sourceUrl, include: false, priority: "first");
+
+    var res = await GraphRequestAsync(
+        credential,
+        HttpMethod.Delete,
+        $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')"
+    );
+
+    if (!res.IsSuccessStatusCode && res.StatusCode != System.Net.HttpStatusCode.NotFound)
+    {
+        var text = await res.Content.ReadAsStringAsync();
+        throw new InvalidOperationException($"Failed to delete profile source (HTTP {(int)res.StatusCode}): {text}");
+    }
+}
+
+async Task UpdateProfileSourcePrecedenceAsync(ClientSecretCredential credential, string sourceUrl, bool include, string priority)
+{
+    var res = await GraphRequestAsync(
+        credential,
+        HttpMethod.Get,
+        $"{SchemaConstants.GraphBaseUrl}/admin/people/profilePropertySettings"
+    );
+
+    if (!res.IsSuccessStatusCode)
+    {
+        var text = await res.Content.ReadAsStringAsync();
+        throw new InvalidOperationException($"Failed to list profile property settings (HTTP {(int)res.StatusCode}): {text}");
+    }
+
+    var json = await res.Content.ReadAsStringAsync();
+    using var doc = JsonDocument.Parse(json);
+    if (!doc.RootElement.TryGetProperty("value", out var values) || values.ValueKind != JsonValueKind.Array)
+        return;
+
+    foreach (var entry in values.EnumerateArray())
+    {
+        if (!entry.TryGetProperty("id", out var idProp) || idProp.ValueKind != JsonValueKind.String)
+            continue;
+
+        var id = idProp.GetString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(id)) continue;
+
+        List<string> existing = new();
+        if (entry.TryGetProperty("prioritizedSourceUrls", out var urls) && urls.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var url in urls.EnumerateArray())
+            {
+                if (url.ValueKind == JsonValueKind.String)
+                    existing.Add(url.GetString() ?? "");
+            }
+        }
+
+        existing = existing.Where((u) => !string.IsNullOrWhiteSpace(u) && u != sourceUrl).ToList();
+        var updated = existing;
+        if (include)
+        {
+            updated = priority == "last"
+                ? existing.Concat(new[] { sourceUrl }).ToList()
+                : new[] { sourceUrl }.Concat(existing).ToList();
+        }
+
+        var patch = new Dictionary<string, object?>
+        {
+            ["@odata.type"] = "#microsoft.graph.profilePropertySetting",
+            ["prioritizedSourceUrls"] = updated,
+        };
+
+        var patchRes = await GraphRequestAsync(
+            credential,
+            HttpMethod.Patch,
+            $"{SchemaConstants.GraphBaseUrl}/admin/people/profilePropertySettings/{id}",
+            patch
+        );
+
+        if (!patchRes.IsSuccessStatusCode)
+        {
+            var text = await patchRes.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Failed to update profile property setting {id} (HTTP {(int)patchRes.StatusCode}): {text}");
+        }
+    }
+}
+<% } -%>
+
+async Task DeleteConnectionAsync()
+{
+    var graph = CreateGraphClient();
+    var connectionId = ConnectionId();
+
+<% if (isPeopleConnector) { -%>
+    await UnregisterProfileSourceAsync(connectionId);
+<% } -%>
+
+    try
+    {
+        await graph.External.Connections[connectionId].DeleteAsync();
+    }
+    catch (ApiException ex) when (IsStatus(ex, 404))
+    {
+        // Already deleted.
+    }
+    Console.WriteLine("ok: deleted");
+}
+
+var csvOption = new Option<string>("--csv", description: "CSV path");
+var dryRunOption = new Option<bool>("--dry-run", description: "Build payloads but do not send to Graph");
+var limitOption = new Option<int?>("--limit", description: "Limit number of items");
+var verboseOption = new Option<bool>("--verbose", description: "Print payloads sent to Graph");
+
+var root = new RootCommand("Connector CLI generated by cocogen");
+
+var provisionCommand = new Command("provision", "Create or update the connection and schema");
+provisionCommand.SetHandler(async () => await ProvisionAsync());
+
+var ingestCommand = new Command("ingest", "Ingest items from CSV");
+ingestCommand.AddOption(csvOption);
+ingestCommand.AddOption(dryRunOption);
+ingestCommand.AddOption(limitOption);
+ingestCommand.AddOption(verboseOption);
+ingestCommand.SetHandler(
+    async (string? csv, bool dryRun, int? limit, bool verbose) => await IngestAsync(csv, dryRun, limit, verbose),
+    csvOption,
+    dryRunOption,
+    limitOption,
+    verboseOption
+);
+
+var deleteCommand = new Command("delete", "Delete the connection");
+deleteCommand.SetHandler(async () => await DeleteConnectionAsync());
+
+root.AddCommand(provisionCommand);
+root.AddCommand(ingestCommand);
+root.AddCommand(deleteCommand);
+
+<% if (isPeopleConnector) { -%>
+var registerCommand = new Command("register-profile-source", "Register the connection as a profile source");
+registerCommand.SetHandler(async () => await RegisterProfileSourceAsync(ConnectionId()));
+root.AddCommand(registerCommand);
+<% } -%>
+
+try
+{
+    return await root.InvokeAsync(args);
+}
+catch (ApiException ex)
+{
+    Console.Error.WriteLine("error: Graph request failed");
+    Console.Error.WriteLine(ex.Message);
+    return 1;
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("error: " + ex.Message);
+    return 1;
+}

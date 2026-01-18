@@ -1,0 +1,119 @@
+namespace <%= namespaceName %>.Datasource;
+
+public static class CsvParser
+{
+    public static string ReadValue(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        if (headers.Length == 0) return "";
+        return row.TryGetValue(headers[0], out var v) ? (v ?? "") : "";
+    }
+
+    public static string ParseString(string? value)
+    {
+        return value ?? "";
+    }
+
+    public static string ParseString(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseString(ReadValue(row, headers));
+    }
+
+    public static bool ParseBoolean(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseBoolean(ParseString(row, headers));
+    }
+
+    public static bool ParseBoolean(string? value)
+    {
+        var v = ParseString(value);
+        return v.Equals("true", StringComparison.OrdinalIgnoreCase) || v.Equals("1");
+    }
+
+    public static long ParseInt64(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseInt64(ParseString(row, headers));
+    }
+
+    public static long ParseInt64(string? value)
+    {
+        var v = ParseString(value);
+        return long.TryParse(v, out var n) ? n : 0;
+    }
+
+    public static double ParseDouble(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseDouble(ParseString(row, headers));
+    }
+
+    public static double ParseDouble(string? value)
+    {
+        var v = ParseString(value);
+        return double.TryParse(v, out var n) ? n : 0;
+    }
+
+    public static DateTimeOffset ParseDateTime(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseDateTime(ParseString(row, headers));
+    }
+
+    public static DateTimeOffset ParseDateTime(string? value)
+    {
+        var v = ParseString(value);
+        return DateTimeOffset.TryParse(v, out var dt) ? dt : DateTimeOffset.MinValue;
+    }
+
+    public static List<string> ParseStringCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseStringCollection(ParseString(row, headers));
+    }
+
+    public static List<string> ParseStringCollection(string? value)
+    {
+        var v = ParseString(value);
+        return v.Length == 0
+            ? new List<string>()
+            : v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+    }
+
+    public static List<long> ParseInt64Collection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseInt64Collection(ParseString(row, headers));
+    }
+
+    public static List<long> ParseInt64Collection(string? value)
+    {
+        var v = ParseString(value);
+        if (v.Length == 0) return new List<long>();
+        return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select((x) => long.TryParse(x, out var n) ? n : 0)
+            .ToList();
+    }
+
+    public static List<double> ParseDoubleCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseDoubleCollection(ParseString(row, headers));
+    }
+
+    public static List<double> ParseDoubleCollection(string? value)
+    {
+        var v = ParseString(value);
+        if (v.Length == 0) return new List<double>();
+        return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select((x) => double.TryParse(x, out var n) ? n : 0)
+            .ToList();
+    }
+
+    public static List<DateTimeOffset> ParseDateTimeCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    {
+        return ParseDateTimeCollection(ParseString(row, headers));
+    }
+
+    public static List<DateTimeOffset> ParseDateTimeCollection(string? value)
+    {
+        var v = ParseString(value);
+        if (v.Length == 0) return new List<DateTimeOffset>();
+        return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select((x) => DateTimeOffset.TryParse(x, out var dt) ? dt : DateTimeOffset.MinValue)
+            .ToList();
+    }
+}

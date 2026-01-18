@@ -1,0 +1,44 @@
+function parseString(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  return String(value);
+}
+
+function parseNumber(value: unknown): number {
+  const text = parseString(value).trim();
+  if (!text) return 0;
+  const numberValue = Number(text);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function parseBoolean(value: unknown): boolean {
+  const text = parseString(value).trim().toLowerCase();
+  return text === "true" || text === "1" || text === "yes";
+}
+
+function splitCollection(value: unknown): string[] {
+  const text = parseString(value).trim();
+  if (!text) return [];
+  return text.split(/\s*[;,|]\s*/).map((s) => s.trim()).filter(Boolean);
+}
+
+function parseStringCollection(value: unknown): string[] {
+  return splitCollection(value);
+}
+
+function parseNumberCollection(value: unknown): number[] {
+  return splitCollection(value).map((s) => parseNumber(s));
+}
+
+function readSourceValue(row: Record<string, unknown>, headers: string[]): unknown {
+  if (headers.length === 0) return "";
+  return row[headers[0]];
+}
+
+export {
+  parseString,
+  parseNumber,
+  parseBoolean,
+  parseStringCollection,
+  parseNumberCollection,
+  readSourceValue
+};

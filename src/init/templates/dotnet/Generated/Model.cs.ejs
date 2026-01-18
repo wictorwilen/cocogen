@@ -1,0 +1,28 @@
+namespace <%= namespaceName %>.Schema;
+
+<% if (itemTypeName === "Item") { -%>
+public sealed record Item(
+<% for (let i = 0; i < properties.length; i++) { -%>
+    <%= properties[i].csType %> <%= properties[i].csName %><%= i < properties.length - 1 ? "," : "" %>
+<% } -%>
+);
+<% } else { -%>
+public sealed record <%= itemTypeName %>(
+<% for (let i = 0; i < properties.length; i++) { -%>
+    <%= properties[i].csType %> <%= properties[i].csName %><%= i < properties.length - 1 ? "," : "" %>
+<% } -%>
+);
+
+public sealed record Item(
+<% for (let i = 0; i < properties.length; i++) { -%>
+    <%= properties[i].csType %> <%= properties[i].csName %><%= i < properties.length - 1 ? "," : "" %>
+<% } -%>
+)
+{
+    public static implicit operator Item(<%= itemTypeName %> item) => new(
+<% for (let i = 0; i < properties.length; i++) { -%>
+        item.<%= properties[i].csName %><%= i < properties.length - 1 ? "," : "" %>
+<% } -%>
+    );
+}
+<% } -%>

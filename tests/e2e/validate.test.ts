@@ -1,0 +1,277 @@
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, test } from "vitest";
+
+import { runNode, writeTempTspFile } from "../test-utils.js";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+function distCliPath(): string {
+  return path.join(repoRoot, "dist", "cli.js");
+}
+
+describe("cocogen validate (e2e)", () => {
+  test("validates the content example", async () => {
+    const tsp = path.join(repoRoot, "examples", "content-connector.tsp");
+
+    const result = await runNode(
+      [distCliPath(), "validate", "--tsp", tsp, "--json", "--use-preview-features"],
+      {
+        cwd: repoRoot,
+        env: {
+          NO_COLOR: "1",
+          CI: "1",
+        },
+      }
+    );
+
+    expect(result.code).toBe(0);
+    const parsed = JSON.parse(result.stdout) as { ok: boolean; errors: unknown[]; warnings: unknown[] };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.errors).toHaveLength(0);
+  });
+
+  test("validates the people example", async () => {
+    const tsp = path.join(repoRoot, "examples", "people-connector.tsp");
+
+    const result = await runNode(
+      [distCliPath(), "validate", "--tsp", tsp, "--json", "--use-preview-features"],
+      {
+        cwd: repoRoot,
+        env: {
+          NO_COLOR: "1",
+          CI: "1",
+        },
+      }
+    );
+
+    expect(result.code).toBe(0);
+    const parsed = JSON.parse(result.stdout) as { ok: boolean; errors: unknown[]; warnings: unknown[] };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.errors).toHaveLength(0);
+  });
+
+  test("returns ok=false and errors for validation failures", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: int32;
+      }
+    `);
+
+    const result = await runNode(
+      [distCliPath(), "validate", "--tsp", entry, "--json"],
+      {
+        cwd: repoRoot,
+        env: {
+          NO_COLOR: "1",
+          CI: "1",
+        },
+      }
+    );
+
+    expect(result.code).toBe(1);
+    const parsed = JSON.parse(result.stdout) as { ok: boolean; errors: Array<{ message: string }>; warnings: unknown[] };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors.some((e) => e.message.includes("must be a string"))).toBe(true);
+  });
+
+  test("fails when preview features are required but not enabled", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.connection({ contentCategory: "people" })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        @coco.label("personAccount")
+        @coco.source("upn", "userPrincipalName")
+        account: string;
+      }
+    `);
+
+    const result = await runNode(
+      [distCliPath(), "validate", "--tsp", entry],
+      {
+        cwd: repoRoot,
+        env: {
+          NO_COLOR: "1",
+          CI: "1",
+        },
+      }
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/use-preview-features/i);
+  });
+
+  test("fails when principal is used without preview features", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        owner: coco.Principal;
+      }
+    `);
+
+    const result = await runNode(
+      [distCliPath(), "validate", "--tsp", entry],
+      {
+        cwd: repoRoot,
+        env: {
+          NO_COLOR: "1",
+          CI: "1",
+        },
+      }
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/use-preview-features/i);
+  });
+
+  test("prints actionable error on loader failures (no JSON)", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        owners: coco.Principal[];
+      }
+    `);
+
+    const result = await runNode([distCliPath(), "validate", "--tsp", entry, "--json"], {
+      cwd: repoRoot,
+      env: {
+        NO_COLOR: "1",
+        CI: "1",
+      },
+    });
+
+    expect(result.code).toBe(1);
+    expect(result.stdout.trim()).toBe("");
+    expect(result.stderr).toMatch(/principalCollection is not supported/i);
+  });
+});
+
+describe("cocogen emit (e2e)", () => {
+  test("emits IR JSON to stdout", async () => {
+    const tsp = path.join(repoRoot, "examples", "content-connector.tsp");
+
+    const result = await runNode([distCliPath(), "emit", "--tsp", tsp, "--use-preview-features"], {
+      cwd: repoRoot,
+      env: {
+        NO_COLOR: "1",
+        CI: "1",
+      },
+    });
+
+    expect(result.code).toBe(0);
+    const parsed = JSON.parse(result.stdout) as { item: { typeName: string } };
+    expect(parsed.item.typeName).toBeTruthy();
+  });
+});
+
+describe("cocogen init (e2e)", () => {
+  test("generates a TS project into an empty folder", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        title: string;
+      }
+    `);
+
+    const outDir = path.join(path.dirname(entry), "out");
+    const result = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir], {
+      cwd: repoRoot,
+      env: {
+        NO_COLOR: "1",
+        CI: "1",
+      },
+    });
+
+    expect(result.code).toBe(0);
+
+    // Quick check: package.json exists and is parseable.
+    const pkgJson = await readFile(path.join(outDir, "package.json"), "utf8");
+    expect(() => JSON.parse(pkgJson)).not.toThrow();
+
+    // Smoke check: datasource abstraction exists.
+    const itemSource = await readFile(path.join(outDir, "src", "datasource", "itemSource.ts"), "utf8");
+    expect(itemSource).toMatch(/export interface ItemSource/);
+    const csvSource = await readFile(path.join(outDir, "src", "datasource", "csvItemSource.ts"), "utf8");
+    expect(csvSource).toMatch(/export class CsvItemSource/);
+
+    // Smoke check: schema code exists and is isolated.
+    const generatedModel = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+    expect(generatedModel).toMatch(/export type Item/);
+    const generatedIndex = await readFile(path.join(outDir, "src", "schema", "index.ts"), "utf8");
+    expect(generatedIndex).toMatch(/export \* from "\.\/schemaPayload\.js"/);
+    const config = await readFile(path.join(outDir, "cocogen.json"), "utf8");
+    expect(() => JSON.parse(config)).not.toThrow();
+  });
+
+  test("update regenerates only src/schema", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        title: string;
+      }
+    `);
+
+    const outDir = path.join(path.dirname(entry), "out-update");
+    const initResult = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir], {
+      cwd: repoRoot,
+      env: {
+        NO_COLOR: "1",
+        CI: "1",
+      },
+    });
+
+    expect(initResult.code).toBe(0);
+
+    const cliBefore = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
+    const csvBefore = await readFile(path.join(outDir, "src", "datasource", "csvItemSource.ts"), "utf8");
+    const modelBefore = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+
+    await writeFile(
+      path.join(outDir, "schema.tsp"),
+      `
+        @coco.item
+        model Item {
+          @coco.id
+          id: string;
+          title: string;
+          status: string;
+        }
+      `,
+      "utf8"
+    );
+
+    const updateResult = await runNode([distCliPath(), "update", "--out", outDir], {
+      cwd: repoRoot,
+      env: {
+        NO_COLOR: "1",
+        CI: "1",
+      },
+    });
+
+    expect(updateResult.code).toBe(0);
+
+    const cliAfter = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
+    const csvAfter = await readFile(path.join(outDir, "src", "datasource", "csvItemSource.ts"), "utf8");
+    const modelAfter = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+
+    expect(cliAfter).toBe(cliBefore);
+    expect(csvAfter).toBe(csvBefore);
+    expect(modelAfter).not.toBe(modelBefore);
+    expect(modelAfter).toMatch(/status/);
+  });
+});

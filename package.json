@@ -1,13 +1,29 @@
 {
-  "name": "@wictorwilen/gcgen",
-  "version": "0.0.0",
-  "description": "TypeSpec-driven Microsoft Graph (Copilot) connector generator",
+  "name": "@wictorwilen/cocogen",
+  "version": "1.0.0",
+  "description": "TypeSpec-driven Microsoft Copilot connector generator",
+  "license": "MIT",
+  "author": "Wictor Wilén <wictor@wictorwilen.se>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wictorwilen/cocogen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wictorwilen/cocogen/issues"
+  },
+  "homepage": "https://github.com/wictorwilen/cocogen#readme",
   "type": "module",
+  "tspMain": "./typespec/main.tsp",
   "bin": {
-    "gcgen": "./dist/cli.js"
+    "cocogen": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "typespec",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "RELEASING.md"
   ],
   "exports": {
     ".": {
@@ -19,20 +35,32 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node ./scripts/copy-init-templates.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run typecheck"
+    "pretest": "npm run typecheck && npm run build",
+    "test": "vitest run",
+    "test:coverage": "vitest run tests/unit --coverage",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "vitest run tests/e2e"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "commander": "^12.1.0",
-    "ora": "^8.1.1",
-    "picocolors": "^1.0.0"
+    "@typespec/compiler": "^1.8.0",
+    "@inquirer/prompts": "^7.2.1",
+    "commander": "^14.0.2",
+    "ejs": "^4.0.1",
+    "ora": "^9.0.0",
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
-    "typescript": "^5.7.3"
+    "@types/node": "^25.0.9",
+    "@types/ejs": "^3.1.5",
+    "@vitest/coverage-v8": "^4.0.17",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   }
 }

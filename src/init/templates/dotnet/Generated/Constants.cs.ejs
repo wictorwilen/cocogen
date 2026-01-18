@@ -1,0 +1,17 @@
+namespace <%= namespaceName %>.Schema;
+
+public static class SchemaConstants
+{
+    public const string GraphApiVersion = <%= JSON.stringify(graphApiVersion) %>;
+    public const string GraphBaseUrl = "https://graph.microsoft.com/" + GraphApiVersion;
+
+    public const string ItemTypeName = <%= JSON.stringify(itemTypeName) %>;
+    public const string IdPropertyName = <%= JSON.stringify(idPropertyName) %>;
+    public const string? ContentPropertyName = <%= contentPropertyName ? JSON.stringify(contentPropertyName) : "null" %>;
+
+    public const string? ContentCategory = <%= contentCategory ? JSON.stringify(contentCategory) : "null" %>;
+
+    public const string? ProfileSourceWebUrl = <%= profileSourceWebUrl ? JSON.stringify(profileSourceWebUrl) : "null" %>;
+    public const string? ProfileSourceDisplayName = <%= profileSourceDisplayName ? JSON.stringify(profileSourceDisplayName) : "null" %>;
+    public const string? ProfileSourcePriority = <%= profileSourcePriority ? JSON.stringify(profileSourcePriority) : "null" %>;
+}

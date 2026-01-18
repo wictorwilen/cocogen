@@ -1,0 +1,12 @@
+using System.Collections.Generic;
+
+using <%= namespaceName %>.Schema;
+
+namespace <%= namespaceName %>.Datasource;
+
+// Contract for any datasource that yields Items for ingestion.
+// Implement this interface to swap CSV for an API, database, or other system.
+public interface IItemSource
+{
+    IAsyncEnumerable<Item> GetItemsAsync(CancellationToken cancellationToken = default);
+}

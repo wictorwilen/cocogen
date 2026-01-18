@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This repo contains **gcgen**, an `npx`-runnable generator for Microsoft Graph external connections (Microsoft 365 Copilot connectors).
+This repo contains **cocogen**, an `npx`-runnable generator for Microsoft Copilot connectors.
 
 ## Primary goals
 - Implement the generator **entirely in TypeScript**.

@@ -1,0 +1,14 @@
+using <%= namespaceName %>;
+using <%= namespaceName %>.Datasource;
+
+namespace <%= namespaceName %>.Schema;
+
+public static class FromCsvRow
+{
+    public static Item Parse(IReadOnlyDictionary<string, string?> row)
+    {
+        return new Item(
+<%- constructorArgLines %>
+        );
+    }
+}

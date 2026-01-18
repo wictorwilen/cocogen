@@ -1,0 +1,25 @@
+{
+  "name": "<%= projectName %>",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "provision": "npm run build && node dist/cli.js provision",
+    "ingest": "npm run build && node dist/cli.js ingest",
+<% if (isPeopleConnector) { -%>
+    "register-profile-source": "npm run build && node dist/cli.js register-profile-source",
+<% } -%>
+    "delete": "npm run build && node dist/cli.js delete"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.13.0",
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
+    "csv-parse": "^6.1.0"
+  },
+  "devDependencies": {
+    "@wictorwilen/cocogen": "^1.0.0",
+    "typescript": "^5.9.3",
+    "@types/node": "^25.0.9"
+  }
+}
