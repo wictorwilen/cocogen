@@ -114,6 +114,19 @@ describe("project init/update", () => {
     expect(result.ir.item.typeName).toBe("Item");
   });
 
+  test("initTsProject includes throttling retries", async () => {
+    const tspPath = await writeTempTspFile(complexSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "ts-throttle");
+
+    await initTsProject({ tspPath, outDir, force: false });
+
+    const cli = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
+    expect(cli).toContain("Retry-After");
+    expect(cli).toContain("throttled");
+    expect(cli).toContain("MAX_RETRIES");
+  });
+
   test("updateProject regenerates schema from updated tsp", async () => {
     const tspPath = await writeTempTspFile(baseSchema);
     const outRoot = await writeTempDir();
@@ -166,6 +179,19 @@ model Item {
 
     const constants = await readFile(path.join(outDir, "Schema", "Constants.cs"), "utf8");
     expect(constants).toContain("class SchemaConstants");
+  });
+
+  test("initDotnetProject includes throttling retries", async () => {
+    const tspPath = await writeTempTspFile(complexSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "dotnet-throttle");
+
+    await initDotnetProject({ tspPath, outDir, force: false });
+
+    const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
+    expect(program).toContain("RetryAsync");
+    expect(program).toContain("Retry-After");
+    expect(program).toContain("throttled");
   });
 
   test("updateProject updates dotnet schema", async () => {

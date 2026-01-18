@@ -67,16 +67,63 @@ async function getAccessToken(): Promise<string> {
   return token.token;
 }
 
+const MAX_RETRIES = 6;
+const BASE_DELAY_MS = 1000;
+const MAX_DELAY_MS = 30000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (!Number.isNaN(seconds) && Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+
+  const dateMs = Date.parse(value);
+  if (!Number.isNaN(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+
+  return null;
+}
+
+function computeDelay(attempt: number, retryAfter: number | null): number {
+  if (retryAfter !== null) return Math.min(retryAfter, MAX_DELAY_MS);
+  const exp = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * Math.pow(2, attempt));
+  const jitter = Math.floor(Math.random() * 250);
+  return Math.min(MAX_DELAY_MS, exp + jitter);
+}
+
+function shouldRetry(status: number): boolean {
+  return status === 429 || status === 503 || status === 504;
+}
+
 async function graphRequest(method: string, url: string, body?: unknown): Promise<Response> {
-  const token = await getAccessToken();
-  return fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json"
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const token = await getAccessToken();
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    if (!shouldRetry(res.status) || attempt === MAX_RETRIES) {
+      return res;
+    }
+
+    const retryAfterMs = parseRetryAfter(res.headers.get("Retry-After"));
+    const delay = computeDelay(attempt, retryAfterMs);
+    console.warn(`warn: throttled (HTTP ${res.status}) for ${url}, retrying in ${delay}ms`);
+    await sleep(delay);
+  }
+
+  throw new Error("Failed to send request after retries.");
 }
 
 <% if (isPeopleConnector) { -%>

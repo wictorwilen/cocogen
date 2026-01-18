@@ -16,6 +16,7 @@ using System.CommandLine;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 using <%= namespaceName %>.Datasource;
 using <%= namespaceName %>.Schema;
@@ -76,6 +77,65 @@ GraphServiceClient CreateGraphClient()
     return graph;
 }
 
+const int MaxRetries = 6;
+const int BaseDelayMs = 1000;
+const int MaxDelayMs = 30000;
+
+static bool ShouldRetry(int statusCode) => statusCode is 429 or 503 or 504;
+
+static int? ParseRetryAfterMs(IEnumerable<string>? values)
+{
+    if (values is null) return null;
+    var value = values.FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(value)) return null;
+
+    if (int.TryParse(value, out var seconds))
+    {
+        return Math.Max(0, seconds * 1000);
+    }
+
+    if (DateTimeOffset.TryParse(value, out var date))
+    {
+        var delta = date - DateTimeOffset.UtcNow;
+        return Math.Max(0, (int)delta.TotalMilliseconds);
+    }
+
+    return null;
+}
+
+static int ComputeDelayMs(int attempt, int? retryAfterMs)
+{
+    if (retryAfterMs.HasValue) return Math.Min(retryAfterMs.Value, MaxDelayMs);
+    var exp = Math.Min(MaxDelayMs, BaseDelayMs * (int)Math.Pow(2, attempt));
+    var jitter = Random.Shared.Next(0, 250);
+    return Math.Min(MaxDelayMs, exp + jitter);
+}
+
+async Task RetryAsync(Func<Task> action, Func<ApiException, int?>? getStatusCode, string operation)
+{
+    for (var attempt = 0; attempt <= MaxRetries; attempt++)
+    {
+        try
+        {
+            await action();
+            return;
+        }
+        catch (ApiException ex)
+        {
+            var status = getStatusCode?.Invoke(ex) ?? ex.ResponseStatusCode;
+            if (status is null || !ShouldRetry(status.Value) || attempt == MaxRetries)
+            {
+                throw;
+            }
+
+            var retryAfterMs = ParseRetryAfterMs(ex.ResponseHeaders?.GetValues("Retry-After"));
+            var delay = ComputeDelayMs(attempt, retryAfterMs);
+            Console.WriteLine($"warn: throttled (HTTP {status}) for {operation}, retrying in {delay}ms");
+            await Task.Delay(delay);
+        }
+    }
+}
+
 <% if (isPeopleConnector) { -%>
 async Task<string> GetAccessTokenAsync(ClientSecretCredential credential)
 {
@@ -111,7 +171,11 @@ async Task EnsureConnectionAsync(GraphServiceClient graph, string connectionId)
 {
     try
     {
-        await graph.External.Connections[connectionId].GetAsync();
+        await RetryAsync(
+            () => graph.External.Connections[connectionId].GetAsync(),
+            ex => ex.ResponseStatusCode,
+            "GET connection"
+        );
         return;
     }
     catch (ApiException ex) when (IsStatus(ex, 404))
@@ -133,13 +197,21 @@ async Task EnsureConnectionAsync(GraphServiceClient graph, string connectionId)
         connection.AdditionalData["contentCategory"] = SchemaConstants.ContentCategory!;
     }
 
-    await graph.External.Connections.PostAsync(connection);
+    await RetryAsync(
+        () => graph.External.Connections.PostAsync(connection),
+        ex => ex.ResponseStatusCode,
+        "POST connection"
+    );
 }
 
 async Task PatchSchemaAsync(GraphServiceClient graph, string connectionId)
 {
     var schema = SchemaPayload.BuildSchema();
-    await graph.External.Connections[connectionId].Schema.PatchAsync(schema);
+    await RetryAsync(
+        () => graph.External.Connections[connectionId].Schema.PatchAsync(schema),
+        ex => ex.ResponseStatusCode,
+        "PATCH schema"
+    );
 }
 
 async Task ProvisionAsync()
@@ -191,10 +263,14 @@ async Task PutItemAsync(GraphServiceClient graph, string connectionId, <%= itemT
         { "5XX", ODataError.CreateFromDiscriminatorValue },
     };
 
-    await graph.RequestAdapter.SendAsync<ExternalItem>(
-        requestInfo,
-        ExternalItem.CreateFromDiscriminatorValue,
-        errorMapping
+    await RetryAsync(
+        () => graph.RequestAdapter.SendAsync<ExternalItem>(
+            requestInfo,
+            ExternalItem.CreateFromDiscriminatorValue,
+            errorMapping
+        ),
+        ex => ex.ResponseStatusCode,
+        "PUT item"
     );
 }
 
