@@ -24,7 +24,11 @@ public abstract class PropertyTransformBase
 <% for (const prop of properties) { -%>
     protected virtual <%= prop.csType %> Transform<%= prop.csName %>(IReadOnlyDictionary<string, string?> row)
     {
+    <% if (prop.transformThrows) { -%>
+        <%- prop.transformExpression %>;
+    <% } else { -%>
         return <%- prop.transformExpression %>;
+    <% } -%>
     }
 
 <% } -%>

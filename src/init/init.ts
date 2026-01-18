@@ -215,7 +215,11 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
             ))
       : null;
 
-    const expression = personEntity
+    const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
+    const needsManualEntity = isPeopleLabel && !p.personEntity;
+    const expression = needsManualEntity
+      ? `(() => { throw new Error("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement transform in propertyTransform.ts."); })()`
+      : personEntity
       ? personEntity
       : `${parser}(readSourceValue(row, ${JSON.stringify(p.source.csvHeaders)}))`;
 
@@ -532,7 +536,7 @@ function buildCsPersonEntityExpression(fields: PersonEntityField[]): string {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-        return `${childIndent}[${JSON.stringify(key)}] = ParseString(row, ${headers})`;
+        return `${childIndent}[${JSON.stringify(key)}] = CsvParser.ParseString(row, ${headers})`;
       }
       return `${childIndent}[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>, level + 1)}`;
     });
@@ -708,7 +712,11 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
           })),
         }
       : null;
-    const transformExpression = personEntity
+    const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
+    const needsManualEntity = isPeopleLabel && !p.personEntity;
+    const transformExpression = needsManualEntity
+      ? `throw new NotImplementedException("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement in PropertyTransform.cs.")`
+      : personEntity
       ? isCollection
         ? buildCsPersonEntityCollectionExpression(personEntity.fields)
         : buildCsPersonEntityExpression(personEntity.fields)
@@ -724,6 +732,7 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
       personEntity,
       parseFn,
       transformExpression,
+      transformThrows: needsManualEntity,
       graphTypeEnumName: toGraphPropertyTypeEnumName(p.type),
       description: p.description,
       labels: p.labels,

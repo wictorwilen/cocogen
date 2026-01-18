@@ -211,7 +211,7 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         issues.push({
           severity: "warning",
           message: `People-labeled property '${prop.name}' is missing @coco.source(..., to) mappings.`,
-          hint: "Without entity mappings, cocogen will not generate defaults; implement JSON payloads manually in property transforms (TS) or overrides (C#).",
+          hint: "A throwing transform stub is generated. Implement the mapping in PropertyTransform (TS/.NET).",
         });
       }
 

@@ -32,6 +32,9 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Fixed .NET retry header parsing + nullable status handling ✅
+- Fixed people manual mapping stub to throw correctly in .NET ✅
+- Regenerated samples and re-ran dry-run ingest ✅
 - Added script to regenerate example outputs in tmp (TS + .NET) ✅
 - Fixed template copy to refresh dist templates ✅
 - Guarded `toTsIdentifier` against empty parts ✅

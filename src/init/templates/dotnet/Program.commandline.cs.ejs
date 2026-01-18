@@ -83,10 +83,17 @@ const int MaxDelayMs = 30000;
 
 static bool ShouldRetry(int statusCode) => statusCode is 429 or 503 or 504;
 
-static int? ParseRetryAfterMs(IEnumerable<string>? values)
+static int? ParseRetryAfterMs(IDictionary<string, IEnumerable<string>>? headers)
 {
-    if (values is null) return null;
-    var value = values.FirstOrDefault();
+    if (headers is null) return null;
+    if (!headers.TryGetValue("Retry-After", out var values)) return null;
+
+    string? value = null;
+    foreach (var entry in values)
+    {
+        value = entry;
+        break;
+    }
     if (string.IsNullOrWhiteSpace(value)) return null;
 
     if (int.TryParse(value, out var seconds))
@@ -122,13 +129,13 @@ async Task RetryAsync(Func<Task> action, Func<ApiException, int?>? getStatusCode
         }
         catch (ApiException ex)
         {
-            var status = getStatusCode?.Invoke(ex) ?? ex.ResponseStatusCode;
+            int? status = getStatusCode?.Invoke(ex) ?? ex.ResponseStatusCode;
             if (status is null || !ShouldRetry(status.Value) || attempt == MaxRetries)
             {
                 throw;
             }
 
-            var retryAfterMs = ParseRetryAfterMs(ex.ResponseHeaders?.GetValues("Retry-After"));
+            var retryAfterMs = ParseRetryAfterMs(ex.ResponseHeaders);
             var delay = ComputeDelayMs(attempt, retryAfterMs);
             Console.WriteLine($"warn: throttled (HTTP {status}) for {operation}, retrying in {delay}ms");
             await Task.Delay(delay);
