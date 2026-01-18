@@ -53,6 +53,13 @@ No install needed:
 npx @wictorwilen/cocogen@latest --help
 ```
 
+Global install (system-wide command):
+
+```bash
+npm i -g @wictorwilen/cocogen
+cocogen --help
+```
+
 ## Commands
 
 ### Create a starter TypeSpec file (prompt)
