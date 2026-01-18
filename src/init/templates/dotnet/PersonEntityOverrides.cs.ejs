@@ -9,7 +9,7 @@ public static class PersonEntityOverrides
     {
         switch (name)
         {
-<% for (const propName of names) { -%>
+<% for (const propName of scalarNames) { -%>
             case <%= JSON.stringify(propName) %>:
                 // TODO: customize mapping for this entity. Example for skillProficiency:
                 // return System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>
@@ -32,7 +32,7 @@ public static class PersonEntityOverrides
     {
         switch (name)
         {
-<% for (const propName of names) { -%>
+<% for (const propName of collectionNames) { -%>
             case <%= JSON.stringify(propName) %>:
                 // TODO: customize mapping for this collection entity. Example for skills:
                 // return new List<string> { System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?>

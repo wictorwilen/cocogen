@@ -85,9 +85,17 @@ function toCsIdentifier(name: string): string {
 }
 
 function toTsIdentifier(name: string): string {
-  const cleaned = name.replaceAll(/[^A-Za-z0-9_]/g, "_");
-  if (!cleaned) return "item";
-  return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
+  const parts = name.split(/[^A-Za-z0-9]+/g).filter(Boolean);
+  if (parts.length === 0) return "item";
+
+  const [first, ...rest] = parts;
+  const camel = [
+    first.slice(0, 1).toLowerCase() + first.slice(1),
+    ...rest.map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)),
+  ].join("");
+
+  const sanitized = camel.replaceAll(/[^A-Za-z0-9_]/g, "_");
+  return /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
 }
 
 function toCsNamespace(projectName: string): string {
@@ -320,10 +328,15 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
     try {
       await access(overridesPath);
     } catch {
+      const entityOverrides = {
+        scalarNames: personEntityDefaults.filter((p) => !p.isCollection).map((p) => p.name),
+        collectionNames: personEntityDefaults.filter((p) => p.isCollection).map((p) => p.name),
+      };
       await writeFile(
         overridesPath,
         await renderTemplate("ts/src/personEntityOverrides.ts.ejs", {
-          names: personEntityDefaults.map((p) => p.name),
+          scalarNames: entityOverrides.scalarNames,
+          collectionNames: entityOverrides.collectionNames,
         }),
         "utf8"
       );
@@ -869,11 +882,16 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
     try {
       await access(overridesPath);
     } catch {
+      const entityOverrides = {
+        scalarNames: personEntityDefaults.filter((p) => !p.isCollection).map((p) => p.name),
+        collectionNames: personEntityDefaults.filter((p) => p.isCollection).map((p) => p.name),
+      };
       await writeFile(
         overridesPath,
         await renderTemplate("dotnet/PersonEntityOverrides.cs.ejs", {
           namespaceName,
-          names: personEntityDefaults.map((p) => p.name),
+          scalarNames: entityOverrides.scalarNames,
+          collectionNames: entityOverrides.collectionNames,
         }),
         "utf8"
       );

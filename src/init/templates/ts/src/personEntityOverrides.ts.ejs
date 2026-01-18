@@ -7,7 +7,7 @@ export function transformPersonEntity(
   value: string
 ): string {
   switch (name) {
-<% for (const propName of names) { -%>
+<% for (const propName of scalarNames) { -%>
     case <%= JSON.stringify(propName) %>:
       // TODO: customize mapping for this entity. Example for skillProficiency:
       // return JSON.stringify({ displayName: String(row["skill"] ?? ""), proficiency: String(row["proficiency"] ?? "") });
@@ -24,7 +24,7 @@ export function transformPersonEntityCollection(
   value: string[]
 ): string[] {
   switch (name) {
-<% for (const propName of names) { -%>
+<% for (const propName of collectionNames) { -%>
     case <%= JSON.stringify(propName) %>:
       // TODO: customize mapping for this collection entity. Example for skills:
       // return [JSON.stringify({ displayName: String(row["skill"] ?? ""), proficiency: String(row["proficiency"] ?? "") })];
