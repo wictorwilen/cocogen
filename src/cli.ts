@@ -195,7 +195,9 @@ export async function main(argv: string[]): Promise<void> {
     .option("--force", "Overwrite existing file", false)
     .action(
       async (options: { out: string; kind: string; prompt: boolean; force: boolean }) => {
-        const spinner = shouldUseSpinner() ? ora("Creating starter TypeSpec...").start() : undefined;
+        const spinner = !options.prompt && shouldUseSpinner()
+          ? ora("Creating starter TypeSpec...").start()
+          : undefined;
         try {
           const kind = options.kind === "people" ? "people" : "content";
           const result = await initStarterTsp({
