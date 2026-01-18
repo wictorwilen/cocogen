@@ -15,7 +15,7 @@
   "type": "module",
   "tspMain": "./typespec/main.tsp",
   "bin": {
-    "cocogen": "./dist/cli.js"
+    "cocogen": "dist/cli.js"
   },
   "files": [
     "dist",
