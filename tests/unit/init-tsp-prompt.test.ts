@@ -42,6 +42,7 @@ describe("initStarterTsp prompt flow", () => {
     const contents = await readFile(result.outPath, "utf8");
     expect(contents).toContain("@coco.connection({ contentCategory: \"people\" })");
     expect(contents).toContain("model PersonProfile");
-    expect(contents).toContain("upn: string;");
+    expect(contents).toContain("@coco.source(\"UPN\", \"userPrincipalName\")");
+    expect(contents).toContain("account: string;");
   });
 });

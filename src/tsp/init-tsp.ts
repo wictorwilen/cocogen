@@ -14,6 +14,10 @@ export type StarterTspOptions = {
   prompt?: boolean;
 };
 
+type FileWriteOptions = {
+  force?: boolean;
+};
+
 function defaultModelName(kind: StarterTspKind): string {
   return kind === "people" ? "PersonProfile" : "Item";
 }
@@ -26,6 +30,36 @@ function ensureTspExtension(value: string): string {
   return value.endsWith(".tsp") ? value : `${value}.tsp`;
 }
 
+function defaultPackageJsonContents(): string {
+  return JSON.stringify(
+    {
+      private: true,
+      type: "module",
+      devDependencies: {
+        "@wictorwilen/cocogen": "^1.0.0",
+      },
+    },
+    null,
+    2
+  ) + "\n";
+}
+
+function tspConfigContents(): string {
+  return "imports:\n  - \"@wictorwilen/cocogen\"\n";
+}
+
+async function writeFileIfMissing(filePath: string, contents: string, options: FileWriteOptions): Promise<void> {
+  try {
+    await access(filePath);
+    if (!options.force) return;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code && code !== "ENOENT") throw error;
+  }
+
+  await writeFile(filePath, contents, "utf8");
+}
+
 function starterTspContents(options: {
   kind: StarterTspKind;
   modelName: string;
@@ -34,7 +68,8 @@ function starterTspContents(options: {
   const { kind, modelName, idPropertyName } = options;
 
   if (kind === "people") {
-    return `using coco;
+    return `import "@wictorwilen/cocogen";
+  using coco;
 
 // People connectors use Graph /beta. Use --use-preview-features with cocogen validate/init/update.
 // Optional: set defaults for profile source registration.
@@ -45,7 +80,8 @@ function starterTspContents(options: {
 model ${modelName} {
   @coco.id
   @coco.label("personAccount")
-  ${idPropertyName}: string;
+  @coco.source("UPN", "userPrincipalName")
+  account: string;
 
   @coco.label("personName")
   displayName: string;
@@ -67,7 +103,8 @@ model ${modelName} {
 `;
   }
 
-  return `using coco;
+  return `import "@wictorwilen/cocogen";
+using coco;
 
 // Optional: set connection defaults in generated config.
 // @coco.connection({ connectionId: "my-connection", connectionDescription: "My connector" })
@@ -135,6 +172,10 @@ export async function initStarterTsp(options: StarterTspOptions): Promise<{ outP
     });
   }
 
+  if (kind === "people") {
+    idPropertyName = "account";
+  }
+
   outPath = ensureTspExtension(outPath);
   const resolved = path.resolve(outPath);
   const dir = path.dirname(resolved);
@@ -152,6 +193,11 @@ export async function initStarterTsp(options: StarterTspOptions): Promise<{ outP
 
   const contents = starterTspContents({ kind, modelName, idPropertyName });
   await writeFile(resolved, contents, "utf8");
+
+  const packageJsonPath = path.join(dir, "package.json");
+  const tspConfigPath = path.join(dir, "tspconfig.yaml");
+  await writeFileIfMissing(packageJsonPath, defaultPackageJsonContents(), { force: options.force ?? false });
+  await writeFileIfMissing(tspConfigPath, tspConfigContents(), { force: options.force ?? false });
 
   return { outPath: resolved, kind };
 }

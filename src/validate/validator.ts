@@ -209,9 +209,9 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
       }
       if (!prop.personEntity) {
         issues.push({
-          severity: "error",
-          message: `People-labeled property '${prop.name}' must define @coco.source(..., to) mappings.`,
-          hint: "Add one or more @coco.source(" + "\"column\", \"entity.path\"" + ") decorators to build the required JSON entity payload.",
+          severity: "warning",
+          message: `People-labeled property '${prop.name}' is missing @coco.source(..., to) mappings.`,
+          hint: "Without entity mappings, cocogen will not generate defaults; implement JSON payloads manually in property transforms (TS) or overrides (C#).",
         });
       }
 

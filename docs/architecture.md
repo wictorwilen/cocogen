@@ -47,6 +47,8 @@ User has `schema.tsp` and runs:
 If they need a starter schema, they can scaffold one first:
 - `npx cocogen init-tsp --prompt`
 
+`init-tsp` also writes a `package.json` and `tspconfig.yaml` next to the schema (if missing) so the TypeSpec language server can resolve `@wictorwilen/cocogen`.
+
 Generator produces:
 - project skeleton
 - generated strongly-typed model(s)
@@ -157,7 +159,7 @@ People connectors (preview) helpers:
 Generated projects include a `personEntityOverrides` file (TS/.NET) so you can customize how entity JSON is built (for example, adding skill proficiency). Default mappings are generated from the TypeSpec fields.
 
 Validation rule:
-- People-labeled properties must define at least one `@coco.source(..., to)` mapping so the generator can build the required JSON entity payloads.
+- People-labeled properties should define at least one `@coco.source(..., to)` mapping so the generator can build default JSON entity payloads. If omitted, validation warns and you must implement mapping manually in generated transforms/overrides.
 
 Note:
 - `@coco.search` flags are ignored by Microsoft Graph for people connectors. `cocogen validate` emits a warning when they are used in people schemas.

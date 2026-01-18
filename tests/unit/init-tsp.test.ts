@@ -20,6 +20,12 @@ describe("initStarterTsp", () => {
     expect(contents).toContain("@coco.item()");
     expect(contents).toContain("model Item");
     expect(contents).toContain("@coco.id");
+
+    const packageJson = await readFile(path.join(dir, "package.json"), "utf8");
+    expect(packageJson).toContain("@wictorwilen/cocogen");
+
+    const tspConfig = await readFile(path.join(dir, "tspconfig.yaml"), "utf8");
+    expect(tspConfig).toContain("@wictorwilen/cocogen");
   });
 
   test("creates a people starter file", async () => {
@@ -34,7 +40,8 @@ describe("initStarterTsp", () => {
     const contents = await readFile(result.outPath, "utf8");
     expect(contents).toContain("@coco.connection({ contentCategory: \"people\" })");
     expect(contents).toContain("model Profile");
-    expect(contents).toContain("upn: string;");
+    expect(contents).toContain("@coco.source(\"UPN\", \"userPrincipalName\")");
+    expect(contents).toContain("account: string;");
   });
 
   test("fails when file exists and force is false", async () => {

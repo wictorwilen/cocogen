@@ -49,6 +49,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Added e2e fail-path test for principal preview requirement ✅
 - Prepared npm publish metadata and licensing ✅
 - Added init-tsp prompt for starter schemas ✅
+- Added package.json + tspconfig.yaml in init-tsp ✅
+- Allowed people labels without entity mappings (warning + manual transform) ✅
 - Added end-user documentation guide ✅
 - Documented TypeSpec schema format (decorators, rules, examples) ✅
 - Added `@coco.profileSource` defaults + priority wiring ✅

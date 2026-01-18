@@ -226,6 +226,51 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "warning" && i.message.includes("ignore @coco.search"))).toBe(true);
   });
 
+  test("people connectors warn when entity mappings are missing", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
+    ir.properties.push({
+      name: "awards",
+      type: "stringCollection",
+      labels: ["personAwards"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["Awards"], explicit: true },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some((i) => i.severity === "warning" && i.message.includes("missing @coco.source"))
+    ).toBe(true);
+  });
+
+  test("people connectors do not warn when entity mappings exist", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
+    ir.properties.push({
+      name: "awards",
+      type: "stringCollection",
+      labels: ["personAwards"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["Awards"], explicit: true },
+      personEntity: {
+        entity: "personAward",
+        fields: [
+          {
+            path: "displayName",
+            source: { csvHeaders: ["Awards"], explicit: true },
+          },
+        ],
+      },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some((i) => i.severity === "warning" && i.message.includes("missing @coco.source"))
+    ).toBe(false);
+  });
+
   test("errors when id property is missing from properties list", () => {
     const ir = baseIr();
     ir.item.idPropertyName = "missing";

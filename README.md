@@ -48,6 +48,8 @@ Non-interactive:
 npx @wictorwilen/cocogen@latest init-tsp --out ./schema.tsp --kind content
 ```
 
+`init-tsp` also creates `package.json` and `tspconfig.yaml` in the same folder (if missing) so TypeSpec can resolve `@wictorwilen/cocogen` without squiggles.
+
 ### Validate a schema
 
 ```bash

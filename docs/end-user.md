@@ -19,6 +19,8 @@ Non-interactive:
 npx @wictorwilen/cocogen@latest init-tsp --out ./schema.tsp --kind content
 ```
 
+`init-tsp` also creates `package.json` and `tspconfig.yaml` alongside the schema if they are missing.
+
 ### Minimal content connector
 ```tsp
 using coco;
@@ -74,7 +76,7 @@ model PersonProfile {
 For the complete spec and validation rules, see docs/typespec.md.
 
 ### Fixing TypeSpec editor squiggles (VS Code)
-Generated projects include `tspconfig.yaml`. To let the TypeSpec language server resolve `using coco;`:
+Starter schemas created by `init-tsp` include `tspconfig.yaml` and a local `package.json`. To let the TypeSpec language server resolve `using coco;`:
 - TypeScript projects: run `npm install` (installs `@wictorwilen/cocogen`).
 - .NET projects: run `npm install` in the project folder (installs `@wictorwilen/cocogen`).
 

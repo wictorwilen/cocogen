@@ -206,9 +206,9 @@ Notes:
 Maps a CSV header to a destination property or people-entity field.
 
 Notes:
-- For people entity mappings, `to` is required and should be the entity JSON path.
+- For people entity mappings, `to` is recommended and should be the entity JSON path. If you omit it, cocogen will skip defaults and you must build JSON yourself in generated transforms/overrides.
 - For non-people connectors, omit `to` (equivalent to `@coco.source("header")`).
-- For people connectors, any property with a people label must define at least one `@coco.source(..., to)` mapping.
+- For people connectors, any property with a people label should define at least one `@coco.source(..., to)` mapping; otherwise validation warns and you must implement the mapping manually.
 
 ### People entity fields with `@coco.source(..., to)`
 
@@ -362,4 +362,4 @@ The schema stays flat; Graph interprets people-domain labels to build profile en
 - **Invalid property name**: use `@coco.name("...")` to make it alphanumeric and ≤ 32 chars.
 - **People connector missing `personAccount`**: add `@coco.label("personAccount")` to the person account identifier.
 - **People connector includes `@coco.content`**: remove it and represent data as schema properties instead.
-- **People label missing entity mapping**: add `@coco.source("column", "entity.path")` to each people-labeled property.
+- **People label missing entity mapping**: add `@coco.source("column", "entity.path")` to each people-labeled property (recommended). If you skip it, implement the JSON payload manually in generated transforms/overrides.
