@@ -16,6 +16,7 @@ public static class SchemaPayload
     {
         return new global::<%= graphNs %>.Models.ExternalConnectors.Schema
         {
+            BaseType = "microsoft.graph.externalItem",
             Properties = new List<Property>
             {
 <%- schemaPropertyLines %>

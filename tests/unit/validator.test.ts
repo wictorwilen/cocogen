@@ -63,6 +63,14 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "error" && i.message.includes("Duplicate property name"))).toBe(true);
   });
 
+  test("errors when connectionId contains non-alphanumeric characters", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "v1.0", connectionId: "bad-id" };
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("connectionId"))).toBe(true);
+  });
+
   test("errors on overly long property names", () => {
     const ir = baseIr();
     ir.properties.push({
@@ -297,6 +305,24 @@ describe("validateIr", () => {
 
     const issuesType = validateIr(ir);
     expect(issuesType.some((i) => i.severity === "error" && i.message.includes("@coco.content"))).toBe(true);
+  });
+
+  test("errors when content property has labels, aliases, or search flags", () => {
+    const ir = baseIr();
+    ir.item = { ...ir.item, contentPropertyName: "body" };
+    ir.properties.push({
+      name: "body",
+      type: "string",
+      labels: ["title"],
+      aliases: ["fullText"],
+      search: { searchable: true },
+      source: { csvHeaders: ["body"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot have labels"))).toBe(true);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot have aliases"))).toBe(true);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot use @coco.search"))).toBe(true);
   });
 
   test("people connectors do not support externalItem.content", () => {

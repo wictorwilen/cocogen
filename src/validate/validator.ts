@@ -134,6 +134,14 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
     });
   }
 
+  if (ir.connection.connectionId && !/^[A-Za-z0-9]+$/.test(ir.connection.connectionId)) {
+    issues.push({
+      severity: "error",
+      message: `@coco.connection connectionId '${ir.connection.connectionId}' contains invalid characters. Connection IDs must be alphanumeric only.`,
+      hint: "Remove non-alphanumeric characters from connectionId.",
+    });
+  }
+
   if (ir.item.contentPropertyName) {
     const contentProp = ir.properties.find((p) => p.name === ir.item.contentPropertyName);
     if (!contentProp) {
@@ -148,6 +156,28 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
           message: `@coco.content property '${contentProp.name}' must be a string (full-text content value). Found '${contentProp.type}'.`,
         hint: "Change the TypeSpec property type to 'string'.",
       });
+    } else {
+      if (contentProp.labels.length > 0) {
+        issues.push({
+          severity: "error",
+          message: `@coco.content property '${contentProp.name}' cannot have labels.`,
+          hint: "Remove @coco.label from the content property.",
+        });
+      }
+      if (contentProp.aliases.length > 0) {
+        issues.push({
+          severity: "error",
+          message: `@coco.content property '${contentProp.name}' cannot have aliases.`,
+          hint: "Remove @coco.aliases from the content property.",
+        });
+      }
+      if (hasSearchFlags(contentProp.search)) {
+        issues.push({
+          severity: "error",
+          message: `@coco.content property '${contentProp.name}' cannot use @coco.search flags.`,
+          hint: "Remove @coco.search from the content property.",
+        });
+      }
     }
   }
 

@@ -120,18 +120,21 @@ function graphBaseUrl(ir: ConnectorIr): string {
 
 function schemaPayload(ir: ConnectorIr): unknown {
   return {
-    properties: ir.properties.map((p) => ({
-      name: p.name,
-      type: p.type,
-      labels: p.labels.length > 0 ? p.labels : undefined,
-      aliases: p.aliases.length > 0 ? p.aliases : undefined,
-      description: p.description,
-      isSearchable: p.search.searchable ?? undefined,
-      isQueryable: p.search.queryable ?? undefined,
-      isRetrievable: p.search.retrievable ?? undefined,
-      isRefinable: p.search.refinable ?? undefined,
-      isExactMatchRequired: p.search.exactMatchRequired ?? undefined,
-    })),
+    baseType: "microsoft.graph.externalItem",
+    properties: ir.properties
+      .filter((p) => p.name !== ir.item.contentPropertyName)
+      .map((p) => ({
+        name: p.name,
+        type: p.type,
+        labels: p.labels.length > 0 ? p.labels : undefined,
+        aliases: p.aliases.length > 0 ? p.aliases : undefined,
+        description: p.description,
+        isSearchable: p.search.searchable ?? undefined,
+        isQueryable: p.search.queryable ?? undefined,
+        isRetrievable: p.search.retrievable ?? undefined,
+        isRefinable: p.search.refinable ?? undefined,
+        isExactMatchRequired: p.search.exactMatchRequired ?? undefined,
+      })),
   };
 }
 
@@ -303,6 +306,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   );
 
   const propertiesObjectLines = ir.properties
+    .filter((p) => p.name !== ir.item.contentPropertyName)
     .flatMap((p) => {
       const lines: string[] = [];
       const odataType = toOdataCollectionType(p.type);
@@ -807,6 +811,7 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
     .join("\n");
 
   const propertiesObjectLines = properties
+    .filter((p) => p.name !== ir.item.contentPropertyName)
     .flatMap((p) => {
       const lines: string[] = [];
       const odataType = toOdataCollectionType(p.type);

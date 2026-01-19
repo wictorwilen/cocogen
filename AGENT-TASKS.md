@@ -32,6 +32,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Added external item baseType to schema payload ✅
 - Added schema readiness wait + profile source de-dup checks ✅
 - Fixed TS CLI template duplication and restored helpers ✅
 - Added reusable connector core for TS/.NET (CLI now uses core) ✅
