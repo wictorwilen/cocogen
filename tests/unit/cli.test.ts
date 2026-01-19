@@ -73,6 +73,7 @@ function captureStderr(fn: () => Promise<void>): Promise<string> {
 beforeEach(() => {
   process.env.NO_COLOR = "1";
   process.env.COCOGEN_SKIP_AUTO_RUN = "1";
+  process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
   process.exitCode = undefined;
   writeIrJsonMock.mockReset();
   loadIrMock.mockReset();
@@ -86,6 +87,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.NO_COLOR;
   delete process.env.COCOGEN_SKIP_AUTO_RUN;
+  delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
   process.exitCode = undefined;
 });
 
@@ -427,5 +429,59 @@ describe("cli", () => {
     Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
 
     expect(stderr).toContain("cocogen");
+  });
+
+  test("prints update notice when newer version exists", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ version: "999.0.0" }),
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).toContain("update available");
+    expect(fetchMock).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("skips update check when disabled", async () => {
+    vi.resetModules();
+    process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
   });
 });

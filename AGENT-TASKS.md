@@ -32,6 +32,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Added CLI update notifier ✅
 - Add AGENTS.md to generated projects ✅
 - Enforced no description/search/label/alias on @coco.content ✅
 - TS schema folder now uses connection name ✅

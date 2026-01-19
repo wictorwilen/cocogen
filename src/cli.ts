@@ -22,19 +22,82 @@ function shouldShowBanner(): boolean {
   return !process.env.CI && Boolean(process.stderr.isTTY);
 }
 
-function getVersionLabel(): string {
+type PackageInfo = { name?: string; version?: string };
+
+function readPackageInfo(): PackageInfo | null {
   try {
     const dir = path.dirname(fileURLToPath(import.meta.url));
     const pkgPath = path.resolve(dir, "..", "package.json");
     const raw = readFileSync(pkgPath, "utf8");
-    const parsed = JSON.parse(raw) as { version?: string };
-    if (parsed.version && parsed.version.trim().length > 0) {
-      return `v${parsed.version.trim()}`;
-    }
+    return JSON.parse(raw) as PackageInfo;
   } catch {
     // Ignore version lookup errors.
   }
+  return null;
+}
+
+function getVersionLabel(): string {
+  const info = readPackageInfo();
+  const version = info?.version?.trim();
+  if (version) return `v${version}`;
   return "v0.0.0";
+}
+
+function shouldCheckForUpdates(): boolean {
+  return !process.env.CI && Boolean(process.stderr.isTTY) && !process.env.COCOGEN_SKIP_UPDATE_CHECK;
+}
+
+function normalizeVersion(version: string): { base: number[]; pre?: string } {
+  const [baseRaw = "", pre] = version.trim().split("-", 2);
+  const base = baseRaw
+    .split(".")
+    .map((part) => Number.parseInt(part, 10))
+    .map((n) => (Number.isNaN(n) ? 0 : n));
+  return pre ? { base, pre } : { base };
+}
+
+function compareVersions(left: string, right: string): number {
+  const a = normalizeVersion(left);
+  const b = normalizeVersion(right);
+  const max = Math.max(a.base.length, b.base.length);
+  for (let i = 0; i < max; i += 1) {
+    const delta = (a.base[i] ?? 0) - (b.base[i] ?? 0);
+    if (delta !== 0) return delta;
+  }
+  if (!a.pre && b.pre) return 1;
+  if (a.pre && !b.pre) return -1;
+  if (a.pre && b.pre) return a.pre.localeCompare(b.pre);
+  return 0;
+}
+
+async function checkForUpdates(): Promise<void> {
+  if (!shouldCheckForUpdates()) return;
+  const info = readPackageInfo();
+  const name = info?.name?.trim();
+  const version = info?.version?.trim();
+  if (!name || !version) return;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 750);
+
+  try {
+    const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}/latest`, {
+      signal: controller.signal,
+      headers: { "accept": "application/json" },
+    });
+    if (!response.ok) return;
+    const payload = (await response.json()) as { version?: string };
+    const latest = payload.version?.trim();
+    if (!latest) return;
+    if (compareVersions(latest, version) > 0) {
+      const line = `${pc.yellow("update available")}: v${version} → v${latest} (run: npm i -g ${name} or npx ${name}@latest)`;
+      process.stderr.write(`${line}\n`);
+    }
+  } catch {
+    // Ignore update check errors.
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function printBanner(): void {
@@ -82,6 +145,7 @@ function printIssues(list: ValidationIssue[]): void {
 
 export async function main(argv: string[]): Promise<void> {
   printBanner();
+  await checkForUpdates();
 
   const program = new Command();
 
