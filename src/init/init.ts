@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { access, copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { ConnectorIr, PropertyType } from "../ir.js";
 import { loadIrFromTypeSpec } from "../tsp/loader.js";
@@ -23,6 +25,7 @@ export type UpdateOptions = {
 type CocogenProjectConfig = {
   lang: "ts" | "dotnet";
   tsp: string;
+  cocogenVersion?: string;
 };
 
 const COCOGEN_CONFIG_FILE = "cocogen.json";
@@ -138,11 +141,27 @@ function schemaPayload(ir: ConnectorIr): unknown {
   };
 }
 
+function getGeneratorVersion(): string {
+  try {
+    const dir = path.dirname(fileURLToPath(import.meta.url));
+    const pkgPath = path.resolve(dir, "..", "package.json");
+    const raw = readFileSync(pkgPath, "utf8");
+    const parsed = JSON.parse(raw) as { version?: string };
+    if (parsed.version && parsed.version.trim().length > 0) {
+      return parsed.version.trim();
+    }
+  } catch {
+    // Ignore version lookup errors.
+  }
+  return "0.0.0";
+}
+
 function projectConfigContents(outDir: string, tspPath: string, lang: CocogenProjectConfig["lang"]): string {
   const rel = path.relative(outDir, path.resolve(tspPath)).replaceAll(path.sep, "/");
   const config: CocogenProjectConfig = {
     lang,
     tsp: rel || "./schema.tsp",
+    cocogenVersion: getGeneratorVersion(),
   };
   return JSON.stringify(config, null, 2) + "\n";
 }
@@ -168,7 +187,7 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
   if ((parsed.lang !== "ts" && parsed.lang !== "dotnet") || typeof parsed.tsp !== "string") {
     throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen init or fix the file.`);
   }
-  return { config: { lang: parsed.lang, tsp: parsed.tsp } };
+  return { config: { lang: parsed.lang, tsp: parsed.tsp, cocogenVersion: parsed.cocogenVersion } };
 }
 
 async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> {
@@ -758,6 +777,7 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
   });
 
   const schemaPropertyLines = properties
+    .filter((p) => p.name !== ir.item.contentPropertyName)
     .map((p) => {
       const labels =
         p.labels.length > 0
