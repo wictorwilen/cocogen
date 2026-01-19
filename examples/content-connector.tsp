@@ -33,5 +33,6 @@ model Ticket {
 
   @coco.label("createdDateTime")
   @coco.description("Timestamp when the ticket was created in the source system.")
+  @coco.search({ retrievable: true })
   createdAt: utcDateTime;
 }

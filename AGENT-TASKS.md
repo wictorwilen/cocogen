@@ -32,6 +32,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Aligned people label validation with people connectors docs + added warnings/tests ✅
+- Added validation for semantic label retrievable/type rules ✅
 - Aligned example connectionId values with alphanumeric validation ✅
 - Added external item baseType to schema payload ✅
 - Added schema readiness wait + profile source de-dup checks ✅

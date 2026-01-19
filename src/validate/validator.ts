@@ -37,6 +37,23 @@ const PEOPLE_LABELS = new Set([
   "personNote",
 ]);
 
+const PEOPLE_LABEL_TYPES = new Map<string, PropertyType[]>([
+  ["personAccount", ["string"]],
+  ["personName", ["string"]],
+  ["personCurrentPosition", ["string"]],
+  ["personAddresses", ["stringCollection"]],
+  ["personEmails", ["stringCollection"]],
+  ["personPhones", ["stringCollection"]],
+  ["personAwards", ["stringCollection"]],
+  ["personCertifications", ["stringCollection"]],
+  ["personProjects", ["stringCollection"]],
+  ["personSkills", ["stringCollection"]],
+  ["personWebAccounts", ["stringCollection"]],
+  ["personWebSite", ["string"]],
+  ["personAnniversaries", ["stringCollection"]],
+  ["personNote", ["string"]],
+]);
+
 const PEOPLE_ENTITY_BY_LABEL = new Map<string, string>([
   ["personAccount", "userAccountInformation"],
   ["personName", "personName"],
@@ -52,6 +69,24 @@ const PEOPLE_ENTITY_BY_LABEL = new Map<string, string>([
   ["personWebSite", "personWebsite"],
   ["personAnniversaries", "personAnniversary"],
   ["personNote", "personAnnotation"],
+]);
+
+const SEMANTIC_LABEL_TYPE_RULES = new Map<string, PropertyType[]>([
+  ["title", ["string"]],
+  ["url", ["string"]],
+  ["createdBy", ["string"]],
+  ["lastModifiedBy", ["string"]],
+  ["authors", ["string", "stringCollection"]],
+  ["createdDateTime", ["dateTime"]],
+  ["lastModifiedDateTime", ["dateTime"]],
+  ["fileName", ["string"]],
+  ["fileExtension", ["string"]],
+  ["iconUrl", ["string"]],
+  ["containerName", ["string"]],
+  ["containerUrl", ["string"]],
+  ["createdByUpn", ["string"]],
+  ["lastModifiedByUpn", ["string"]],
+  ["authorsUpn", ["string", "stringCollection"]],
 ]);
 
 export function validateIr(ir: ConnectorIr): ValidationIssue[] {
@@ -116,6 +151,27 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         message: `Property '${prop.name}' has type 'principal' and cannot be marked searchable.`,
         hint: "Remove searchable=true for this property.",
       });
+    }
+
+    const nonPeopleLabels = prop.labels.filter((label) => !label.startsWith("person"));
+    if (nonPeopleLabels.length > 0 && !prop.search.retrievable) {
+      issues.push({
+        severity: "error",
+        message: `Property '${prop.name}' has semantic labels (${nonPeopleLabels.join(", ")}) but is not retrievable.`,
+        hint: "Add @coco.search({ retrievable: true }) to labeled properties.",
+      });
+    }
+
+    for (const label of nonPeopleLabels) {
+      const allowedTypes = SEMANTIC_LABEL_TYPE_RULES.get(label);
+      if (!allowedTypes) continue;
+      if (!allowedTypes.includes(prop.type)) {
+        issues.push({
+          severity: "error",
+          message: `Semantic label '${label}' on property '${prop.name}' requires type ${allowedTypes.join(" or ")}, but found '${prop.type}'.`,
+          hint: "Change the property type or remove the semantic label.",
+        });
+      }
     }
   }
 
@@ -213,14 +269,16 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
     }
 
     for (const prop of ir.properties) {
+      if (!isPeopleLabeled(prop.labels)) continue;
+
       if (hasSearchFlags(prop.search)) {
         issues.push({
           severity: "warning",
-            message: `People connectors ignore @coco.search flags (property '${prop.name}').`,
-            hint: "Remove @coco.search from people connector schemas to avoid confusion.",
+          message: `People-labeled property '${prop.name}' should not use @coco.search flags.`,
+          hint: "Remove @coco.search from people-labeled properties to avoid confusion.",
         });
       }
-      if (!isPeopleLabeled(prop.labels)) continue;
+
       for (const label of prop.labels) {
         if (label.startsWith("person") && !PEOPLE_LABELS.has(label)) {
           issues.push({
@@ -228,15 +286,19 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
             message: `People connector label '${label}' is not supported.`,
             hint: "Use a supported people label like personCurrentPosition or personEmails.",
           });
+          continue;
+        }
+
+        const allowedTypes = PEOPLE_LABEL_TYPES.get(label);
+        if (allowedTypes && !allowedTypes.includes(prop.type)) {
+          issues.push({
+            severity: "error",
+            message: `People label '${label}' requires type ${allowedTypes.join(" or ")}, but '${prop.name}' is '${prop.type}'.`,
+            hint: "Change the property type to match the people label requirements.",
+          });
         }
       }
-      if (prop.type !== "string" && prop.type !== "stringCollection") {
-        issues.push({
-          severity: "error",
-          message: `People-labeled property '${prop.name}' must be string or stringCollection. Found '${prop.type}'.`,
-          hint: "For People connectors, people-domain labeled properties must contain JSON-serialized profile entity objects in strings.",
-        });
-      }
+
       if (!prop.personEntity) {
         issues.push({
           severity: "warning",
@@ -244,7 +306,6 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
           hint: "A throwing transform stub is generated. Implement the mapping in PropertyTransform (TS/.NET).",
         });
       }
-
     }
   }
 

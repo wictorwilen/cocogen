@@ -18,6 +18,7 @@ model Project {
   @coco.description("Name of the project")
   @coco.source("name")
   @coco.label("title")
+  @coco.search({ retrievable: true })
   projectName: string;
 
   @coco.description("Detailed description of the project")
@@ -27,6 +28,7 @@ model Project {
   @coco.source("start_date")
   @coco.label("createdDateTime")
   @coco.description("Project start date")
+  @coco.search({ retrievable: true })
   startDate: utcDateTime;
 
   @coco.source("end_date")

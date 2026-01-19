@@ -186,6 +186,8 @@ Constraints enforced:
 - Only `string` and `stringCollection` can be `searchable`.
 - `refinable` cannot be combined with `searchable`.
 - Max properties: 128.
+- Properties assigned to semantic labels must be `retrievable`.
+- Semantic labels must match expected property types (for example, `createdDateTime` → `dateTime`).
 
 Notes on `principalCollection`:
 - Microsoft Graph external connectors schema `propertyType` (beta) includes `principal` but **does not list** `principalCollection`.

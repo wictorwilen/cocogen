@@ -209,7 +209,7 @@ describe("validateIr", () => {
     expect(issues2.some((i) => i.severity === "error" && i.message.includes("personAccount"))).toBe(false);
   });
 
-  test("people connectors warn when search flags are used", () => {
+  test("people connectors warn when search flags are used on people labels", () => {
     const ir = baseIr();
     ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
     ir.properties.push({
@@ -231,7 +231,23 @@ describe("validateIr", () => {
     });
 
     const issues = validateIr(ir);
-    expect(issues.some((i) => i.severity === "warning" && i.message.includes("ignore @coco.search"))).toBe(true);
+    expect(issues.some((i) => i.severity === "warning" && i.message.includes("@coco.search"))).toBe(true);
+  });
+
+  test("people connectors do not warn for search flags on unlabeled properties", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
+    ir.properties.push({
+      name: "customField",
+      type: "string",
+      labels: [],
+      aliases: [],
+      search: { queryable: true },
+      source: { csvHeaders: ["customField"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "warning" && i.message.includes("@coco.search"))).toBe(false);
   });
 
   test("people connectors warn when entity mappings are missing", () => {
@@ -325,6 +341,36 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot use @coco.search"))).toBe(true);
   });
 
+  test("errors when semantic labels are not retrievable", () => {
+    const ir = baseIr();
+    ir.properties.push({
+      name: "productName",
+      type: "string",
+      labels: ["title"],
+      aliases: [],
+      search: { searchable: true },
+      source: { csvHeaders: ["productName"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("not retrievable"))).toBe(true);
+  });
+
+  test("errors when semantic label types do not match", () => {
+    const ir = baseIr();
+    ir.properties.push({
+      name: "createdAt",
+      type: "string",
+      labels: ["createdDateTime"],
+      aliases: [],
+      search: { retrievable: true },
+      source: { csvHeaders: ["createdAt"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("requires type"))).toBe(true);
+  });
+
   test("people connectors do not support externalItem.content", () => {
     const ir = baseIr();
     ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
@@ -346,7 +392,7 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "error" && i.message.includes("profileSource"))).toBe(true);
   });
 
-  test("people-labeled properties must be string/stringCollection", () => {
+  test("people labels require specific types", () => {
     const ir = baseIr();
     ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
     ir.properties.push({
@@ -368,16 +414,32 @@ describe("validateIr", () => {
     });
 
     ir.properties.push({
-      name: "personDepartment",
-      type: "int64",
-      labels: ["personDepartment"],
+      name: "emails",
+      type: "string",
+      labels: ["personEmails"],
       aliases: [],
       search: {},
-      source: { csvHeaders: ["personDepartment"] },
+      source: { csvHeaders: ["emails"] },
     });
 
     const issues = validateIr(ir);
-    expect(issues.some((i) => i.severity === "error" && i.message.includes("People-labeled property"))).toBe(true);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("requires type"))).toBe(true);
+  });
+
+  test("people connectors reject unsupported people labels", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
+    ir.properties.push({
+      name: "manager",
+      type: "string",
+      labels: ["personManager"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["manager"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("not supported"))).toBe(true);
   });
 
   test("profileSource is invalid for non-people connectors", () => {
