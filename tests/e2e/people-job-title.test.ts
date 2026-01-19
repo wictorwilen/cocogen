@@ -47,6 +47,7 @@ describe("people connector job title mapping", () => {
     `);
 
     const outDir = path.join(path.dirname(entry), "out-people-jobtitle");
+    const schemaFolder = "PeopleConnector";
     const result = await runNode(
       [distCliPath(), "init", "--tsp", entry, "--out", outDir, "--lang", "ts", "--use-preview-features"],
       {
@@ -60,14 +61,14 @@ describe("people connector job title mapping", () => {
 
     expect(result.code).toBe(0);
 
-    const schemaPath = path.join(outDir, "src", "schema", "schemaPayload.ts");
+    const schemaPath = path.join(outDir, "src", schemaFolder, "schemaPayload.ts");
     const schemaSource = await readFile(schemaPath, "utf8");
     const schema = extractSchemaPayload(schemaSource) as { properties?: Array<{ name: string; labels?: string[] }> };
 
     const positionProp = schema.properties?.find((prop) => prop.name === "workPosition");
     expect(positionProp?.labels).toContain("personCurrentPosition");
 
-    const defaultsPath = path.join(outDir, "src", "schema", "propertyTransformBase.ts");
+    const defaultsPath = path.join(outDir, "src", schemaFolder, "propertyTransformBase.ts");
     const defaultsSource = await readFile(defaultsPath, "utf8");
     expect(defaultsSource).toContain("detail");
     expect(defaultsSource).toContain("jobTitle");

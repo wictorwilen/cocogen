@@ -6,7 +6,7 @@ import "dotenv/config";
 import { Command } from "commander";
 import { ClientSecretCredential } from "@azure/identity";
 
-import type { <%= itemTypeName %> } from "./schema/model.js";
+import type { <%= itemTypeName %> } from "./<%= schemaFolderName %>/model.js";
 import {
   contentCategory,
   connectionName as defaultConnectionName,
@@ -16,8 +16,8 @@ import {
   profileSourceDisplayName as defaultProfileSourceDisplayName,
   profileSourcePriority as defaultProfileSourcePriority,
   schemaPayload
-} from "./schema/index.js";
-import { getItemId, toExternalItem } from "./schema/itemPayload.js";
+} from "./<%= schemaFolderName %>/index.js";
+import { getItemId, toExternalItem } from "./<%= schemaFolderName %>/itemPayload.js";
 import { CsvItemSource } from "./datasource/csvItemSource.js";
 import { ConnectorCore } from "./core/connectorCore.js";
 
@@ -32,7 +32,7 @@ const color = {
 };
 
 function printBanner(): void {
-  const title = color.cyan(`✨ <%= itemTypeName %> connector CLI ✨`);
+  const title = color.cyan(`✨ 🥥 <%= itemTypeName %> connector CLI 🥥 ✨`);
   const subtitle = color.dim("Provision • Ingest • Delete");
   console.log(`${title}\n${subtitle}`);
 }

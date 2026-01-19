@@ -119,13 +119,14 @@ describe("project init/update", () => {
     const tspPath = await writeTempTspFile(complexSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "ts-project");
+    const schemaFolder = "TestConnector";
 
     const result = await initTsProject({ tspPath, outDir, force: false });
 
     const config = await readFile(path.join(outDir, "cocogen.json"), "utf8");
     expect(config).toContain("\"lang\": \"ts\"");
 
-    const model = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+    const model = await readFile(path.join(outDir, "src", schemaFolder, "model.ts"), "utf8");
     expect(model).toContain("export type Item");
 
     const copiedSchema = await readFile(path.join(outDir, "schema.tsp"), "utf8");
@@ -151,6 +152,7 @@ describe("project init/update", () => {
     const tspPath = await writeTempTspFile(baseSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "ts-update");
+    const schemaFolder = "TestConnector";
 
     await initTsProject({ tspPath, outDir, force: false });
 
@@ -170,7 +172,7 @@ model Item {
 
     await updateProject({ outDir });
 
-    const model = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+    const model = await readFile(path.join(outDir, "src", schemaFolder, "model.ts"), "utf8");
     expect(model).toContain("status");
   });
 
@@ -194,13 +196,14 @@ model Item {
     const tspPath = await writeTempTspFile(complexSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "dotnet-project");
+    const schemaFolder = "TestConnector";
 
     await initDotnetProject({ tspPath, outDir, force: false });
 
     const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
     expect(program).toContain("SchemaConstants");
 
-    const constants = await readFile(path.join(outDir, "Schema", "Constants.cs"), "utf8");
+    const constants = await readFile(path.join(outDir, schemaFolder, "Constants.cs"), "utf8");
     expect(constants).toContain("class SchemaConstants");
   });
 
@@ -221,6 +224,7 @@ model Item {
     const tspPath = await writeTempTspFile(baseSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "dotnet-update");
+    const schemaFolder = "TestConnector";
 
     await initDotnetProject({ tspPath, outDir, force: false });
 
@@ -228,7 +232,7 @@ model Item {
     await writeFile(path.join(outDir, "schema.tsp"), updatedSchema, "utf8");
     await updateProject({ outDir });
 
-    const model = await readFile(path.join(outDir, "Schema", "Model.cs"), "utf8");
+    const model = await readFile(path.join(outDir, schemaFolder, "Model.cs"), "utf8");
     expect(model).toContain("Status");
   });
 
@@ -236,10 +240,11 @@ model Item {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "people-project");
+    const schemaFolder = "PeopleConnector";
 
     await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
-    const transforms = await readFile(path.join(outDir, "src", "schema", "propertyTransformBase.ts"), "utf8");
+    const transforms = await readFile(path.join(outDir, "src", schemaFolder, "propertyTransformBase.ts"), "utf8");
     expect(transforms).toContain("skills");
     expect(transforms).toContain("displayName");
     expect(transforms).toContain("userPrincipalName");
@@ -249,17 +254,18 @@ model Item {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "people-dotnet");
+    const schemaFolder = "PeopleConnector";
 
     await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
-    const defaults = await readFile(path.join(outDir, "Schema", "PropertyTransformBase.cs"), "utf8");
+    const defaults = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(defaults).toContain("skill");
 
-    const overrides = await readFile(path.join(outDir, "Schema", "PropertyTransform.cs"), "utf8");
+    const overrides = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overrides).toContain("PropertyTransform");
 
     await updateProject({ outDir, usePreviewFeatures: true });
-    const overridesAfter = await readFile(path.join(outDir, "Schema", "PropertyTransform.cs"), "utf8");
+    const overridesAfter = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overridesAfter).toBe(overrides);
   });
 

@@ -37,6 +37,7 @@ describe("people connector collection entity defaults", () => {
     `);
 
     const outDir = path.join(path.dirname(entry), "out-people-skills");
+    const schemaFolder = "PeopleConnector";
     const result = await runNode(
       [distCliPath(), "init", "--tsp", entry, "--out", outDir, "--lang", "ts", "--use-preview-features"],
       {
@@ -50,7 +51,7 @@ describe("people connector collection entity defaults", () => {
 
     expect(result.code).toBe(0);
 
-    const defaultsPath = path.join(outDir, "src", "schema", "propertyTransformBase.ts");
+    const defaultsPath = path.join(outDir, "src", schemaFolder, "propertyTransformBase.ts");
     const defaultsSource = await readFile(defaultsPath, "utf8");
 
     expect(defaultsSource).toMatch(/parseStringCollection/);

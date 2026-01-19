@@ -135,8 +135,8 @@ npx @wictorwilen/cocogen@latest update --out ./my-connector --tsp ../schema.tsp
 ## 5) Working with generated TypeScript projects
 
 ### Layout and what you can edit
-- `src/schema/**` — generated files. These are overwritten by `cocogen update`.
-- `src/schema/propertyTransform.ts` — created once; safe for manual edits.
+- `src/<ConnectionName>/**` — generated files (folder name from `@coco.connection.name`, PascalCase). These are overwritten by `cocogen update`.
+- `src/<ConnectionName>/propertyTransform.ts` — created once; safe for manual edits.
 - `src/datasource/**` — **editable**. Customize how items are read (CSV, APIs, databases).
 - `src/cli.ts` — **editable**. Controls provisioning/ingestion commands.
 - `src/index.ts` — **editable**. Main entrypoint and pipeline composition.
@@ -157,8 +157,8 @@ Ingest debugging flags:
 
 ### Where to customize mapping
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
-- Generated mapping helpers live in `src/schema/*` and are overwritten on update.
-- Use `src/schema/propertyTransform.ts` for manual mapping tweaks (safe file).
+- Generated mapping helpers live in `src/<ConnectionName>/*` and are overwritten on update.
+- Use `src/<ConnectionName>/propertyTransform.ts` for manual mapping tweaks (safe file).
 - For advanced transforms, extend the ingestion pipeline in `src/index.ts` or `src/datasource/*`.
 
 ### Switching from CSV to another datasource (TypeScript)
@@ -169,8 +169,8 @@ Ingest debugging flags:
 ## 6) Working with generated .NET projects
 
 ### Layout and what you can edit
-- `Schema/**` — generated files. These are overwritten by `cocogen update`.
-- `Schema/PropertyTransform.cs` — created once; safe for manual edits.
+- `<ConnectionName>/**` — generated files (folder name from `@coco.connection.name`, PascalCase). These are overwritten by `cocogen update`.
+- `<ConnectionName>/PropertyTransform.cs` — created once; safe for manual edits.
 - `Datasource/**` — **editable**. Customize how items are read (CSV, APIs, databases).
 - `Program.cs` and `Program.commandline.cs` — **editable**. CLI and pipeline wiring.
 - `appsettings.json` — configuration values (client credentials, connection defaults, CSV path).
@@ -189,8 +189,8 @@ Ingest debugging flags:
 
 ### Where to customize mapping
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
-- Generated mapping helpers live in `Schema/*` and are overwritten on update.
-- Use `Schema/PropertyTransform.cs` for manual mapping tweaks (safe file).
+- Generated mapping helpers live in `<ConnectionName>/*` and are overwritten on update.
+- Use `<ConnectionName>/PropertyTransform.cs` for manual mapping tweaks (safe file).
 - For advanced transforms, extend the ingestion pipeline in `Program.cs` or `Datasource/*`.
 
 ### Switching from CSV to another datasource (.NET)
@@ -216,8 +216,8 @@ Ingest debugging flags:
 - For collection properties (`string[]`), CSV values can be separated with `;` and will be aligned by index.
 - For custom entity shaping, edit the overrides file (safe file):
 - For custom entity shaping, edit the overrides file (safe file):
-  - TS: `src/schema/propertyTransform.ts`
-  - .NET: `Schema/PropertyTransform.cs`
+  - TS: `src/<ConnectionName>/propertyTransform.ts`
+  - .NET: `<ConnectionName>/PropertyTransform.cs`
 
 ## 8) Troubleshooting
 

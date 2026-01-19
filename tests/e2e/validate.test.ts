@@ -195,6 +195,8 @@ describe("cocogen init (e2e)", () => {
       }
     `);
 
+    const schemaFolder = "TestConnector";
+
     const outDir = path.join(path.dirname(entry), "out");
     const result = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir], {
       cwd: repoRoot,
@@ -217,9 +219,9 @@ describe("cocogen init (e2e)", () => {
     expect(csvSource).toMatch(/export class CsvItemSource/);
 
     // Smoke check: schema code exists and is isolated.
-    const generatedModel = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+    const generatedModel = await readFile(path.join(outDir, "src", schemaFolder, "model.ts"), "utf8");
     expect(generatedModel).toMatch(/export type Item/);
-    const generatedIndex = await readFile(path.join(outDir, "src", "schema", "index.ts"), "utf8");
+    const generatedIndex = await readFile(path.join(outDir, "src", schemaFolder, "index.ts"), "utf8");
     expect(generatedIndex).toMatch(/export \* from "\.\/schemaPayload\.js"/);
     const config = await readFile(path.join(outDir, "cocogen.json"), "utf8");
     expect(() => JSON.parse(config)).not.toThrow();
@@ -236,6 +238,8 @@ describe("cocogen init (e2e)", () => {
       }
     `);
 
+    const schemaFolder = "TestConnector";
+
     const outDir = path.join(path.dirname(entry), "out-update");
     const initResult = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir], {
       cwd: repoRoot,
@@ -249,7 +253,7 @@ describe("cocogen init (e2e)", () => {
 
     const cliBefore = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
     const csvBefore = await readFile(path.join(outDir, "src", "datasource", "csvItemSource.ts"), "utf8");
-    const modelBefore = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+    const modelBefore = await readFile(path.join(outDir, "src", schemaFolder, "model.ts"), "utf8");
 
     await writeFile(
       path.join(outDir, "schema.tsp"),
@@ -278,7 +282,7 @@ describe("cocogen init (e2e)", () => {
 
     const cliAfter = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
     const csvAfter = await readFile(path.join(outDir, "src", "datasource", "csvItemSource.ts"), "utf8");
-    const modelAfter = await readFile(path.join(outDir, "src", "schema", "model.ts"), "utf8");
+    const modelAfter = await readFile(path.join(outDir, "src", schemaFolder, "model.ts"), "utf8");
 
     expect(cliAfter).toBe(cliBefore);
     expect(csvAfter).toBe(csvBefore);

@@ -96,6 +96,20 @@ function toTsIdentifier(name: string): string {
   return /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
 }
 
+function toSchemaFolderName(connectionName: string | undefined): string {
+  const cleaned = (connectionName ?? "").trim();
+  if (!cleaned) return "Schema";
+  const candidate = toCsIdentifier(cleaned);
+  return candidate || "Schema";
+}
+
+function toTsSchemaFolderName(connectionName: string | undefined): string {
+  const cleaned = (connectionName ?? "").trim();
+  if (!cleaned) return "schema";
+  const candidate = toTsIdentifier(cleaned);
+  return candidate || "schema";
+}
+
 function toCsNamespace(projectName: string): string {
   const cleaned = projectName
     .replaceAll(/[^A-Za-z0-9_\.\-\s]/g, "")
@@ -212,8 +226,8 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
   };
 }
 
-async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> {
-  await mkdir(path.join(outDir, "src", "schema"), { recursive: true });
+async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderName: string): Promise<void> {
+  await mkdir(path.join(outDir, "src", schemaFolderName), { recursive: true });
   await mkdir(path.join(outDir, "src", "core"), { recursive: true });
 
   const modelProperties = ir.properties.map((p) => ({
@@ -282,7 +296,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   });
 
   await writeFile(
-    path.join(outDir, "src", "schema", "model.ts"),
+    path.join(outDir, "src", schemaFolderName, "model.ts"),
     await renderTemplate("ts/src/generated/model.ts.ejs", {
       itemTypeName: ir.item.typeName,
       properties: modelProperties,
@@ -291,7 +305,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   );
 
   await writeFile(
-    path.join(outDir, "src", "schema", "constants.ts"),
+    path.join(outDir, "src", schemaFolderName, "constants.ts"),
     await renderTemplate("ts/src/generated/constants.ts.ejs", {
       graphApiVersion: ir.connection.graphApiVersion,
       contentCategory: ir.connection.contentCategory ?? null,
@@ -309,7 +323,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   );
 
   await writeFile(
-    path.join(outDir, "src", "schema", "schemaPayload.ts"),
+    path.join(outDir, "src", schemaFolderName, "schemaPayload.ts"),
     await renderTemplate("ts/src/generated/schemaPayload.ts.ejs", {
       schemaPayloadJson: JSON.stringify(schemaPayload(ir), null, 2),
     }),
@@ -323,14 +337,14 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   );
 
   await writeFile(
-    path.join(outDir, "src", "schema", "propertyTransformBase.ts"),
+    path.join(outDir, "src", schemaFolderName, "propertyTransformBase.ts"),
     await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
       properties: transformProperties,
     }),
     "utf8"
   );
 
-  const transformOverridesPath = path.join(outDir, "src", "schema", "propertyTransform.ts");
+  const transformOverridesPath = path.join(outDir, "src", schemaFolderName, "propertyTransform.ts");
   try {
     await access(transformOverridesPath);
   } catch {
@@ -342,7 +356,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   }
 
   await writeFile(
-    path.join(outDir, "src", "schema", "fromCsvRow.ts"),
+    path.join(outDir, "src", schemaFolderName, "fromCsvRow.ts"),
     await renderTemplate("ts/src/generated/fromCsvRow.ts.ejs", {
       properties: transformProperties,
       itemTypeName: ir.item.typeName,
@@ -367,7 +381,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
     : "";
 
   await writeFile(
-    path.join(outDir, "src", "schema", "itemPayload.ts"),
+    path.join(outDir, "src", schemaFolderName, "itemPayload.ts"),
     await renderTemplate("ts/src/generated/itemPayload.ts.ejs", {
       propertiesObjectLines,
       contentBlock,
@@ -377,7 +391,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   );
 
   await writeFile(
-    path.join(outDir, "src", "schema", "index.ts"),
+    path.join(outDir, "src", schemaFolderName, "index.ts"),
     await renderTemplate("ts/src/generated/index.ts.ejs", {}),
     "utf8"
   );
@@ -755,8 +769,14 @@ function buildSampleCsv(ir: ConnectorIr): string {
   return `${headerLine}\n${valueLine}\n`;
 }
 
-async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceName: string): Promise<void> {
-  await mkdir(path.join(outDir, "Schema"), { recursive: true });
+async function writeGeneratedDotnet(
+  outDir: string,
+  ir: ConnectorIr,
+  namespaceName: string,
+  schemaFolderName: string,
+  schemaNamespace: string
+): Promise<void> {
+  await mkdir(path.join(outDir, schemaFolderName), { recursive: true });
   await mkdir(path.join(outDir, "Core"), { recursive: true });
 
   const properties = ir.properties.map((p) => {
@@ -886,9 +906,9 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
     : "";
 
   await writeFile(
-    path.join(outDir, "Schema", "Model.cs"),
+    path.join(outDir, schemaFolderName, "Model.cs"),
     await renderTemplate("dotnet/Generated/Model.cs.ejs", {
-      namespaceName,
+      schemaNamespace,
       itemTypeName: ir.item.typeName,
       properties: properties.map((p) => ({ csName: p.csName, csType: p.csType })),
     }),
@@ -896,9 +916,9 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
   );
 
   await writeFile(
-    path.join(outDir, "Schema", "Constants.cs"),
+    path.join(outDir, schemaFolderName, "Constants.cs"),
     await renderTemplate("dotnet/Generated/Constants.cs.ejs", {
-      namespaceName,
+      schemaNamespace,
       graphApiVersion: ir.connection.graphApiVersion,
       contentCategory: ir.connection.contentCategory ?? null,
       connectionName: ir.connection.connectionName ?? null,
@@ -913,9 +933,9 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
   );
 
   await writeFile(
-    path.join(outDir, "Schema", "SchemaPayload.cs"),
+    path.join(outDir, schemaFolderName, "SchemaPayload.cs"),
     await renderTemplate("dotnet/Generated/SchemaPayload.cs.ejs", {
-      namespaceName,
+      schemaNamespace,
       schemaPropertyLines,
       graphApiVersion: ir.connection.graphApiVersion,
     }),
@@ -931,32 +951,34 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
   );
 
   await writeFile(
-    path.join(outDir, "Schema", "PropertyTransformBase.cs"),
+    path.join(outDir, schemaFolderName, "PropertyTransformBase.cs"),
     await renderTemplate("dotnet/Generated/PropertyTransformBase.cs.ejs", {
       namespaceName,
+      schemaNamespace,
       properties,
       usesPersonEntity: properties.some((p) => p.personEntity),
     }),
     "utf8"
   );
 
-  const transformOverridesPath = path.join(outDir, "Schema", "PropertyTransform.cs");
+  const transformOverridesPath = path.join(outDir, schemaFolderName, "PropertyTransform.cs");
   try {
     await access(transformOverridesPath);
   } catch {
     await writeFile(
       transformOverridesPath,
       await renderTemplate("dotnet/PropertyTransform.cs.ejs", {
-        namespaceName,
+        schemaNamespace,
       }),
       "utf8"
     );
   }
 
   await writeFile(
-    path.join(outDir, "Schema", "FromCsvRow.cs"),
+    path.join(outDir, schemaFolderName, "FromCsvRow.cs"),
     await renderTemplate("dotnet/Generated/FromCsvRow.cs.ejs", {
       namespaceName,
+      schemaNamespace,
       itemTypeName: ir.item.typeName,
       constructorArgLines,
     }),
@@ -965,9 +987,9 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
 
 
   await writeFile(
-    path.join(outDir, "Schema", "ItemPayload.cs"),
+    path.join(outDir, schemaFolderName, "ItemPayload.cs"),
     await renderTemplate("dotnet/Generated/ItemPayload.cs.ejs", {
-      namespaceName,
+      schemaNamespace,
       itemTypeName: ir.item.typeName,
       itemIdExpression,
       propertiesObjectLines,
@@ -981,6 +1003,7 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
     path.join(outDir, "Core", "ConnectorCore.cs"),
     await renderTemplate("dotnet/Core/ConnectorCore.cs.ejs", {
       namespaceName,
+      schemaNamespace,
       itemTypeName: ir.item.typeName,
       isPeopleConnector: ir.connection.contentCategory === "people",
       graphApiVersion: ir.connection.graphApiVersion,
@@ -1017,7 +1040,8 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
     throw new Error(`Schema validation failed:\n${validationMessage}`);
   }
 
-  await writeGeneratedTs(outDir, ir);
+  const schemaFolderName = toTsSchemaFolderName(ir.connection.connectionName);
+  await writeGeneratedTs(outDir, ir, schemaFolderName);
   if (options.tspPath) {
     await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, tspPath, "ts"), "utf8");
   }
@@ -1046,7 +1070,9 @@ export async function updateDotnetProject(
   }
 
   const namespaceName = toCsNamespace(path.basename(outDir));
-  await writeGeneratedDotnet(outDir, ir, namespaceName);
+  const schemaFolderName = toSchemaFolderName(ir.connection.connectionName);
+  const schemaNamespace = `${namespaceName}.${schemaFolderName}`;
+  await writeGeneratedDotnet(outDir, ir, namespaceName, schemaFolderName, schemaNamespace);
   if (options.tspPath) {
     await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, tspPath, "dotnet"), "utf8");
   }
@@ -1077,10 +1103,11 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
   }
 
   const projectName = options.projectName ?? path.basename(outDir);
+  const schemaFolderName = toTsSchemaFolderName(ir.connection.connectionName);
 
   await mkdir(path.join(outDir, "src"), { recursive: true });
   await mkdir(path.join(outDir, "src", "datasource"), { recursive: true });
-  await mkdir(path.join(outDir, "src", "schema"), { recursive: true });
+  await mkdir(path.join(outDir, "src", schemaFolderName), { recursive: true });
 
   await writeFile(
     path.join(outDir, "package.json"),
@@ -1119,6 +1146,7 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
     await renderTemplate("ts/README.md.ejs", {
       isPeopleConnector: ir.connection.contentCategory === "people",
       itemTypeName: ir.item.typeName,
+      schemaFolderName,
     }),
     "utf8"
   );
@@ -1147,27 +1175,34 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
       graphBaseUrl: graphBaseUrl(ir),
       isPeopleConnector: ir.connection.contentCategory === "people",
       itemTypeName: ir.item.typeName,
+      schemaFolderName,
     }),
     "utf8"
   );
   await writeFile(
     path.join(outDir, "src", "datasource", "itemSource.ts"),
-    await renderTemplate("ts/src/datasource/itemSource.ts.ejs", { itemTypeName: ir.item.typeName }),
+    await renderTemplate("ts/src/datasource/itemSource.ts.ejs", {
+      itemTypeName: ir.item.typeName,
+      schemaFolderName,
+    }),
     "utf8"
   );
   await writeFile(
     path.join(outDir, "src", "datasource", "csvItemSource.ts"),
-    await renderTemplate("ts/src/datasource/csvItemSource.ts.ejs", { itemTypeName: ir.item.typeName }),
+    await renderTemplate("ts/src/datasource/csvItemSource.ts.ejs", {
+      itemTypeName: ir.item.typeName,
+      schemaFolderName,
+    }),
     "utf8"
   );
 
   await writeFile(path.join(outDir, "data.csv"), buildSampleCsv(ir), "utf8");
 
-  await writeGeneratedTs(outDir, ir);
+  await writeGeneratedTs(outDir, ir, schemaFolderName);
 
   await writeFile(
     path.join(outDir, "src", "index.ts"),
-    await renderTemplate("ts/src/index.ts.ejs", {}),
+    await renderTemplate("ts/src/index.ts.ejs", { schemaFolderName }),
     "utf8"
   );
 
@@ -1191,9 +1226,11 @@ export async function initDotnetProject(
 
   const projectName = options.projectName ?? path.basename(outDir);
   const namespaceName = toCsNamespace(projectName);
+  const schemaFolderName = toSchemaFolderName(ir.connection.connectionName);
+  const schemaNamespace = `${namespaceName}.${schemaFolderName}`;
 
   await mkdir(path.join(outDir, "Datasource"), { recursive: true });
-  await mkdir(path.join(outDir, "Schema"), { recursive: true });
+  await mkdir(path.join(outDir, schemaFolderName), { recursive: true });
 
   await writeFile(
     path.join(outDir, `${projectName}.csproj`),
@@ -1221,6 +1258,7 @@ export async function initDotnetProject(
     path.join(outDir, "Program.cs"),
     await renderTemplate("dotnet/Program.commandline.cs.ejs", {
       namespaceName,
+      schemaNamespace,
       itemTypeName: ir.item.typeName,
       isPeopleConnector: ir.connection.contentCategory === "people",
       graphApiVersion: ir.connection.graphApiVersion,
@@ -1230,13 +1268,21 @@ export async function initDotnetProject(
 
   await writeFile(
     path.join(outDir, "Datasource", "IItemSource.cs"),
-    await renderTemplate("dotnet/Datasource/IItemSource.cs.ejs", { namespaceName, itemTypeName: ir.item.typeName }),
+    await renderTemplate("dotnet/Datasource/IItemSource.cs.ejs", {
+      namespaceName,
+      schemaNamespace,
+      itemTypeName: ir.item.typeName,
+    }),
     "utf8"
   );
 
   await writeFile(
     path.join(outDir, "Datasource", "CsvItemSource.cs"),
-    await renderTemplate("dotnet/Datasource/CsvItemSource.cs.ejs", { namespaceName, itemTypeName: ir.item.typeName }),
+    await renderTemplate("dotnet/Datasource/CsvItemSource.cs.ejs", {
+      namespaceName,
+      schemaNamespace,
+      itemTypeName: ir.item.typeName,
+    }),
     "utf8"
   );
 
@@ -1268,6 +1314,7 @@ export async function initDotnetProject(
     await renderTemplate("dotnet/README.md.ejs", {
       isPeopleConnector: ir.connection.contentCategory === "people",
       itemTypeName: ir.item.typeName,
+      schemaFolderName,
     }),
     "utf8"
   );
@@ -1276,7 +1323,7 @@ export async function initDotnetProject(
   await copyFile(path.resolve(options.tspPath), copiedTspPath);
   await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, copiedTspPath, "dotnet"), "utf8");
 
-  await writeGeneratedDotnet(outDir, ir, namespaceName);
+  await writeGeneratedDotnet(outDir, ir, namespaceName, schemaFolderName, schemaNamespace);
 
   return { outDir, ir };
 }

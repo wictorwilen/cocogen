@@ -1,5 +1,7 @@
 # cocogen
 
+![cocogen logo](images/logo.png)
+
 [![npm version](https://img.shields.io/npm/v/@wictorwilen/cocogen.svg)](https://www.npmjs.com/package/@wictorwilen/cocogen)
 [![npm downloads](https://img.shields.io/npm/dm/@wictorwilen/cocogen.svg)](https://www.npmjs.com/package/@wictorwilen/cocogen)
 [![license](https://img.shields.io/npm/l/@wictorwilen/cocogen.svg)](https://github.com/wictorwilen/cocogen/blob/main/LICENSE)
@@ -133,7 +135,7 @@ npx @wictorwilen/cocogen@latest update --out ./my-connector --tsp ../schema.tsp
 ## Generated project layout (TypeScript)
 `cocogen` intentionally separates:
 
-- `src/schema/**` — generated from TypeSpec (safe to overwrite on `cocogen update`)
+- `src/<ConnectionName>/**` — generated from TypeSpec (safe to overwrite on `cocogen update`)
 - `src/**` (non-generated) — runtime code you can edit safely (should not change on update)
 
 ## CLI output & colors

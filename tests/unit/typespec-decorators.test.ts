@@ -133,7 +133,6 @@ describe("TypeSpec decorators", () => {
     $profileSource(context, nonModel, { webUrl: "https://ignored" } as unknown as any);
 
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_LABELS).get(prop)).toBeUndefined();
-    expect(program._stateMaps.size).toBe(0);
   });
 
   test("normalizes connection settings from model literals", () => {

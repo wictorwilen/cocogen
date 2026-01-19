@@ -31,12 +31,12 @@ This project includes `tspconfig.yaml` and a `package.json` with `@wictorwilen/c
 Run `npm install` in this folder to fetch the TypeSpec library.
 
 ## Customizing the project
-- **Schema and fields**: edit `schema.tsp` (copied into this folder) and run `cocogen update --out .` to regenerate `Schema/`.
+- **Schema and fields**: edit `schema.tsp` (copied into this folder) and run `cocogen update --out .` to regenerate `<%= schemaFolderName %>/`.
 - **Ingestion**: replace the datasource in `Datasource/` (CSV is the default) and wire it in `Program.cs`.
-- **Property transforms**: edit `Schema/PropertyTransform.cs` (kept on updates) to customize per-field parsing/mapping.
+- **Property transforms**: edit `<%= schemaFolderName %>/PropertyTransform.cs` (kept on updates) to customize per-field parsing/mapping.
 - **Connection defaults**: `@coco.connection` must set `name`, `connectionId`, and `connectionDescription` defaults for `appsettings.json`.
 - **Profile source defaults**: `@coco.profileSource` sets defaults for `ProfileSource` settings (people connectors only).
-- **Access control**: edit `Schema/ItemPayload.cs` to change ACL behavior.
+- **Access control**: edit `<%= schemaFolderName %>/ItemPayload.cs` to change ACL behavior.
 
 ## Ingest debugging flags
 Use `dotnet run -- ingest` with:

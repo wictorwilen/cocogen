@@ -7,7 +7,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Start `cocogen init` for runnable TS connector output ✅ (initial scaffold)
 - Refine `cocogen init` output (datasource interface, runnable TS output) ✅
 - Separate static runtime vs generated code ✅
-- Add `cocogen update` to regenerate `src/schema/**` ✅
+- Add `cocogen update` to regenerate `src/<ConnectionName>/**` ✅
 
 ## Next
 - Add docs updates for `cocogen update` and generated/static layout ✅
@@ -32,6 +32,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- TS schema folder now uses connection name ✅
+- .NET schema folder now uses connection name ✅
 - Required @coco.connection name ✅
 - Required @coco.connection connectionId/connectionDescription ✅
 - Fixed person-entity source typing for @coco.noSource build ✅

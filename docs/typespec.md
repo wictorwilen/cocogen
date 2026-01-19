@@ -272,7 +272,7 @@ Notes:
   - `personAnniversaries` → `personAnniversary`
   - `personNote` → `personAnnotation`
 
-Generated projects include a `PropertyTransformBase` (regenerated) and `PropertyTransform` override (kept) under the schema folder (TS: `src/schema`, .NET: `Schema/`). Customize `PropertyTransform` to shape entity JSON (for example, combine a skill name and proficiency into `skillProficiency`).
+Generated projects include a `PropertyTransformBase` (regenerated) and `PropertyTransform` override (kept) under the schema folder (TS: `src/<ConnectionName>` derived from `@coco.connection.name`, .NET: `<ConnectionName>/` derived from `@coco.connection.name`). Customize `PropertyTransform` to shape entity JSON (for example, combine a skill name and proficiency into `skillProficiency`).
 
 Multi-value CSV handling:
 - For people entity **collections** (`string[]`), CSV values can be separated with `;` (for example, `TypeScript;Python`).

@@ -60,7 +60,7 @@ Generator produces:
 User edits their `.tsp` file and runs:
 - `npx cocogen update --out ./my-connector`
 
-This regenerates **only** the TypeSpec-derived files under `src/schema/**`.
+This regenerates **only** the TypeSpec-derived files under `src/<ConnectionName>/**`.
 
 The generated project also contains a `cocogen.json` file that records which `.tsp` entrypoint to use. If needed, the user can override the entrypoint:
 - `npx cocogen update --out ./my-connector --tsp ../schema.tsp`
@@ -101,10 +101,10 @@ Current state:
 
 ### 7.3 Generated vs static separation
 The generator output is intentionally split:
-- `src/schema/**` is derived from TypeSpec and may be overwritten at any time.
+- `src/<ConnectionName>/**` is derived from TypeSpec and may be overwritten at any time.
 - Everything else in the generated project is “runtime” code and should remain stable across schema updates.
 
-The `cocogen update` command regenerates only `src/schema/**` based on the `.tsp` referenced by `cocogen.json`.
+The `cocogen update` command regenerates only `src/<ConnectionName>/**` based on the `.tsp` referenced by `cocogen.json`.
 - which field (if any) is the content body (full-text)
 
 ## 5. TypeSpec input & extensions

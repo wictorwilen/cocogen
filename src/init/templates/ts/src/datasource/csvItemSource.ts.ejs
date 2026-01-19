@@ -4,9 +4,9 @@
 import { createReadStream } from "node:fs";
 import { parse } from "csv-parse";
 
-import type { <%= itemTypeName %> } from "../schema/model.js";
+import type { <%= itemTypeName %> } from "../<%= schemaFolderName %>/model.js";
 import type { ItemSource } from "./itemSource.js";
-import { fromCsvRow } from "../schema/fromCsvRow.js";
+import { fromCsvRow } from "../<%= schemaFolderName %>/fromCsvRow.js";
 
 /**
  * CSV-based datasource (default). Replace with your own ItemSource as needed.

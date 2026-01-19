@@ -11,7 +11,7 @@ using System.Threading;
 
 using <%= namespaceName %>.Core;
 using <%= namespaceName %>.Datasource;
-using <%= namespaceName %>.Schema;
+using <%= schemaNamespace %>;
 
 var configuration = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
@@ -24,7 +24,7 @@ bool UseColor() => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(
 
 void PrintBanner()
 {
-    var title = "✨ <%= itemTypeName %> connector CLI ✨";
+    var title = "✨ 🥥 <%= itemTypeName %> connector CLI 🥥 ✨";
     var subtitle = "Provision • Ingest • Delete";
     if (UseColor())
     {
