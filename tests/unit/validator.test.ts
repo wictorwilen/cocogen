@@ -357,12 +357,13 @@ describe("validateIr", () => {
     expect(issuesType.some((i) => i.severity === "error" && i.message.includes("@coco.content"))).toBe(true);
   });
 
-  test("errors when content property has labels, aliases, or search flags", () => {
+  test("errors when content property has labels, aliases, description, or search flags", () => {
     const ir = baseIr();
     ir.item = { ...ir.item, contentPropertyName: "body" };
     ir.properties.push({
       name: "body",
       type: "string",
+      description: "Full text body",
       labels: ["title"],
       aliases: ["fullText"],
       search: { searchable: true },
@@ -372,6 +373,7 @@ describe("validateIr", () => {
     const issues = validateIr(ir);
     expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot have labels"))).toBe(true);
     expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot have aliases"))).toBe(true);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot have a description"))).toBe(true);
     expect(issues.some((i) => i.severity === "error" && i.message.includes("cannot use @coco.search"))).toBe(true);
   });
 

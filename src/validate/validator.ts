@@ -251,6 +251,13 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
           hint: "Remove @coco.aliases from the content property.",
         });
       }
+      if (contentProp.description && contentProp.description.trim().length > 0) {
+        issues.push({
+          severity: "error",
+          message: `@coco.content property '${contentProp.name}' cannot have a description.`,
+          hint: "Remove @coco.description from the content property.",
+        });
+      }
       if (hasSearchFlags(contentProp.search)) {
         issues.push({
           severity: "error",

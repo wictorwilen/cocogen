@@ -330,6 +330,7 @@ Marks a full-text content field, emitted as `externalItem.content.value` during 
 
 Rules:
 - The content property must be `string`.
+- The content property cannot use `@coco.label`, `@coco.aliases`, `@coco.description`, or `@coco.search`.
 - People connectors (`contentCategory: "people"`) must not use `@coco.content`.
 
 ## Supported property types

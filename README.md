@@ -35,6 +35,40 @@ End-user guide:
 ## TypeSpec format
 `cocogen` expects a single “item model” decorated with `@coco.item()` and a single ID property decorated with `@coco.id`.
 
+Example (product):
+
+```tsp
+import "@wictorwilen/cocogen";
+using coco;
+
+@coco.connection({
+	name: "Product catalog",
+	connectionId: "productcatalog",
+	connectionDescription: "External product catalog",
+	contentCategory: "uncategorized"
+})
+@coco.item()
+model Product {
+	@coco.id
+	@coco.description("Unique product identifier.")
+	@coco.search({ queryable: true, retrievable: true })
+	productId: string;
+
+	@coco.label("title")
+	@coco.description("Display name shown in search results.")
+	@coco.search({ searchable: true, retrievable: true })
+	name: string;
+
+	@coco.label("url")
+	@coco.description("Canonical product page URL.")
+	@coco.search({ retrievable: true })
+	url: string;
+
+	@coco.content({ type: "text" })
+	description: string;
+}
+```
+
 Start here:
 - [docs/typespec.md](https://github.com/wictorwilen/cocogen/blob/main/docs/typespec.md)
 

@@ -29,7 +29,6 @@ model Ticket {
   url: string;
 
   @coco.content({ type: "text" })
-  @coco.description("Full text body indexed for keyword search.")
   body: string;
 
   @coco.label("createdDateTime")
