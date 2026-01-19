@@ -170,9 +170,9 @@ describe("project init/update", () => {
 
     const core = await readFile(path.join(outDir, "src", "core", "connectorCore.ts"), "utf8");
     expect(core).toContain("sources.some((source) => source.sourceId === connectionId)");
-    expect(core).toContain("if (setting.name) continue");
+    expect(core).toContain("settings.find((setting) => !setting.name)");
     expect(core).toContain("current.includes(sourceUrl)");
-    expect(core).toContain("profilePropertySettings",);
+    expect(core).toContain("profilePropertySettings");
     expect(core).toContain("prioritizedSourceUrls: [sourceUrl]");
   });
 
