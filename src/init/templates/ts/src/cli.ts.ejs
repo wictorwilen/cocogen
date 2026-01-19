@@ -23,6 +23,22 @@ import { ConnectorCore } from "./core/connectorCore.js";
 
 const GRAPH_BASE_URL = <%= JSON.stringify(graphBaseUrl) %>;
 
+const useColor = !process.env.NO_COLOR;
+const color = {
+  cyan: (value: string) => (useColor ? `\u001b[36m${value}\u001b[0m` : value),
+  green: (value: string) => (useColor ? `\u001b[32m${value}\u001b[0m` : value),
+  yellow: (value: string) => (useColor ? `\u001b[33m${value}\u001b[0m` : value),
+  dim: (value: string) => (useColor ? `\u001b[2m${value}\u001b[0m` : value),
+};
+
+function printBanner(): void {
+  const title = color.cyan(`✨ <%= itemTypeName %> connector CLI ✨`);
+  const subtitle = color.dim("Provision • Ingest • Delete");
+  console.log(`${title}\n${subtitle}`);
+}
+
+printBanner();
+
 /**
  * Resolve a required environment variable or throw a friendly error.
  */

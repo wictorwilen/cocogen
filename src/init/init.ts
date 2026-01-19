@@ -144,11 +144,27 @@ function schemaPayload(ir: ConnectorIr): unknown {
 function getGeneratorVersion(): string {
   try {
     const dir = path.dirname(fileURLToPath(import.meta.url));
-    const pkgPath = path.resolve(dir, "..", "package.json");
-    const raw = readFileSync(pkgPath, "utf8");
-    const parsed = JSON.parse(raw) as { version?: string };
-    if (parsed.version && parsed.version.trim().length > 0) {
-      return parsed.version.trim();
+    const candidates = [
+      path.resolve(dir, "..", "package.json"),
+      path.resolve(dir, "..", "..", "package.json"),
+      path.resolve(dir, "..", "..", "..", "package.json"),
+      path.resolve(process.cwd(), "package.json"),
+    ];
+
+    for (const pkgPath of candidates) {
+      try {
+        const raw = readFileSync(pkgPath, "utf8");
+        const parsed = JSON.parse(raw) as { name?: string; version?: string };
+        const name = parsed.name?.trim();
+        if (name && name !== "@wictorwilen/cocogen" && name !== "cocogen") {
+          continue;
+        }
+        if (parsed.version && parsed.version.trim().length > 0) {
+          return parsed.version.trim();
+        }
+      } catch {
+        continue;
+      }
     }
   } catch {
     // Ignore version lookup errors.

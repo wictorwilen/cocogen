@@ -20,6 +20,30 @@ var configuration = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
+bool UseColor() => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("NO_COLOR"));
+
+void PrintBanner()
+{
+    var title = "✨ <%= itemTypeName %> connector CLI ✨";
+    var subtitle = "Provision • Ingest • Delete";
+    if (UseColor())
+    {
+        var original = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(title);
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(subtitle);
+        Console.ForegroundColor = original;
+    }
+    else
+    {
+        Console.WriteLine(title);
+        Console.WriteLine(subtitle);
+    }
+}
+
+PrintBanner();
+
 /// <summary>
 /// Resolve a required configuration value or throw a friendly error.
 /// </summary>

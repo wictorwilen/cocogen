@@ -168,10 +168,18 @@ export class ConnectorCore<Item> {
     let count = 0;
     for await (const item of options.source.getItems()) {
       if (options.limit && count >= options.limit) break;
+      const itemId = this.getItemId(item as Item);
       if (!options.dryRun) {
-        await this.putItem(options.connectionId, item as Item, Boolean(options.verbose));
+        console.log(`info: ingesting item ${count + 1} (id=${itemId})`);
+        try {
+          await this.putItem(options.connectionId, item as Item, Boolean(options.verbose));
+          console.log(`ok: ingested item ${count + 1} (id=${itemId})`);
+        } catch (error) {
+          console.error(`error: failed item ${count + 1} (id=${itemId})`);
+          throw error;
+        }
       } else if (options.verbose) {
-        console.log("verbose: DRY RUN item", JSON.stringify(options.toExternalItem(item as Item), null, 2));
+        console.log(`verbose: DRY RUN item ${count + 1} (id=${itemId})`, JSON.stringify(options.toExternalItem(item as Item), null, 2));
       }
       count++;
     }
@@ -314,6 +322,7 @@ export class ConnectorCore<Item> {
 
   private async waitForSchemaReady(connectionId: string): Promise<void> {
     const schemaUrl = `${this.graphBaseUrl}/external/connections/${connectionId}/schema`;
+    console.log("info: waiting for schema provisioning...");
     for (let attempt = 0; attempt < SCHEMA_POLL_MAX_ATTEMPTS; attempt++) {
       const res = await this.graphRequest("GET", schemaUrl);
       if (!res.ok) {
@@ -328,6 +337,7 @@ export class ConnectorCore<Item> {
       if (!SCHEMA_PENDING_STATES.has(normalized)) {
         throw new Error(`Schema provisioning failed with status '${state}'.`);
       }
+      console.log(`info: schema status '${state}' (${attempt + 1}/${SCHEMA_POLL_MAX_ATTEMPTS})`);
       await sleep(SCHEMA_POLL_DELAY_MS);
     }
 

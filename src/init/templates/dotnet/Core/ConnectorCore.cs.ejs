@@ -163,11 +163,23 @@ public sealed class ConnectorCore
 
             if (!dryRun)
             {
-                await PutItemAsync(item, verbose);
+                var itemId = ItemPayload.GetItemId(item);
+                Console.WriteLine($"info: ingesting item {count + 1} (id={itemId})");
+                try
+                {
+                    await PutItemAsync(item, verbose);
+                    Console.WriteLine($"ok: ingested item {count + 1} (id={itemId})");
+                }
+                catch (Exception)
+                {
+                    Console.Error.WriteLine($"error: failed item {count + 1} (id={itemId})");
+                    throw;
+                }
             }
             else if (verbose)
             {
-                Console.WriteLine("verbose: DRY RUN payload " + JsonSerializer.Serialize(ItemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
+                var itemId = ItemPayload.GetItemId(item);
+                Console.WriteLine($"verbose: DRY RUN item {count + 1} (id={itemId}) payload " + JsonSerializer.Serialize(ItemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
             }
 
             count++;
@@ -529,6 +541,7 @@ public sealed class ConnectorCore
     private async Task WaitForSchemaReadyAsync()
     {
         EnsureGraph();
+        Console.WriteLine("info: waiting for schema provisioning...");
         for (var attempt = 0; attempt < SchemaPollMaxAttempts; attempt++)
         {
             var schema = await _graph!.External.Connections[_connectionId].Schema.GetAsync();
@@ -541,6 +554,8 @@ public sealed class ConnectorCore
             {
                 throw new InvalidOperationException($"Schema provisioning failed with status '{state}'.");
             }
+            var progress = $"info: schema status '{state}' ({attempt + 1}/{SchemaPollMaxAttempts})";
+            Console.WriteLine(progress);
             await Task.Delay(SchemaPollDelayMs);
         }
 
