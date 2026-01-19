@@ -170,6 +170,7 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
 
 async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> {
   await mkdir(path.join(outDir, "src", "schema"), { recursive: true });
+  await mkdir(path.join(outDir, "src", "core"), { recursive: true });
 
   const modelProperties = ir.properties.map((p) => ({
     name: p.name,
@@ -329,6 +330,15 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
   await writeFile(
     path.join(outDir, "src", "schema", "index.ts"),
     await renderTemplate("ts/src/generated/index.ts.ejs", {}),
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(outDir, "src", "core", "connectorCore.ts"),
+    await renderTemplate("ts/src/core/connectorCore.ts.ejs", {
+      itemTypeName: ir.item.typeName,
+      isPeopleConnector: ir.connection.contentCategory === "people",
+    }),
     "utf8"
   );
 }
@@ -698,6 +708,7 @@ function buildSampleCsv(ir: ConnectorIr): string {
 
 async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceName: string): Promise<void> {
   await mkdir(path.join(outDir, "Schema"), { recursive: true });
+  await mkdir(path.join(outDir, "Core"), { recursive: true });
 
   const properties = ir.properties.map((p) => {
     const parseFn = toCsParseFunction(p.type);
@@ -906,6 +917,17 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
       itemIdExpression,
       propertiesObjectLines,
       contentBlock,
+      graphApiVersion: ir.connection.graphApiVersion,
+    }),
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(outDir, "Core", "ConnectorCore.cs"),
+    await renderTemplate("dotnet/Core/ConnectorCore.cs.ejs", {
+      namespaceName,
+      itemTypeName: ir.item.typeName,
+      isPeopleConnector: ir.connection.contentCategory === "people",
       graphApiVersion: ir.connection.graphApiVersion,
     }),
     "utf8"

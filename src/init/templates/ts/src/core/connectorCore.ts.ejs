@@ -1,0 +1,374 @@
+import type { ItemSource } from "../datasource/itemSource.js";
+
+type ProfileSourceOptions = {
+  webUrl: string;
+  displayName: string;
+  priority: "first" | "last";
+};
+
+export type ConnectorCoreOptions<Item> = {
+  graphBaseUrl: string;
+  contentCategory: string | null;
+  schemaPayload: unknown;
+  getAccessToken: () => Promise<string>;
+  getItemId: (item: Item) => string;
+  toExternalItem: (item: Item) => {
+    acl: Array<{ type: string; value: string; accessType: string }>;
+    properties: Record<string, unknown>;
+    content?: { type: string; value: string };
+  };
+  profileSource?: ProfileSourceOptions;
+};
+
+export type ProvisionOptions = {
+  connectionId: string;
+  connectionName: string;
+  connectionDescription: string;
+};
+
+export type IngestOptions<Item> = {
+  source: ItemSource;
+  connectionId: string;
+  dryRun?: boolean;
+  limit?: number;
+  verbose?: boolean;
+  toExternalItem: (item: Item) => unknown;
+};
+
+/**
+ * Reusable connector core for provisioning, ingestion, and deletion.
+ */
+export class ConnectorCore<Item> {
+  private readonly graphBaseUrl: string;
+  private readonly contentCategory: string | null;
+  private readonly schemaPayload: unknown;
+  private readonly getAccessToken: () => Promise<string>;
+  private readonly getItemId: (item: Item) => string;
+  private readonly toExternalItem: (item: Item) => {
+    acl: Array<{ type: string; value: string; accessType: string }>;
+    properties: Record<string, unknown>;
+    content?: { type: string; value: string };
+  };
+  private readonly profileSource?: ProfileSourceOptions;
+
+  constructor(options: ConnectorCoreOptions<Item>) {
+    this.graphBaseUrl = options.graphBaseUrl;
+    this.contentCategory = options.contentCategory;
+    this.schemaPayload = options.schemaPayload;
+    this.getAccessToken = options.getAccessToken;
+    this.getItemId = options.getItemId;
+    this.toExternalItem = options.toExternalItem;
+    this.profileSource = options.profileSource;
+  }
+
+  /**
+   * Ensure the external connection exists (create if missing).
+   */
+  async ensureConnection(options: ProvisionOptions): Promise<void> {
+    const payload: any = {
+      id: options.connectionId,
+      name: options.connectionName,
+      description: options.connectionDescription,
+    };
+
+    if (this.contentCategory) payload.contentCategory = this.contentCategory;
+
+    const createUrl = `${this.graphBaseUrl}/external/connections`;
+    const create = await this.graphRequest("POST", createUrl, payload);
+    if (!create.ok && create.status !== 409) {
+      const text = await create.text();
+      throw new Error(`Failed to create connection (HTTP ${create.status}): ${text}`);
+    }
+  }
+
+  /**
+   * Patch the external connection schema using the generated payload.
+   */
+  async patchSchema(connectionId: string): Promise<void> {
+    const schemaUrl = `${this.graphBaseUrl}/external/connections/${connectionId}/schema`;
+    const res = await this.graphRequest("PATCH", schemaUrl, this.schemaPayload);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to patch schema (HTTP ${res.status}): ${text}`);
+    }
+
+    await this.waitForSchemaReady(connectionId);
+  }
+
+  /**
+   * Provision connection + schema and (optionally) profile source.
+   */
+  async provision(options: ProvisionOptions): Promise<void> {
+    await this.ensureConnection(options);
+    await this.patchSchema(options.connectionId);
+    if (this.profileSource) {
+      await this.registerProfileSourceInternal(options.connectionId, this.profileSource);
+    }
+  }
+
+  /**
+   * Register the connection as a profile source (people connectors only).
+   */
+  async registerProfileSource(connectionId: string): Promise<void> {
+    if (!this.profileSource) {
+      throw new Error("Profile source settings are missing.");
+    }
+    await this.registerProfileSourceInternal(connectionId, this.profileSource);
+  }
+
+  /**
+   * Remove the connection from profile source registrations (people connectors only).
+   */
+  async unregisterProfileSource(connectionId: string): Promise<void> {
+    if (!this.profileSource) {
+      throw new Error("Profile source settings are missing.");
+    }
+    await this.unregisterProfileSourceInternal(connectionId);
+  }
+
+  /**
+   * Delete the external connection.
+   */
+  async deleteConnection(connectionId: string): Promise<void> {
+    if (this.profileSource) {
+      await this.unregisterProfileSourceInternal(connectionId);
+    }
+
+    const res = await this.graphRequest("DELETE", `${this.graphBaseUrl}/external/connections/${connectionId}`);
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text();
+      throw new Error(`Failed to delete connection (HTTP ${res.status}): ${text}`);
+    }
+  }
+
+  /**
+   * Upsert a single item to Graph.
+   */
+  async putItem(connectionId: string, item: Item, verbose: boolean): Promise<void> {
+    const itemId = this.getItemId(item);
+    const url = `${this.graphBaseUrl}/external/connections/${connectionId}/items/${encodeURIComponent(itemId)}`;
+
+    const payload = this.toExternalItem(item);
+    if (verbose) {
+      console.log("verbose: PUT", url);
+      console.log("verbose: payload", JSON.stringify(payload, null, 2));
+    }
+
+    const res = await this.graphRequest("PUT", url, payload);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to ingest item '${itemId}' (HTTP ${res.status}): ${text}`);
+    }
+  }
+
+  /**
+   * Ingest items from a datasource.
+   */
+  async ingest(options: IngestOptions<Item>): Promise<void> {
+    let count = 0;
+    for await (const item of options.source.getItems()) {
+      if (options.limit && count >= options.limit) break;
+      if (!options.dryRun) {
+        await this.putItem(options.connectionId, item as Item, Boolean(options.verbose));
+      } else if (options.verbose) {
+        console.log("verbose: DRY RUN item", JSON.stringify(options.toExternalItem(item as Item), null, 2));
+      }
+      count++;
+    }
+
+    console.log("ok: ingested " + count + " item(s)");
+  }
+
+  private async graphRequest(method: string, url: string, body?: unknown): Promise<Response> {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const token = await this.getAccessToken();
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      if (!shouldRetry(res.status) || attempt === MAX_RETRIES) {
+        return res;
+      }
+
+      const retryAfterMs = parseRetryAfter(res.headers.get("Retry-After"));
+      const delay = computeDelay(attempt, retryAfterMs);
+      console.warn(`warn: throttled (HTTP ${res.status}) for ${url}, retrying in ${delay}ms`);
+      await sleep(delay);
+    }
+
+    throw new Error("Failed to send request after retries.");
+  }
+
+  private async listProfilePropertySettings(): Promise<Array<{ id: string; prioritizedSourceUrls: string[] }>> {
+    const res = await this.graphRequest("GET", `${this.graphBaseUrl}/admin/people/profilePropertySettings`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to list profile property settings (HTTP ${res.status}): ${text}`);
+    }
+    const json = (await res.json()) as { value?: Array<{ id?: string; prioritizedSourceUrls?: string[] }> };
+    return (json.value ?? [])
+      .filter((entry) => typeof entry.id === "string")
+      .map((entry) => ({
+        id: entry.id as string,
+        prioritizedSourceUrls: Array.isArray(entry.prioritizedSourceUrls) ? entry.prioritizedSourceUrls : [],
+      }));
+  }
+
+  private async listProfileSources(): Promise<Array<{ sourceId: string }>> {
+    const res = await this.graphRequest("GET", `${this.graphBaseUrl}/admin/people/profileSources`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to list profile sources (HTTP ${res.status}): ${text}`);
+    }
+    const json = (await res.json()) as { value?: Array<{ sourceId?: string }> };
+    return (json.value ?? [])
+      .filter((entry) => typeof entry.sourceId === "string")
+      .map((entry) => ({ sourceId: entry.sourceId as string }));
+  }
+
+  private async registerProfileSourceInternal(connectionId: string, profile: ProfileSourceOptions): Promise<void> {
+    const sources = await this.listProfileSources();
+    if (sources.some((source) => source.sourceId === connectionId)) {
+      return;
+    }
+
+    const payload: any = {
+      sourceId: connectionId,
+      displayName: profile.displayName,
+      webUrl: profile.webUrl,
+    };
+
+    const create = await this.graphRequest("POST", `${this.graphBaseUrl}/admin/people/profileSources`, payload);
+    if (!create.ok && create.status !== 409) {
+      const text = await create.text();
+      throw new Error(`Failed to register profile source (HTTP ${create.status}): ${text}`);
+    }
+
+    const sourceUrl = `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`;
+    const settings = await this.listProfilePropertySettings();
+    for (const setting of settings) {
+      const existing = this.uniqueUrls(setting.prioritizedSourceUrls).filter((value) => value !== sourceUrl);
+      const updated = profile.priority === "first"
+        ? this.uniqueUrls([sourceUrl, ...existing])
+        : this.uniqueUrls([...existing, sourceUrl]);
+      const res = await this.graphRequest(
+        "PATCH",
+        `${this.graphBaseUrl}/admin/people/profilePropertySettings/${setting.id}`,
+        {
+          "@odata.type": "#microsoft.graph.profilePropertySetting",
+          prioritizedSourceUrls: updated,
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to update profile property setting ${setting.id} (HTTP ${res.status}): ${text}`);
+      }
+    }
+  }
+
+  private async unregisterProfileSourceInternal(connectionId: string): Promise<void> {
+    const sourceUrl = `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`;
+    const settings = await this.listProfilePropertySettings();
+    for (const setting of settings) {
+      const updated = this.uniqueUrls(setting.prioritizedSourceUrls).filter((value) => value !== sourceUrl);
+      const res = await this.graphRequest(
+        "PATCH",
+        `${this.graphBaseUrl}/admin/people/profilePropertySettings/${setting.id}`,
+        {
+          "@odata.type": "#microsoft.graph.profilePropertySetting",
+          prioritizedSourceUrls: updated,
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to update profile property setting ${setting.id} (HTTP ${res.status}): ${text}`);
+      }
+    }
+
+    const res = await this.graphRequest(
+      "DELETE",
+      `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`
+    );
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text();
+      throw new Error(`Failed to delete profile source (HTTP ${res.status}): ${text}`);
+    }
+  }
+
+  private uniqueUrls(values: string[]): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const value of values) {
+      if (!value) continue;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      result.push(value);
+    }
+    return result;
+  }
+
+  private async waitForSchemaReady(connectionId: string): Promise<void> {
+    const schemaUrl = `${this.graphBaseUrl}/external/connections/${connectionId}/schema`;
+    for (let attempt = 0; attempt < SCHEMA_POLL_MAX_ATTEMPTS; attempt++) {
+      const res = await this.graphRequest("GET", schemaUrl);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to read schema status (HTTP ${res.status}): ${text}`);
+      }
+      const json = (await res.json()) as { status?: { state?: string } | string };
+      const state = typeof json.status === "string" ? json.status : json.status?.state;
+      if (!state) return;
+      const normalized = state.toLowerCase();
+      if (SCHEMA_READY_STATES.has(normalized)) return;
+      if (!SCHEMA_PENDING_STATES.has(normalized)) {
+        throw new Error(`Schema provisioning failed with status '${state}'.`);
+      }
+      await sleep(SCHEMA_POLL_DELAY_MS);
+    }
+
+    throw new Error("Schema provisioning timed out.");
+  }
+}
+
+const MAX_RETRIES = 6;
+const BASE_DELAY_MS = 1000;
+const MAX_DELAY_MS = 30000;
+const SCHEMA_POLL_MAX_ATTEMPTS = 12;
+const SCHEMA_POLL_DELAY_MS = 30000;
+const SCHEMA_READY_STATES = new Set(["completed", "ready", "succeeded", "success"]);
+const SCHEMA_PENDING_STATES = new Set(["inprogress", "pending", "running", "updating"]);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (!Number.isNaN(seconds) && Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+
+  const dateMs = Date.parse(value);
+  if (!Number.isNaN(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+
+  return null;
+}
+
+function computeDelay(attempt: number, retryAfter: number | null): number {
+  if (retryAfter !== null) return Math.min(retryAfter, MAX_DELAY_MS);
+  const exp = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * Math.pow(2, attempt));
+  const jitter = Math.floor(Math.random() * 250);
+  return Math.min(MAX_DELAY_MS, exp + jitter);
+}
+
+function shouldRetry(status: number): boolean {
+  return status === 429 || status === 503 || status === 504;
+}

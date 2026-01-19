@@ -40,7 +40,7 @@ function getVersionLabel(): string {
 function printBanner(): void {
   if (!shouldShowBanner()) return;
 
-  const title = pc.bold(pc.cyan(`cocogen ${getVersionLabel()}`));
+  const title = pc.bold(pc.cyan(`Welcome to cocogen (Copilot connector generator) ${getVersionLabel()}`));
   const subtitle = pc.dim("TypeSpec → Microsoft 365 Copilot connector scaffolding");
   const art = [
     `${pc.cyan("  ██████╗")} ${pc.blue(" ██████╗ ")} ${pc.cyan(" ██████╗")} ${pc.blue(" ██████╗" )} ${pc.green(" ██████╗ ")} ${pc.magenta("███████╗")} ${pc.yellow(" ███╗   ██╗")}`,
@@ -53,7 +53,7 @@ function printBanner(): void {
 
   const credit = `${pc.dim("made with")} ${pc.red("❤")}${pc.dim(" by Wictor Wilén")}`;
 
-  process.stderr.write(`${art}\n${title}  ${subtitle}\n${credit}\n\n`);
+  process.stderr.write(`${title}\n${art}\n${subtitle}\n${credit}\n\n`);
 }
 
 function shouldUseSpinner(): boolean {

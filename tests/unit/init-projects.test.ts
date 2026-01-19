@@ -121,10 +121,10 @@ describe("project init/update", () => {
 
     await initTsProject({ tspPath, outDir, force: false });
 
-    const cli = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
-    expect(cli).toContain("Retry-After");
-    expect(cli).toContain("throttled");
-    expect(cli).toContain("MAX_RETRIES");
+    const core = await readFile(path.join(outDir, "src", "core", "connectorCore.ts"), "utf8");
+    expect(core).toContain("Retry-After");
+    expect(core).toContain("throttled");
+    expect(core).toContain("MAX_RETRIES");
   });
 
   test("updateProject regenerates schema from updated tsp", async () => {
@@ -188,10 +188,10 @@ model Item {
 
     await initDotnetProject({ tspPath, outDir, force: false });
 
-    const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
-    expect(program).toContain("RetryAsync");
-    expect(program).toContain("Retry-After");
-    expect(program).toContain("throttled");
+    const core = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
+    expect(core).toContain("RetryAsync");
+    expect(core).toContain("Retry-After");
+    expect(core).toContain("throttled");
   });
 
   test("updateProject updates dotnet schema", async () => {

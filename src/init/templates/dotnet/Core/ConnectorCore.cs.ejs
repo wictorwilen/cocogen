@@ -1,0 +1,587 @@
+using Azure.Core;
+using Azure.Identity;
+<% if (graphApiVersion === "beta") { -%>
+using Microsoft.Graph.Beta;
+using Microsoft.Graph.Beta.Models.ExternalConnectors;
+using Microsoft.Graph.Beta.Models.ODataErrors;
+<% } else { -%>
+using Microsoft.Graph;
+using Microsoft.Graph.Models.ExternalConnectors;
+using Microsoft.Graph.Models.ODataErrors;
+<% } -%>
+using Microsoft.Kiota.Abstractions;
+using Microsoft.Kiota.Abstractions.Serialization;
+using System.CommandLine;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+
+using <%= namespaceName %>.Datasource;
+using <%= namespaceName %>.Schema;
+
+namespace <%= namespaceName %>.Core;
+
+/// <summary>
+/// Reusable connector core for provisioning, ingestion, and deletion.
+/// </summary>
+public sealed class ConnectorCore
+{
+    private readonly GraphServiceClient? _graph;
+    private readonly ClientSecretCredential? _credential;
+    private readonly string _connectionId;
+    private readonly string _connectionName;
+    private readonly string _connectionDescription;
+    private readonly string? _contentCategory;
+    private readonly string? _profileSourceWebUrl;
+    private readonly string? _profileSourceDisplayName;
+    private readonly string? _profileSourcePriority;
+
+    public ConnectorCore(
+        GraphServiceClient? graph,
+        ClientSecretCredential? credential,
+        string connectionId,
+        string connectionName,
+        string connectionDescription,
+        string? contentCategory,
+        string? profileSourceWebUrl,
+        string? profileSourceDisplayName,
+        string? profileSourcePriority)
+    {
+        _graph = graph;
+        _credential = credential;
+        _connectionId = connectionId;
+        _connectionName = connectionName;
+        _connectionDescription = connectionDescription;
+        _contentCategory = contentCategory;
+        _profileSourceWebUrl = profileSourceWebUrl;
+        _profileSourceDisplayName = profileSourceDisplayName;
+        _profileSourcePriority = profileSourcePriority;
+    }
+
+    /// <summary>
+    /// Provision the connection and schema (and profile source for people connectors).
+    /// </summary>
+    public async Task ProvisionAsync()
+    {
+        EnsureGraph();
+        await EnsureConnectionAsync();
+        await PatchSchemaAsync();
+        if (HasProfileSource())
+        {
+<% if (isPeopleConnector) { -%>
+            await RegisterProfileSourceInternalAsync(_connectionId);
+<% } else { -%>
+            throw new InvalidOperationException("Profile source registration is only supported for people connectors.");
+<% } -%>
+        }
+    }
+
+    /// <summary>
+    /// Delete the external connection.
+    /// </summary>
+    public async Task DeleteConnectionAsync()
+    {
+        EnsureGraph();
+
+        if (HasProfileSource())
+        {
+<% if (isPeopleConnector) { -%>
+            await UnregisterProfileSourceInternalAsync(_connectionId);
+<% } else { -%>
+            throw new InvalidOperationException("Profile source registration is only supported for people connectors.");
+<% } -%>
+        }
+
+        try
+        {
+            await _graph!.External.Connections[_connectionId].DeleteAsync();
+        }
+        catch (ApiException ex) when (IsStatus(ex, 404))
+        {
+            // Already deleted.
+        }
+    }
+
+    /// <summary>
+    /// Upsert a single item into the external connection.
+    /// </summary>
+    public async Task PutItemAsync(<%= itemTypeName %> item, bool verbose)
+    {
+        EnsureGraph();
+
+        var itemId = ItemPayload.GetItemId(item);
+        var externalItem = ItemPayload.ToExternalItem(item);
+        if (verbose)
+        {
+            var url = $"{_graph!.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl}/external/connections/{_connectionId}/items/{Uri.EscapeDataString(itemId)}";
+            Console.WriteLine("verbose: PUT " + url);
+            Console.WriteLine("verbose: payload " + JsonSerializer.Serialize(externalItem, new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        var requestInfo = new RequestInformation
+        {
+            HttpMethod = Method.PUT,
+            UrlTemplate = "{+baseurl}/external/connections/{connectionId}/items/{itemId}",
+            PathParameters = new Dictionary<string, object>
+            {
+                { "baseurl", _graph!.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl },
+                { "connectionId", _connectionId },
+                { "itemId", itemId },
+            },
+        };
+
+        requestInfo.Headers.Add("Accept", "application/json");
+        requestInfo.SetContentFromParsable(_graph!.RequestAdapter, "application/json", externalItem);
+
+        var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+        {
+            { "4XX", ODataError.CreateFromDiscriminatorValue },
+            { "5XX", ODataError.CreateFromDiscriminatorValue },
+        };
+
+        await RetryAsync(
+            () => _graph!.RequestAdapter.SendAsync<ExternalItem>(
+                requestInfo,
+                ExternalItem.CreateFromDiscriminatorValue,
+                errorMapping
+            ),
+            ex => ex.ResponseStatusCode,
+            "PUT item"
+        );
+    }
+
+    /// <summary>
+    /// Ingest items from a datasource.
+    /// </summary>
+    public async Task IngestAsync(IItemSource source, bool dryRun, int? limit, bool verbose)
+    {
+        var count = 0;
+        await foreach (var item in source.GetItemsAsync())
+        {
+            if (limit.HasValue && count >= limit.Value)
+                break;
+
+            if (!dryRun)
+            {
+                await PutItemAsync(item, verbose);
+            }
+            else if (verbose)
+            {
+                Console.WriteLine("verbose: DRY RUN payload " + JsonSerializer.Serialize(ItemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
+            }
+
+            count++;
+        }
+
+        Console.WriteLine($"ok: ingested {count} item(s)");
+    }
+
+    private void EnsureGraph()
+    {
+        if (_graph is null)
+        {
+            throw new InvalidOperationException("Graph client is required for this operation.");
+        }
+    }
+
+    private bool HasProfileSource()
+    {
+        return !string.IsNullOrWhiteSpace(_profileSourceWebUrl);
+    }
+
+    private async Task EnsureConnectionAsync()
+    {
+        try
+        {
+            await RetryAsync(
+                () => _graph!.External.Connections[_connectionId].GetAsync(),
+                ex => ex.ResponseStatusCode,
+                "GET connection"
+            );
+            return;
+        }
+        catch (ApiException ex) when (IsStatus(ex, 404))
+        {
+            // Create below.
+        }
+
+        var connection = new ExternalConnection
+        {
+            Id = _connectionId,
+            Name = _connectionName,
+            Description = _connectionDescription,
+        };
+
+        if (!string.IsNullOrWhiteSpace(_contentCategory))
+        {
+            connection.AdditionalData ??= new Dictionary<string, object>();
+            connection.AdditionalData["contentCategory"] = _contentCategory!;
+        }
+
+        await RetryAsync(
+            () => _graph!.External.Connections.PostAsync(connection),
+            ex => ex.ResponseStatusCode,
+            "POST connection"
+        );
+    }
+
+    private async Task PatchSchemaAsync()
+    {
+        var schema = SchemaPayload.BuildSchema();
+        await RetryAsync(
+            () => _graph!.External.Connections[_connectionId].Schema.PatchAsync(schema),
+            ex => ex.ResponseStatusCode,
+            "PATCH schema"
+        );
+
+        await WaitForSchemaReadyAsync();
+    }
+
+    private bool IsStatus(ApiException ex, int statusCode)
+    {
+        return ex.ResponseStatusCode is int sc && sc == statusCode;
+    }
+
+    private async Task RetryAsync(Func<Task> action, Func<ApiException, int?>? getStatusCode, string operation)
+    {
+        for (var attempt = 0; attempt <= MaxRetries; attempt++)
+        {
+            try
+            {
+                await action();
+                return;
+            }
+            catch (ApiException ex)
+            {
+                int? status = getStatusCode?.Invoke(ex) ?? ex.ResponseStatusCode;
+                if (status is null || !ShouldRetry(status.Value) || attempt == MaxRetries)
+                {
+                    throw;
+                }
+
+                var retryAfterMs = ParseRetryAfterMs(ex.ResponseHeaders);
+                var delay = ComputeDelayMs(attempt, retryAfterMs);
+                Console.WriteLine($"warn: throttled (HTTP {status}) for {operation}, retrying in {delay}ms");
+                await Task.Delay(delay);
+            }
+        }
+    }
+
+    private static bool ShouldRetry(int statusCode) => statusCode is 429 or 503 or 504;
+
+    private static int? ParseRetryAfterMs(IDictionary<string, IEnumerable<string>>? headers)
+    {
+        if (headers is null) return null;
+        if (!headers.TryGetValue("Retry-After", out var values)) return null;
+
+        string? value = null;
+        foreach (var entry in values)
+        {
+            value = entry;
+            break;
+        }
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        if (int.TryParse(value, out var seconds))
+        {
+            return Math.Max(0, seconds * 1000);
+        }
+
+        if (DateTimeOffset.TryParse(value, out var date))
+        {
+            var delta = date - DateTimeOffset.UtcNow;
+            return Math.Max(0, (int)delta.TotalMilliseconds);
+        }
+
+        return null;
+    }
+
+    private static int ComputeDelayMs(int attempt, int? retryAfterMs)
+    {
+        if (retryAfterMs.HasValue) return Math.Min(retryAfterMs.Value, MaxDelayMs);
+        var exp = Math.Min(MaxDelayMs, BaseDelayMs * (int)Math.Pow(2, attempt));
+        var jitter = Random.Shared.Next(0, 250);
+        return Math.Min(MaxDelayMs, exp + jitter);
+    }
+
+    private const int MaxRetries = 6;
+    private const int BaseDelayMs = 1000;
+    private const int MaxDelayMs = 30000;
+
+<% if (isPeopleConnector) { -%>
+    /// <summary>
+    /// Register the connection as a people profile source.
+    /// </summary>
+    public async Task RegisterProfileSourceAsync()
+    {
+        if (!HasProfileSource())
+            throw new InvalidOperationException("Profile source settings are missing.");
+
+        await RegisterProfileSourceInternalAsync(_connectionId);
+    }
+
+    /// <summary>
+    /// Remove the connection from people profile source registrations.
+    /// </summary>
+    public async Task UnregisterProfileSourceAsync()
+    {
+        if (!HasProfileSource())
+            throw new InvalidOperationException("Profile source settings are missing.");
+
+        await UnregisterProfileSourceInternalAsync(_connectionId);
+    }
+
+    private async Task<string> GetAccessTokenAsync(ClientSecretCredential credential)
+    {
+        var token = await credential.GetTokenAsync(
+            new TokenRequestContext(new[] { "https://graph.microsoft.com/.default" })
+        );
+        return token.Token;
+    }
+
+    private async Task<HttpResponseMessage> GraphRequestAsync(ClientSecretCredential credential, HttpMethod method, string url, object? body = null)
+    {
+        using var http = new HttpClient();
+        var token = await GetAccessTokenAsync(credential);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var request = new HttpRequestMessage(method, url);
+        if (body is not null)
+        {
+            var json = JsonSerializer.Serialize(body);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
+
+        return await http.SendAsync(request);
+    }
+
+    private async Task RegisterProfileSourceInternalAsync(string connectionId)
+    {
+        if (_credential is null)
+            throw new InvalidOperationException("Credential required for profile source registration.");
+
+        if (await ProfileSourceExistsAsync(connectionId))
+            return;
+
+        var webUrl = _profileSourceWebUrl ?? string.Empty;
+        var displayName = _profileSourceDisplayName ?? _connectionName;
+        var priority = _profileSourcePriority ?? "first";
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["sourceId"] = connectionId,
+            ["displayName"] = displayName,
+            ["webUrl"] = webUrl,
+        };
+
+        var create = await GraphRequestAsync(
+            _credential,
+            HttpMethod.Post,
+            $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources",
+            payload
+        );
+
+        if (!create.IsSuccessStatusCode && create.StatusCode != System.Net.HttpStatusCode.Conflict)
+        {
+            var text = await create.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Failed to register profile source (HTTP {(int)create.StatusCode}): {text}");
+        }
+
+        var sourceUrl = $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')";
+        await UpdateProfileSourcePrecedenceAsync(_credential, sourceUrl, include: true, priority: priority);
+    }
+
+    private async Task UnregisterProfileSourceInternalAsync(string connectionId)
+    {
+        if (_credential is null)
+            throw new InvalidOperationException("Credential required for profile source registration.");
+
+        var sourceUrl = $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')";
+
+        await UpdateProfileSourcePrecedenceAsync(_credential, sourceUrl, include: false, priority: "first");
+
+        var res = await GraphRequestAsync(
+            _credential,
+            HttpMethod.Delete,
+            $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')"
+        );
+
+        if (!res.IsSuccessStatusCode && res.StatusCode != System.Net.HttpStatusCode.NotFound)
+        {
+            var text = await res.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Failed to delete profile source (HTTP {(int)res.StatusCode}): {text}");
+        }
+    }
+
+    private async Task UpdateProfileSourcePrecedenceAsync(ClientSecretCredential credential, string sourceUrl, bool include, string priority)
+    {
+        var res = await GraphRequestAsync(
+            credential,
+            HttpMethod.Get,
+            $"{SchemaConstants.GraphBaseUrl}/admin/people/profilePropertySettings"
+        );
+
+        if (!res.IsSuccessStatusCode)
+        {
+            var text = await res.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Failed to list profile property settings (HTTP {(int)res.StatusCode}): {text}");
+        }
+
+        var json = await res.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("value", out var values) || values.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var entry in values.EnumerateArray())
+        {
+            if (!entry.TryGetProperty("id", out var idProp) || idProp.ValueKind != JsonValueKind.String)
+                continue;
+
+            var id = idProp.GetString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(id)) continue;
+
+            List<string> existing = new();
+            if (entry.TryGetProperty("prioritizedSourceUrls", out var urls) && urls.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var url in urls.EnumerateArray())
+                {
+                    if (url.ValueKind == JsonValueKind.String)
+                        existing.Add(url.GetString() ?? "");
+                }
+            }
+
+            existing = DeduplicateUrls(existing).Where((u) => !string.IsNullOrWhiteSpace(u) && u != sourceUrl).ToList();
+            var updated = existing;
+            if (include)
+            {
+                updated = priority == "last"
+                    ? DeduplicateUrls(existing.Concat(new[] { sourceUrl }).ToList())
+                    : DeduplicateUrls(new[] { sourceUrl }.Concat(existing).ToList());
+            }
+
+            var patch = new Dictionary<string, object?>
+            {
+                ["@odata.type"] = "#microsoft.graph.profilePropertySetting",
+                ["prioritizedSourceUrls"] = updated,
+            };
+
+            var patchRes = await GraphRequestAsync(
+                credential,
+                HttpMethod.Patch,
+                $"{SchemaConstants.GraphBaseUrl}/admin/people/profilePropertySettings/{id}",
+                patch
+            );
+
+            if (!patchRes.IsSuccessStatusCode)
+            {
+                var text = await patchRes.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Failed to update profile property setting {id} (HTTP {(int)patchRes.StatusCode}): {text}");
+            }
+        }
+    }
+
+    private static List<string> DeduplicateUrls(List<string> values)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value)) continue;
+            if (!seen.Add(value)) continue;
+            result.Add(value);
+        }
+        return result;
+    }
+
+    private async Task<bool> ProfileSourceExistsAsync(string connectionId)
+    {
+        var res = await GraphRequestAsync(
+            _credential!,
+            HttpMethod.Get,
+            $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources"
+        );
+
+        if (!res.IsSuccessStatusCode)
+        {
+            var text = await res.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Failed to list profile sources (HTTP {(int)res.StatusCode}): {text}");
+        }
+
+        var json = await res.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("value", out var values) || values.ValueKind != JsonValueKind.Array)
+            return false;
+
+        foreach (var entry in values.EnumerateArray())
+        {
+            if (entry.TryGetProperty("sourceId", out var idProp) && idProp.ValueKind == JsonValueKind.String)
+            {
+                var sourceId = idProp.GetString();
+                if (!string.IsNullOrWhiteSpace(sourceId) && sourceId == connectionId)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+<% } -%>
+
+    private async Task WaitForSchemaReadyAsync()
+    {
+        EnsureGraph();
+        for (var attempt = 0; attempt < SchemaPollMaxAttempts; attempt++)
+        {
+            var schema = await _graph!.External.Connections[_connectionId].Schema.GetAsync();
+            var state = GetSchemaState(schema?.AdditionalData);
+            if (string.IsNullOrWhiteSpace(state)) return;
+
+            var normalized = state.Trim().ToLowerInvariant();
+            if (SchemaReadyStates.Contains(normalized)) return;
+            if (!SchemaPendingStates.Contains(normalized))
+            {
+                throw new InvalidOperationException($"Schema provisioning failed with status '{state}'.");
+            }
+            await Task.Delay(SchemaPollDelayMs);
+        }
+
+        throw new InvalidOperationException("Schema provisioning timed out.");
+    }
+
+    private static string? GetSchemaState(IDictionary<string, object>? data)
+    {
+        if (data is null) return null;
+        if (!data.TryGetValue("status", out var statusObj) || statusObj is null) return null;
+
+        if (statusObj is string statusString) return statusString;
+        if (statusObj is JsonElement json)
+        {
+            if (json.ValueKind == JsonValueKind.String) return json.GetString();
+            if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("state", out var stateProp))
+            {
+                return stateProp.ValueKind == JsonValueKind.String ? stateProp.GetString() : null;
+            }
+        }
+        if (statusObj is IDictionary<string, object> dict && dict.TryGetValue("state", out var stateObj))
+        {
+            return stateObj?.ToString();
+        }
+        return null;
+    }
+
+    private const int SchemaPollMaxAttempts = 12;
+    private const int SchemaPollDelayMs = 30000;
+    private static readonly HashSet<string> SchemaReadyStates = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "completed",
+        "ready",
+        "succeeded",
+        "success",
+    };
+    private static readonly HashSet<string> SchemaPendingStates = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "inprogress",
+        "pending",
+        "running",
+        "updating",
+    };
+}

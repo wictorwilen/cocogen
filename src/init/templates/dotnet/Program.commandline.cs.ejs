@@ -1,24 +1,15 @@
 // Connector CLI for provisioning, ingestion, and deletion.
-using Azure.Core;
 using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 <% if (graphApiVersion === "beta") { -%>
 using Microsoft.Graph.Beta;
-using Microsoft.Graph.Beta.Models.ExternalConnectors;
-using Microsoft.Graph.Beta.Models.ODataErrors;
 <% } else { -%>
 using Microsoft.Graph;
-using Microsoft.Graph.Models.ExternalConnectors;
-using Microsoft.Graph.Models.ODataErrors;
 <% } -%>
-using Microsoft.Kiota.Abstractions;
-using Microsoft.Kiota.Abstractions.Serialization;
 using System.CommandLine;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using System.Threading;
 
+using <%= namespaceName %>.Core;
 using <%= namespaceName %>.Datasource;
 using <%= namespaceName %>.Schema;
 
@@ -87,168 +78,18 @@ GraphServiceClient CreateGraphClient()
     return graph;
 }
 
-const int MaxRetries = 6;
-const int BaseDelayMs = 1000;
-const int MaxDelayMs = 30000;
-
-static bool ShouldRetry(int statusCode) => statusCode is 429 or 503 or 504;
-
-/// <summary>
-/// Parse Retry-After headers into a delay (milliseconds).
-/// </summary>
-static int? ParseRetryAfterMs(IDictionary<string, IEnumerable<string>>? headers)
+ConnectorCore BuildConnectorCore(GraphServiceClient? graph, ClientSecretCredential? credential, string connectionId)
 {
-    if (headers is null) return null;
-    if (!headers.TryGetValue("Retry-After", out var values)) return null;
-
-    string? value = null;
-    foreach (var entry in values)
-    {
-        value = entry;
-        break;
-    }
-    if (string.IsNullOrWhiteSpace(value)) return null;
-
-    if (int.TryParse(value, out var seconds))
-    {
-        return Math.Max(0, seconds * 1000);
-    }
-
-    if (DateTimeOffset.TryParse(value, out var date))
-    {
-        var delta = date - DateTimeOffset.UtcNow;
-        return Math.Max(0, (int)delta.TotalMilliseconds);
-    }
-
-    return null;
-}
-
-/// <summary>
-/// Compute retry delay with exponential backoff and jitter.
-/// </summary>
-static int ComputeDelayMs(int attempt, int? retryAfterMs)
-{
-    if (retryAfterMs.HasValue) return Math.Min(retryAfterMs.Value, MaxDelayMs);
-    var exp = Math.Min(MaxDelayMs, BaseDelayMs * (int)Math.Pow(2, attempt));
-    var jitter = Random.Shared.Next(0, 250);
-    return Math.Min(MaxDelayMs, exp + jitter);
-}
-
-/// <summary>
-/// Execute an action with throttling retries and backoff.
-/// </summary>
-async Task RetryAsync(Func<Task> action, Func<ApiException, int?>? getStatusCode, string operation)
-{
-    for (var attempt = 0; attempt <= MaxRetries; attempt++)
-    {
-        try
-        {
-            await action();
-            return;
-        }
-        catch (ApiException ex)
-        {
-            int? status = getStatusCode?.Invoke(ex) ?? ex.ResponseStatusCode;
-            if (status is null || !ShouldRetry(status.Value) || attempt == MaxRetries)
-            {
-                throw;
-            }
-
-            var retryAfterMs = ParseRetryAfterMs(ex.ResponseHeaders);
-            var delay = ComputeDelayMs(attempt, retryAfterMs);
-            Console.WriteLine($"warn: throttled (HTTP {status}) for {operation}, retrying in {delay}ms");
-            await Task.Delay(delay);
-        }
-    }
-}
-
-<% if (isPeopleConnector) { -%>
-/// <summary>
-/// Acquire an access token for the Graph people profile endpoints.
-/// </summary>
-async Task<string> GetAccessTokenAsync(ClientSecretCredential credential)
-{
-    var token = await credential.GetTokenAsync(
-        new TokenRequestContext(new[] { "https://graph.microsoft.com/.default" })
-    );
-    return token.Token;
-}
-
-/// <summary>
-/// Execute a raw Graph request for people profile management.
-/// </summary>
-async Task<HttpResponseMessage> GraphRequestAsync(ClientSecretCredential credential, HttpMethod method, string url, object? body = null)
-{
-    using var http = new HttpClient();
-    var token = await GetAccessTokenAsync(credential);
-    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-    var request = new HttpRequestMessage(method, url);
-    if (body is not null)
-    {
-        var json = JsonSerializer.Serialize(body);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-    }
-
-    return await http.SendAsync(request);
-}
-<% } -%>
-
-bool IsStatus(ApiException ex, int statusCode)
-{
-    return ex.ResponseStatusCode is int sc && sc == statusCode;
-}
-
-/// <summary>
-/// Ensure the external connection exists (create if missing).
-/// </summary>
-async Task EnsureConnectionAsync(GraphServiceClient graph, string connectionId)
-{
-    try
-    {
-        await RetryAsync(
-            () => graph.External.Connections[connectionId].GetAsync(),
-            ex => ex.ResponseStatusCode,
-            "GET connection"
-        );
-        return;
-    }
-    catch (ApiException ex) when (IsStatus(ex, 404))
-    {
-        // Create below.
-    }
-
-    var connection = new ExternalConnection
-    {
-        Id = connectionId,
-        Name = ConnectionName(),
-        Description = ConnectionDescription(),
-    };
-
-    if (!string.IsNullOrWhiteSpace(SchemaConstants.ContentCategory))
-    {
-        // contentCategory is currently only exposed on the /beta endpoint.
-        connection.AdditionalData ??= new Dictionary<string, object>();
-        connection.AdditionalData["contentCategory"] = SchemaConstants.ContentCategory!;
-    }
-
-    await RetryAsync(
-        () => graph.External.Connections.PostAsync(connection),
-        ex => ex.ResponseStatusCode,
-        "POST connection"
-    );
-}
-
-/// <summary>
-/// Patch the connection schema using the generated payload.
-/// </summary>
-async Task PatchSchemaAsync(GraphServiceClient graph, string connectionId)
-{
-    var schema = SchemaPayload.BuildSchema();
-    await RetryAsync(
-        () => graph.External.Connections[connectionId].Schema.PatchAsync(schema),
-        ex => ex.ResponseStatusCode,
-        "PATCH schema"
+    return new ConnectorCore(
+        graph,
+        credential,
+        connectionId,
+        ConnectionName(),
+        ConnectionDescription(),
+        SchemaConstants.ContentCategory,
+        <%- isPeopleConnector ? "ProfileSourceWebUrl()" : "null" %>,
+        <%- isPeopleConnector ? "ProfileSourceDisplayName()" : "null" %>,
+        <%- isPeopleConnector ? "ProfileSourcePriority()" : "null" %>
     );
 }
 
@@ -258,73 +99,26 @@ async Task PatchSchemaAsync(GraphServiceClient graph, string connectionId)
 async Task ProvisionAsync()
 {
     var graph = CreateGraphClient();
+    var credential = CreateCredential();
     var connectionId = ConnectionId();
+    var core = BuildConnectorCore(graph, credential, connectionId);
 
-    await EnsureConnectionAsync(graph, connectionId);
-    await PatchSchemaAsync(graph, connectionId);
-<% if (isPeopleConnector) { -%>
-    await RegisterProfileSourceAsync(connectionId);
-<% } -%>
-
+    await core.ProvisionAsync();
     Console.WriteLine("ok: provisioned");
 }
 
 /// <summary>
-/// Upsert a single item into the external connection.
+/// Ingest items from CSV.
 /// </summary>
-async Task PutItemAsync(GraphServiceClient graph, string connectionId, <%= itemTypeName %> item, bool verbose)
-{
-    var itemId = ItemPayload.GetItemId(item);
-
-    var externalItem = ItemPayload.ToExternalItem(item);
-    if (verbose)
-    {
-        var url = $"{graph.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl}/external/connections/{connectionId}/items/{Uri.EscapeDataString(itemId)}";
-        Console.WriteLine("verbose: PUT " + url);
-        Console.WriteLine("verbose: payload " + JsonSerializer.Serialize(externalItem, new JsonSerializerOptions { WriteIndented = true }));
-    }
-
-    // NOTE: The external connectors surface may not expose a typed PutAsync on all SDK versions.
-    // We still use the Graph SDK's request adapter and models for a strongly-typed payload.
-    var requestInfo = new RequestInformation
-    {
-        HttpMethod = Method.PUT,
-        UrlTemplate = "{+baseurl}/external/connections/{connectionId}/items/{itemId}",
-        PathParameters = new Dictionary<string, object>
-        {
-            { "baseurl", graph.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl },
-            { "connectionId", connectionId },
-            { "itemId", itemId },
-        },
-    };
-
-    requestInfo.Headers.Add("Accept", "application/json");
-    requestInfo.SetContentFromParsable(graph.RequestAdapter, "application/json", externalItem);
-
-    var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
-    {
-        { "4XX", ODataError.CreateFromDiscriminatorValue },
-        { "5XX", ODataError.CreateFromDiscriminatorValue },
-    };
-
-    await RetryAsync(
-        () => graph.RequestAdapter.SendAsync<ExternalItem>(
-            requestInfo,
-            ExternalItem.CreateFromDiscriminatorValue,
-            errorMapping
-        ),
-        ex => ex.ResponseStatusCode,
-        "PUT item"
-    );
-}
-
 async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose)
 {
     GraphServiceClient? graph = null;
-    string? connectionId = null;
+    ClientSecretCredential? credential = null;
+    string connectionId = "dry-run";
     if (!dryRun)
     {
         graph = CreateGraphClient();
+        credential = CreateCredential();
         connectionId = ConnectionId();
     }
 
@@ -333,163 +127,22 @@ async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose)
 
     // Swap this for any IItemSource implementation (API, DB, queue, etc.).
     IItemSource source = new CsvItemSource(path);
+    var core = BuildConnectorCore(graph, credential, connectionId);
 
-    var count = 0;
-    await foreach (var item in source.GetItemsAsync())
-    {
-        if (limit.HasValue && count >= limit.Value)
-            break;
-        if (!dryRun)
-        {
-            await PutItemAsync(graph!, connectionId!, item, verbose);
-        }
-        else if (verbose)
-        {
-            Console.WriteLine("verbose: DRY RUN payload " + JsonSerializer.Serialize(ItemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
-        }
-        count++;
-    }
-
-    Console.WriteLine($"ok: ingested {count} item(s)");
+    await core.IngestAsync(source, dryRun, limit, verbose);
 }
 
-<% if (isPeopleConnector) { -%>
-async Task RegisterProfileSourceAsync(string connectionId)
-{
-    var credential = CreateCredential();
-    var webUrl = ProfileSourceWebUrl();
-    var displayName = ProfileSourceDisplayName();
-    var priority = ProfileSourcePriority();
-
-    var payload = new Dictionary<string, object?>
-    {
-        ["sourceId"] = connectionId,
-        ["displayName"] = displayName,
-        ["webUrl"] = webUrl,
-    };
-
-    var create = await GraphRequestAsync(
-        credential,
-        HttpMethod.Post,
-        $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources",
-        payload
-    );
-
-    if (!create.IsSuccessStatusCode && create.StatusCode != System.Net.HttpStatusCode.Conflict)
-    {
-        var text = await create.Content.ReadAsStringAsync();
-        throw new InvalidOperationException($"Failed to register profile source (HTTP {(int)create.StatusCode}): {text}");
-    }
-
-    var sourceUrl = $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')";
-    await UpdateProfileSourcePrecedenceAsync(credential, sourceUrl, include: true, priority: priority);
-}
-
-async Task UnregisterProfileSourceAsync(string connectionId)
-{
-    var credential = CreateCredential();
-    var sourceUrl = $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')";
-
-    await UpdateProfileSourcePrecedenceAsync(credential, sourceUrl, include: false, priority: "first");
-
-    var res = await GraphRequestAsync(
-        credential,
-        HttpMethod.Delete,
-        $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')"
-    );
-
-    if (!res.IsSuccessStatusCode && res.StatusCode != System.Net.HttpStatusCode.NotFound)
-    {
-        var text = await res.Content.ReadAsStringAsync();
-        throw new InvalidOperationException($"Failed to delete profile source (HTTP {(int)res.StatusCode}): {text}");
-    }
-}
-
-async Task UpdateProfileSourcePrecedenceAsync(ClientSecretCredential credential, string sourceUrl, bool include, string priority)
-{
-    var res = await GraphRequestAsync(
-        credential,
-        HttpMethod.Get,
-        $"{SchemaConstants.GraphBaseUrl}/admin/people/profilePropertySettings"
-    );
-
-    if (!res.IsSuccessStatusCode)
-    {
-        var text = await res.Content.ReadAsStringAsync();
-        throw new InvalidOperationException($"Failed to list profile property settings (HTTP {(int)res.StatusCode}): {text}");
-    }
-
-    var json = await res.Content.ReadAsStringAsync();
-    using var doc = JsonDocument.Parse(json);
-    if (!doc.RootElement.TryGetProperty("value", out var values) || values.ValueKind != JsonValueKind.Array)
-        return;
-
-    foreach (var entry in values.EnumerateArray())
-    {
-        if (!entry.TryGetProperty("id", out var idProp) || idProp.ValueKind != JsonValueKind.String)
-            continue;
-
-        var id = idProp.GetString() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(id)) continue;
-
-        List<string> existing = new();
-        if (entry.TryGetProperty("prioritizedSourceUrls", out var urls) && urls.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var url in urls.EnumerateArray())
-            {
-                if (url.ValueKind == JsonValueKind.String)
-                    existing.Add(url.GetString() ?? "");
-            }
-        }
-
-        existing = existing.Where((u) => !string.IsNullOrWhiteSpace(u) && u != sourceUrl).ToList();
-        var updated = existing;
-        if (include)
-        {
-            updated = priority == "last"
-                ? existing.Concat(new[] { sourceUrl }).ToList()
-                : new[] { sourceUrl }.Concat(existing).ToList();
-        }
-
-        var patch = new Dictionary<string, object?>
-        {
-            ["@odata.type"] = "#microsoft.graph.profilePropertySetting",
-            ["prioritizedSourceUrls"] = updated,
-        };
-
-        var patchRes = await GraphRequestAsync(
-            credential,
-            HttpMethod.Patch,
-            $"{SchemaConstants.GraphBaseUrl}/admin/people/profilePropertySettings/{id}",
-            patch
-        );
-
-        if (!patchRes.IsSuccessStatusCode)
-        {
-            var text = await patchRes.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Failed to update profile property setting {id} (HTTP {(int)patchRes.StatusCode}): {text}");
-        }
-    }
-}
-<% } -%>
-
+/// <summary>
+/// Delete the external connection.
+/// </summary>
 async Task DeleteConnectionAsync()
 {
     var graph = CreateGraphClient();
+    var credential = CreateCredential();
     var connectionId = ConnectionId();
+    var core = BuildConnectorCore(graph, credential, connectionId);
 
-<% if (isPeopleConnector) { -%>
-    await UnregisterProfileSourceAsync(connectionId);
-<% } -%>
-
-    try
-    {
-        await graph.External.Connections[connectionId].DeleteAsync();
-    }
-    catch (ApiException ex) when (IsStatus(ex, 404))
-    {
-        // Already deleted.
-    }
+    await core.DeleteConnectionAsync();
     Console.WriteLine("ok: deleted");
 }
 
@@ -525,19 +178,20 @@ root.AddCommand(deleteCommand);
 
 <% if (isPeopleConnector) { -%>
 var registerCommand = new Command("register-profile-source", "Register the connection as a profile source");
-registerCommand.SetHandler(async () => await RegisterProfileSourceAsync(ConnectionId()));
+registerCommand.SetHandler(async () =>
+{
+    var graph = CreateGraphClient();
+    var credential = CreateCredential();
+    var connectionId = ConnectionId();
+    var core = BuildConnectorCore(graph, credential, connectionId);
+    await core.RegisterProfileSourceAsync();
+});
 root.AddCommand(registerCommand);
 <% } -%>
 
 try
 {
     return await root.InvokeAsync(args);
-}
-catch (ApiException ex)
-{
-    Console.Error.WriteLine("error: Graph request failed");
-    Console.Error.WriteLine(ex.Message);
-    return 1;
 }
 catch (Exception ex)
 {

@@ -18,9 +18,9 @@ import {
 } from "./schema/index.js";
 import { getItemId, toExternalItem } from "./schema/itemPayload.js";
 import { CsvItemSource } from "./datasource/csvItemSource.js";
+import { ConnectorCore } from "./core/connectorCore.js";
 
 const GRAPH_BASE_URL = <%= JSON.stringify(graphBaseUrl) %>;
-const PROFILE_SOURCE_URL_PREFIX = `${GRAPH_BASE_URL}/admin/people/profileSources`;
 
 /**
  * Resolve a required environment variable or throw a friendly error.
@@ -62,12 +62,9 @@ function resolveProfileSourcePriority(): "first" | "last" {
   if (value !== "first" && value !== "last") {
     throw new Error("Invalid PROFILE_SOURCE_PRIORITY: expected 'first' or 'last'");
   }
-  return value;
+  return value as "first" | "last";
 }
 
-/**
- * Acquire an app-only access token for Microsoft Graph.
- */
 async function getAccessToken(): Promise<string> {
   const tenantId = requiredEnv("TENANT_ID");
   const clientId = requiredEnv("CLIENT_ID");
@@ -79,196 +76,27 @@ async function getAccessToken(): Promise<string> {
   return token.token;
 }
 
-const MAX_RETRIES = 6;
-const BASE_DELAY_MS = 1000;
-const MAX_DELAY_MS = 30000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parseRetryAfter(value: string | null): number | null {
-  if (!value) return null;
-  const seconds = Number(value);
-  if (!Number.isNaN(seconds) && Number.isFinite(seconds)) {
-    return Math.max(0, seconds * 1000);
-  }
-
-  const dateMs = Date.parse(value);
-  if (!Number.isNaN(dateMs)) {
-    return Math.max(0, dateMs - Date.now());
-  }
-
-  return null;
-}
-
-function computeDelay(attempt: number, retryAfter: number | null): number {
-  if (retryAfter !== null) return Math.min(retryAfter, MAX_DELAY_MS);
-  const exp = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * Math.pow(2, attempt));
-  const jitter = Math.floor(Math.random() * 250);
-  return Math.min(MAX_DELAY_MS, exp + jitter);
-}
-
-function shouldRetry(status: number): boolean {
-  return status === 429 || status === 503 || status === 504;
-}
-
 /**
- * Execute a Graph request with throttling retries and backoff.
+ * Build a reusable connector core instance.
  */
-async function graphRequest(method: string, url: string, body?: unknown): Promise<Response> {
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const token = await getAccessToken();
-    const res = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
+function buildConnectorCore(): ConnectorCore<<%= itemTypeName %>> {
+  const profileSource = <%- isPeopleConnector
+    ? `{
+    webUrl: resolveProfileSourceWebUrl(),
+    displayName: process.env.PROFILE_SOURCE_DISPLAY_NAME ?? defaultProfileSourceDisplayName ?? requiredEnv("CONNECTION_NAME"),
+    priority: resolveProfileSourcePriority()
+  }`
+    : "undefined" %>;
 
-    if (!shouldRetry(res.status) || attempt === MAX_RETRIES) {
-      return res;
-    }
-
-    const retryAfterMs = parseRetryAfter(res.headers.get("Retry-After"));
-    const delay = computeDelay(attempt, retryAfterMs);
-    console.warn(`warn: throttled (HTTP ${res.status}) for ${url}, retrying in ${delay}ms`);
-    await sleep(delay);
-  }
-
-  throw new Error("Failed to send request after retries.");
-}
-
-<% if (isPeopleConnector) { -%>
-/**
- * List profile property settings to update profile source priority.
- */
-async function listProfilePropertySettings(): Promise<Array<{ id: string; prioritizedSourceUrls: string[] }>> {
-  const res = await graphRequest("GET", `${GRAPH_BASE_URL}/admin/people/profilePropertySettings`);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to list profile property settings (HTTP ${res.status}): ${text}`);
-  }
-  const json = (await res.json()) as { value?: Array<{ id?: string; prioritizedSourceUrls?: string[] }> };
-  return (json.value ?? [])
-    .filter((entry) => typeof entry.id === "string")
-    .map((entry) => ({
-      id: entry.id as string,
-      prioritizedSourceUrls: Array.isArray(entry.prioritizedSourceUrls) ? entry.prioritizedSourceUrls : [],
-    }));
-}
-
-/**
- * Register this connection as a people profile source.
- */
-async function registerProfileSource(connectionId: string): Promise<void> {
-  const webUrl = resolveProfileSourceWebUrl();
-  const displayName =
-    process.env.PROFILE_SOURCE_DISPLAY_NAME ?? defaultProfileSourceDisplayName ?? requiredEnv("CONNECTION_NAME");
-  const priority = resolveProfileSourcePriority();
-
-  const payload: any = {
-    sourceId: connectionId,
-    displayName,
-    webUrl
-  };
-
-  const create = await graphRequest("POST", `${GRAPH_BASE_URL}/admin/people/profileSources`, payload);
-  if (!create.ok && create.status !== 409) {
-    const text = await create.text();
-    throw new Error(`Failed to register profile source (HTTP ${create.status}): ${text}`);
-  }
-
-  const sourceUrl = `${PROFILE_SOURCE_URL_PREFIX}(sourceId='${connectionId}')`;
-  const settings = await listProfilePropertySettings();
-  for (const setting of settings) {
-    const existing = setting.prioritizedSourceUrls.filter((value) => value !== sourceUrl);
-    const updated = priority === "first" ? [sourceUrl, ...existing] : [...existing, sourceUrl];
-    const res = await graphRequest(
-      "PATCH",
-      `${GRAPH_BASE_URL}/admin/people/profilePropertySettings/${setting.id}`,
-      {
-        "@odata.type": "#microsoft.graph.profilePropertySetting",
-        prioritizedSourceUrls: updated
-      }
-    );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to update profile property setting ${setting.id} (HTTP ${res.status}): ${text}`);
-    }
-  }
-}
-
-/**
- * Remove this connection from people profile source registrations.
- */
-async function unregisterProfileSource(connectionId: string): Promise<void> {
-  const sourceUrl = `${PROFILE_SOURCE_URL_PREFIX}(sourceId='${connectionId}')`;
-  const settings = await listProfilePropertySettings();
-  for (const setting of settings) {
-    const updated = setting.prioritizedSourceUrls.filter((value) => value !== sourceUrl);
-    const res = await graphRequest(
-      "PATCH",
-      `${GRAPH_BASE_URL}/admin/people/profilePropertySettings/${setting.id}`,
-      {
-        "@odata.type": "#microsoft.graph.profilePropertySetting",
-        prioritizedSourceUrls: updated
-      }
-    );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to update profile property setting ${setting.id} (HTTP ${res.status}): ${text}`);
-    }
-  }
-
-  const res = await graphRequest(
-    "DELETE",
-    `${PROFILE_SOURCE_URL_PREFIX}(sourceId='${connectionId}')`
-  );
-  if (!res.ok && res.status !== 404) {
-    const text = await res.text();
-    throw new Error(`Failed to delete profile source (HTTP ${res.status}): ${text}`);
-  }
-}
-<% } -%>
-
-/**
- * Ensure the external connection exists (create if missing).
- */
-async function ensureConnection(connectionId: string): Promise<void> {
-  const name = resolveConnectionName();
-  const description = resolveConnectionDescription();
-
-  const payload: any = {
-    id: connectionId,
-    name,
-    description
-  };
-
-  if (contentCategory) payload.contentCategory = contentCategory;
-
-  const createUrl = `${GRAPH_BASE_URL}/external/connections`;
-  const create = await graphRequest("POST", createUrl, payload);
-  if (!create.ok) {
-    if (create.status !== 409) {
-      const text = await create.text();
-      throw new Error(`Failed to create connection (HTTP ${create.status}): ${text}`);
-    }
-  }
-}
-
-/**
- * Patch the external connection schema using the generated payload.
- */
-async function patchSchema(connectionId: string): Promise<void> {
-  const schemaUrl = `${GRAPH_BASE_URL}/external/connections/${connectionId}/schema`;
-  const res = await graphRequest("PATCH", schemaUrl, schemaPayload);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to patch schema (HTTP ${res.status}): ${text}`);
-  }
+  return new ConnectorCore<<%= itemTypeName %>>({
+    graphBaseUrl: GRAPH_BASE_URL,
+    contentCategory,
+    schemaPayload,
+    getAccessToken,
+    getItemId,
+    toExternalItem,
+    profileSource
+  });
 }
 
 /**
@@ -276,11 +104,12 @@ async function patchSchema(connectionId: string): Promise<void> {
  */
 async function provision(): Promise<void> {
   const connectionId = resolveConnectionId();
-  await ensureConnection(connectionId);
-  await patchSchema(connectionId);
-<% if (isPeopleConnector) { -%>
-  await registerProfileSource(connectionId);
-<% } -%>
+  const core = buildConnectorCore();
+  await core.provision({
+    connectionId,
+    connectionName: resolveConnectionName(),
+    connectionDescription: resolveConnectionDescription()
+  });
   console.log("ok: provisioned");
 }
 
@@ -289,35 +118,9 @@ async function provision(): Promise<void> {
  */
 async function deleteConnection(): Promise<void> {
   const connectionId = resolveConnectionId();
-<% if (isPeopleConnector) { -%>
-  await unregisterProfileSource(connectionId);
-<% } -%>
-  const res = await graphRequest("DELETE", `${GRAPH_BASE_URL}/external/connections/${connectionId}`);
-  if (!res.ok && res.status !== 404) {
-    const text = await res.text();
-    throw new Error(`Failed to delete connection (HTTP ${res.status}): ${text}`);
-  }
+  const core = buildConnectorCore();
+  await core.deleteConnection(connectionId);
   console.log("ok: deleted");
-}
-
-/**
- * Upsert a single item to Graph.
- */
-async function putItem(connectionId: string, item: <%= itemTypeName %>, verbose: boolean): Promise<void> {
-  const itemId = getItemId(item);
-  const url = `${GRAPH_BASE_URL}/external/connections/${connectionId}/items/${encodeURIComponent(itemId)}`;
-
-  const payload = toExternalItem(item);
-  if (verbose) {
-    console.log("verbose: PUT", url);
-    console.log("verbose: payload", JSON.stringify(payload, null, 2));
-  }
-
-  const res = await graphRequest("PUT", url, payload);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to ingest item '${itemId}' (HTTP ${res.status}): ${text}`);
-  }
 }
 
 /**
@@ -332,18 +135,15 @@ async function ingest(options: {
   const connectionId = options.dryRun ? "dry-run" : resolveConnectionId();
   // Swap this for any ItemSource implementation (API, DB, queue, etc.).
   const source = new CsvItemSource(options.csvPath ?? process.env.CSV_PATH ?? "data.csv");
-  let count = 0;
-  for await (const item of source.getItems()) {
-    if (options.limit && count >= options.limit) break;
-    if (!options.dryRun) {
-      await putItem(connectionId, item, Boolean(options.verbose));
-    } else if (options.verbose) {
-      console.log("verbose: DRY RUN item", JSON.stringify(toExternalItem(item), null, 2));
-    }
-    count++;
-  }
-
-  console.log("ok: ingested " + count + " item(s)");
+  const core = buildConnectorCore();
+  await core.ingest({
+    source,
+    connectionId,
+    dryRun: options.dryRun,
+    limit: options.limit,
+    verbose: options.verbose,
+    toExternalItem
+  });
 }
 
 const program = new Command();
@@ -374,7 +174,11 @@ program
 program
   .command("register-profile-source")
   .description("Register the connection as a profile source (people connectors)")
-  .action(() => registerProfileSource(resolveConnectionId()));
+  .action(async () => {
+    const connectionId = resolveConnectionId();
+    const core = buildConnectorCore();
+    await core.registerProfileSource(connectionId);
+  });
 <% } -%>
 
 program
