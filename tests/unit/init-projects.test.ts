@@ -148,6 +148,19 @@ describe("project init/update", () => {
     expect(core).toContain("MAX_RETRIES");
   });
 
+  test("initTsProject skips duplicate people profile source updates", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "ts-people-profile");
+
+    await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const core = await readFile(path.join(outDir, "src", "core", "connectorCore.ts"), "utf8");
+    expect(core).toContain("sources.some((source) => source.sourceId === connectionId)");
+    expect(core).toContain("if (setting.name) continue");
+    expect(core).toContain("current.includes(sourceUrl)");
+  });
+
   test("updateProject regenerates schema from updated tsp", async () => {
     const tspPath = await writeTempTspFile(baseSchema);
     const outRoot = await writeTempDir();
@@ -218,6 +231,34 @@ model Item {
     expect(core).toContain("RetryAsync");
     expect(core).toContain("Retry-After");
     expect(core).toContain("throttled");
+  });
+
+  test("initDotnetProject skips duplicate people profile source updates", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "dotnet-people-profile");
+
+    await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const core = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
+    expect(core).toContain("ProfileSourceExistsAsync");
+    expect(core).toContain("if (!string.IsNullOrWhiteSpace(nameValue))");
+    expect(core).toContain("existing.Contains(sourceUrl");
+  });
+
+  test("initDotnetProject avoids property name matching model name", async () => {
+    const tspPath = await writeTempTspFile(
+      `using coco; @coco.connection({ name: "Awards Connector", connectionId: "awardsconnector", connectionDescription: "Connector for awards data" }) @coco.item model Awards { @coco.id id: string; awards: string[]; }`
+    );
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "dotnet-awards");
+    const schemaFolder = "AwardsConnector";
+
+    await initDotnetProject({ tspPath, outDir, force: false });
+
+    const model = await readFile(path.join(outDir, schemaFolder, "Model.cs"), "utf8");
+    expect(model).toContain("AwardsValue");
+    expect(model).not.toContain("Awards Awards");
   });
 
   test("updateProject updates dotnet schema", async () => {

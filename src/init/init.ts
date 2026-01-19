@@ -87,6 +87,19 @@ function toCsIdentifier(name: string): string {
   return pascal || "Item";
 }
 
+function toCsPropertyName(name: string, itemTypeName: string, used: Set<string>): string {
+  const base = toCsIdentifier(name);
+  const forbidden = itemTypeName.toLowerCase();
+  let candidate = base.toLowerCase() === forbidden ? `${base}Value` : base;
+  let suffix = 1;
+  while (used.has(candidate.toLowerCase())) {
+    candidate = `${base}${suffix}`;
+    suffix += 1;
+  }
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
 function toTsIdentifier(name: string): string {
   const parts = name.split(/[^A-Za-z0-9]+/g).filter(Boolean);
   if (parts.length === 0) return "Item";
@@ -779,6 +792,8 @@ async function writeGeneratedDotnet(
   await mkdir(path.join(outDir, schemaFolderName), { recursive: true });
   await mkdir(path.join(outDir, "Core"), { recursive: true });
 
+  const usedPropertyNames = new Set<string>();
+  const itemTypeName = toCsIdentifier(ir.item.typeName);
   const properties = ir.properties.map((p) => {
     const parseFn = toCsParseFunction(p.type);
     const csvHeadersLiteral = `new[] { ${p.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
@@ -807,7 +822,7 @@ async function writeGeneratedDotnet(
 
     return {
       name: p.name,
-      csName: toCsIdentifier(p.name),
+      csName: toCsPropertyName(p.name, itemTypeName, usedPropertyNames),
       csType: toCsType(p.type),
       csvHeaders: p.source.csvHeaders,
       csvHeadersLiteral,

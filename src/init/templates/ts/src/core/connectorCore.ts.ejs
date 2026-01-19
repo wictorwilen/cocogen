@@ -212,17 +212,22 @@ export class ConnectorCore<Item> {
     throw new Error("Failed to send request after retries.");
   }
 
-  private async listProfilePropertySettings(): Promise<Array<{ id: string; prioritizedSourceUrls: string[] }>> {
+  private async listProfilePropertySettings(): Promise<
+    Array<{ id: string; name?: string; prioritizedSourceUrls: string[] }>
+  > {
     const res = await this.graphRequest("GET", `${this.graphBaseUrl}/admin/people/profilePropertySettings`);
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Failed to list profile property settings (HTTP ${res.status}): ${text}`);
     }
-    const json = (await res.json()) as { value?: Array<{ id?: string; prioritizedSourceUrls?: string[] }> };
+    const json = (await res.json()) as {
+      value?: Array<{ id?: string; name?: string; prioritizedSourceUrls?: string[] }>;
+    };
     return (json.value ?? [])
       .filter((entry) => typeof entry.id === "string")
       .map((entry) => ({
         id: entry.id as string,
+        name: typeof entry.name === "string" ? entry.name : undefined,
         prioritizedSourceUrls: Array.isArray(entry.prioritizedSourceUrls) ? entry.prioritizedSourceUrls : [],
       }));
   }
@@ -260,7 +265,16 @@ export class ConnectorCore<Item> {
     const sourceUrl = `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`;
     const settings = await this.listProfilePropertySettings();
     for (const setting of settings) {
-      const existing = this.uniqueUrls(setting.prioritizedSourceUrls).filter((value) => value !== sourceUrl);
+      if (setting.name) continue;
+      const current = this.uniqueUrls(setting.prioritizedSourceUrls);
+      if (current.includes(sourceUrl)) {
+        const isFirst = current[0] === sourceUrl;
+        const isLast = current[current.length - 1] === sourceUrl;
+        if ((profile.priority === "first" && isFirst) || (profile.priority === "last" && isLast)) {
+          continue;
+        }
+      }
+      const existing = current.filter((value) => value !== sourceUrl);
       const updated = profile.priority === "first"
         ? this.uniqueUrls([sourceUrl, ...existing])
         : this.uniqueUrls([...existing, sourceUrl]);
@@ -268,7 +282,6 @@ export class ConnectorCore<Item> {
         "PATCH",
         `${this.graphBaseUrl}/admin/people/profilePropertySettings/${setting.id}`,
         {
-          "@odata.type": "#microsoft.graph.profilePropertySetting",
           prioritizedSourceUrls: updated,
         }
       );
@@ -283,12 +296,14 @@ export class ConnectorCore<Item> {
     const sourceUrl = `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`;
     const settings = await this.listProfilePropertySettings();
     for (const setting of settings) {
-      const updated = this.uniqueUrls(setting.prioritizedSourceUrls).filter((value) => value !== sourceUrl);
+      if (setting.name) continue;
+      const current = this.uniqueUrls(setting.prioritizedSourceUrls);
+      if (!current.includes(sourceUrl)) continue;
+      const updated = current.filter((value) => value !== sourceUrl);
       const res = await this.graphRequest(
         "PATCH",
         `${this.graphBaseUrl}/admin/people/profilePropertySettings/${setting.id}`,
         {
-          "@odata.type": "#microsoft.graph.profilePropertySetting",
           prioritizedSourceUrls: updated,
         }
       );

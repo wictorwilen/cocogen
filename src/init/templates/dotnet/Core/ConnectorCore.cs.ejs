@@ -449,6 +449,13 @@ public sealed class ConnectorCore
             if (!entry.TryGetProperty("id", out var idProp) || idProp.ValueKind != JsonValueKind.String)
                 continue;
 
+            if (entry.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == JsonValueKind.String)
+            {
+                var nameValue = nameProp.GetString();
+                if (!string.IsNullOrWhiteSpace(nameValue))
+                    continue;
+            }
+
             var id = idProp.GetString() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(id)) continue;
 
@@ -462,7 +469,24 @@ public sealed class ConnectorCore
                 }
             }
 
-            existing = DeduplicateUrls(existing).Where((u) => !string.IsNullOrWhiteSpace(u) && u != sourceUrl).ToList();
+            existing = DeduplicateUrls(existing).Where((u) => !string.IsNullOrWhiteSpace(u)).ToList();
+            if (include)
+            {
+                if (existing.Contains(sourceUrl, StringComparer.OrdinalIgnoreCase))
+                {
+                    var isFirst = string.Equals(existing.FirstOrDefault(), sourceUrl, StringComparison.OrdinalIgnoreCase);
+                    var isLast = string.Equals(existing.LastOrDefault(), sourceUrl, StringComparison.OrdinalIgnoreCase);
+                    if ((priority == "first" && isFirst) || (priority == "last" && isLast))
+                        continue;
+                }
+            }
+            else
+            {
+                if (!existing.Contains(sourceUrl, StringComparer.OrdinalIgnoreCase))
+                    continue;
+            }
+
+            existing = existing.Where((u) => !string.Equals(u, sourceUrl, StringComparison.OrdinalIgnoreCase)).ToList();
             var updated = existing;
             if (include)
             {
@@ -473,7 +497,6 @@ public sealed class ConnectorCore
 
             var patch = new Dictionary<string, object?>
             {
-                ["@odata.type"] = "#microsoft.graph.profilePropertySetting",
                 ["prioritizedSourceUrls"] = updated,
             };
 
