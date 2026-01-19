@@ -121,6 +121,7 @@ npx @wictorwilen/cocogen@latest init --tsp ./schema.tsp --out ./my-connector --u
 
 ## 4) Update generated code after schema changes
 After `init`, the project contains a `schema.tsp` copy and a `cocogen.json` that records the entry `.tsp` file.
+Each generated project also includes `AGENTS.md` with quick instructions for updates and customization.
 
 Regenerate TypeSpec-derived files:
 ```bash

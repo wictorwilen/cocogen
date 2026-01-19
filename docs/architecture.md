@@ -64,6 +64,7 @@ This regenerates **only** the TypeSpec-derived files under `src/<ConnectionName>
 
 The generated project also contains a `cocogen.json` file that records which `.tsp` entrypoint to use. If needed, the user can override the entrypoint:
 - `npx cocogen update --out ./my-connector --tsp ../schema.tsp`
+- The generated project also includes `AGENTS.md` with quick instructions for re-running `cocogen update`, customizing property transforms, and swapping the datasource backend.
 - calls `POST /external/connections` (create connection)
 - calls `PATCH /external/connections/{id}/schema` (register schema)
 
