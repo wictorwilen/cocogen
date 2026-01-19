@@ -118,7 +118,7 @@ ConnectorCore BuildConnectorCore(GraphServiceClient? graph, ClientSecretCredenti
 }
 
 /// <summary>
-/// Provision the connection and schema (and profile source for people connectors).
+/// Provision the connection and schema (then profile source for people connectors).
 /// </summary>
 async Task ProvisionAsync()
 {
@@ -128,6 +128,11 @@ async Task ProvisionAsync()
     var core = BuildConnectorCore(graph, credential, connectionId);
 
     await core.ProvisionAsync();
+    Console.WriteLine("ok: connection + schema provisioned");
+<% if (isPeopleConnector) { -%>
+    await core.ProvisionProfileSourceAsync();
+    Console.WriteLine("ok: profile source registered");
+<% } -%>
     Console.WriteLine("ok: provisioned");
 }
 
@@ -208,7 +213,7 @@ registerCommand.SetHandler(async () =>
     var credential = CreateCredential();
     var connectionId = ConnectionId();
     var core = BuildConnectorCore(graph, credential, connectionId);
-    await core.RegisterProfileSourceAsync();
+    await core.ProvisionProfileSourceAsync();
 });
 root.AddCommand(registerCommand);
 <% } -%>

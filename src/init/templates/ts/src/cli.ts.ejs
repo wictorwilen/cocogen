@@ -119,7 +119,7 @@ function buildConnectorCore(): ConnectorCore<<%= itemTypeName %>> {
 }
 
 /**
- * Provision connection + schema and (optionally) profile source.
+ * Provision connection + schema (and then profile source for people connectors).
  */
 async function provision(): Promise<void> {
   const connectionId = resolveConnectionId();
@@ -129,6 +129,11 @@ async function provision(): Promise<void> {
     connectionName: resolveConnectionName(),
     connectionDescription: resolveConnectionDescription()
   });
+  console.log("ok: connection + schema provisioned");
+<% if (isPeopleConnector) { -%>
+  await core.provisionProfileSource(connectionId);
+  console.log("ok: profile source registered");
+<% } -%>
   console.log("ok: provisioned");
 }
 
@@ -196,7 +201,7 @@ program
   .action(async () => {
     const connectionId = resolveConnectionId();
     const core = buildConnectorCore();
-    await core.registerProfileSource(connectionId);
+    await core.provisionProfileSource(connectionId);
   });
 <% } -%>
 

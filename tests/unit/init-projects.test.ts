@@ -148,6 +148,19 @@ describe("project init/update", () => {
     expect(core).toContain("MAX_RETRIES");
   });
 
+  test("initTsProject provisions profile source separately", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "ts-people-provision");
+
+    await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const core = await readFile(path.join(outDir, "src", "core", "connectorCore.ts"), "utf8");
+    expect(core).toContain("provisionProfileSource");
+    const cli = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
+    expect(cli).toContain("provisionProfileSource");
+  });
+
   test("initTsProject skips duplicate people profile source updates", async () => {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();
@@ -159,6 +172,8 @@ describe("project init/update", () => {
     expect(core).toContain("sources.some((source) => source.sourceId === connectionId)");
     expect(core).toContain("if (setting.name) continue");
     expect(core).toContain("current.includes(sourceUrl)");
+    expect(core).toContain("profilePropertySettings",);
+    expect(core).toContain("prioritizedSourceUrls: [sourceUrl]");
   });
 
   test("updateProject regenerates schema from updated tsp", async () => {
@@ -233,6 +248,19 @@ model Item {
     expect(core).toContain("throttled");
   });
 
+  test("initDotnetProject provisions profile source separately", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "dotnet-people-provision");
+
+    await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const core = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
+    expect(core).toContain("ProvisionProfileSourceAsync");
+    const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
+    expect(program).toContain("ProvisionProfileSourceAsync");
+  });
+
   test("initDotnetProject skips duplicate people profile source updates", async () => {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();
@@ -244,6 +272,8 @@ model Item {
     expect(core).toContain("ProfileSourceExistsAsync");
     expect(core).toContain("if (!string.IsNullOrWhiteSpace(nameValue))");
     expect(core).toContain("existing.Contains(sourceUrl");
+    expect(core).toContain("profilePropertySettings");
+    expect(core).toContain("prioritizedSourceUrls");
   });
 
   test("initDotnetProject avoids property name matching model name", async () => {

@@ -59,21 +59,28 @@ public sealed class ConnectorCore
     }
 
     /// <summary>
-    /// Provision the connection and schema (and profile source for people connectors).
+    /// Provision the connection and schema.
     /// </summary>
     public async Task ProvisionAsync()
     {
         EnsureGraph();
         await EnsureConnectionAsync();
         await PatchSchemaAsync();
-        if (HasProfileSource())
-        {
+    }
+
+    /// <summary>
+    /// Register the connection as a profile source and update its precedence.
+    /// </summary>
+    public async Task ProvisionProfileSourceAsync()
+    {
+        if (!HasProfileSource())
+            throw new InvalidOperationException("Profile source settings are missing.");
+
 <% if (isPeopleConnector) { -%>
-            await RegisterProfileSourceInternalAsync(_connectionId);
+        await RegisterProfileSourceInternalAsync(_connectionId);
 <% } else { -%>
-            throw new InvalidOperationException("Profile source registration is only supported for people connectors.");
+        throw new InvalidOperationException("Profile source registration is only supported for people connectors.");
 <% } -%>
-        }
     }
 
     /// <summary>
@@ -372,31 +379,33 @@ public sealed class ConnectorCore
         if (_credential is null)
             throw new InvalidOperationException("Credential required for profile source registration.");
 
-        if (await ProfileSourceExistsAsync(connectionId))
-            return;
+        var exists = await ProfileSourceExistsAsync(connectionId);
 
         var webUrl = _profileSourceWebUrl ?? string.Empty;
         var displayName = _profileSourceDisplayName ?? _connectionName;
         var priority = _profileSourcePriority ?? "first";
 
-        var payload = new Dictionary<string, object?>
+        if (!exists)
         {
-            ["sourceId"] = connectionId,
-            ["displayName"] = displayName,
-            ["webUrl"] = webUrl,
-        };
+            var payload = new Dictionary<string, object?>
+            {
+                ["sourceId"] = connectionId,
+                ["displayName"] = displayName,
+                ["webUrl"] = webUrl,
+            };
 
-        var create = await GraphRequestAsync(
-            _credential,
-            HttpMethod.Post,
-            $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources",
-            payload
-        );
+            var create = await GraphRequestAsync(
+                _credential,
+                HttpMethod.Post,
+                $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources",
+                payload
+            );
 
-        if (!create.IsSuccessStatusCode && create.StatusCode != System.Net.HttpStatusCode.Conflict)
-        {
-            var text = await create.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Failed to register profile source (HTTP {(int)create.StatusCode}): {text}");
+            if (!create.IsSuccessStatusCode && create.StatusCode != System.Net.HttpStatusCode.Conflict)
+            {
+                var text = await create.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Failed to register profile source (HTTP {(int)create.StatusCode}): {text}");
+            }
         }
 
         var sourceUrl = $"{SchemaConstants.GraphBaseUrl}/admin/people/profileSources(sourceId='{connectionId}')";
@@ -444,6 +453,7 @@ public sealed class ConnectorCore
         if (!doc.RootElement.TryGetProperty("value", out var values) || values.ValueKind != JsonValueKind.Array)
             return;
 
+        var precedenceFound = false;
         foreach (var entry in values.EnumerateArray())
         {
             if (!entry.TryGetProperty("id", out var idProp) || idProp.ValueKind != JsonValueKind.String)
@@ -455,6 +465,8 @@ public sealed class ConnectorCore
                 if (!string.IsNullOrWhiteSpace(nameValue))
                     continue;
             }
+
+            precedenceFound = true;
 
             var id = idProp.GetString() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(id)) continue;
@@ -511,6 +523,25 @@ public sealed class ConnectorCore
             {
                 var text = await patchRes.Content.ReadAsStringAsync();
                 throw new InvalidOperationException($"Failed to update profile property setting {id} (HTTP {(int)patchRes.StatusCode}): {text}");
+            }
+        }
+
+        if (!precedenceFound && include)
+        {
+            var create = await GraphRequestAsync(
+                credential,
+                HttpMethod.Post,
+                $"{SchemaConstants.GraphBaseUrl}/admin/people/profilePropertySettings",
+                new Dictionary<string, object?>
+                {
+                    ["prioritizedSourceUrls"] = new[] { sourceUrl },
+                }
+            );
+
+            if (!create.IsSuccessStatusCode)
+            {
+                var text = await create.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Failed to create profile property setting (HTTP {(int)create.StatusCode}): {text}");
             }
         }
     }
