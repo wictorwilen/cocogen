@@ -6,6 +6,8 @@ export const graphApiVersion = <%= JSON.stringify(graphApiVersion) %> as const;
 /** Graph API version used by the connector. */
 export const contentCategory: string | null = <%= JSON.stringify(contentCategory) %>;
 /** Optional content category for the connection. */
+export const connectionName: string | null = <%= JSON.stringify(connectionName) %>;
+/** Default connection name, if provided in TypeSpec. */
 export const connectionId: string | null = <%= JSON.stringify(connectionId) %>;
 /** Default connection ID, if provided in TypeSpec. */
 export const connectionDescription: string | null = <%= JSON.stringify(connectionDescription) %>;

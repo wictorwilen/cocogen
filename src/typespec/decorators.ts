@@ -17,6 +17,7 @@ import {
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_SEARCH,
   COCOGEN_STATE_PROPERTY_SOURCE,
+  COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   type CocogenConnectionSettings,
   type CocogenProfileSourceSettings,
@@ -182,6 +183,11 @@ export function $source(
   context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE).set(target, normalized);
 }
 
+export function $noSource(context: DecoratorContext, target: ModelProperty): void {
+  if (!isModelProperty(target)) return;
+  context.program.stateMap(COCOGEN_STATE_PROPERTY_NO_SOURCE).set(target, true);
+}
+
 // Ensure the decorators are registered under the `coco` namespace.
 setTypeSpecNamespace(
   "coco",
@@ -195,5 +201,6 @@ setTypeSpecNamespace(
   $profileSource,
   $search,
   $content,
-  $source
+  $source,
+  $noSource
 );

@@ -23,6 +23,7 @@ export type SearchFlags = {
 export type ConnectorIr = {
   connection: {
     contentCategory?: string;
+    connectionName?: string;
     connectionId?: string;
     connectionDescription?: string;
     profileSource?: {
@@ -70,6 +71,7 @@ export type ConnectorIr = {
     source: {
       csvHeaders: string[];
       explicit?: boolean;
+      noSource?: boolean;
     };
   }>;
 };

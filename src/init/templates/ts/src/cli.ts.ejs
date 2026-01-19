@@ -9,6 +9,7 @@ import { ClientSecretCredential } from "@azure/identity";
 import type { <%= itemTypeName %> } from "./schema/model.js";
 import {
   contentCategory,
+  connectionName as defaultConnectionName,
   connectionId as defaultConnectionId,
   connectionDescription as defaultConnectionDescription,
   profileSourceWebUrl as defaultProfileSourceWebUrl,
@@ -41,7 +42,9 @@ function resolveConnectionId(): string {
 }
 
 function resolveConnectionName(): string {
-  return requiredEnv("CONNECTION_NAME");
+  const value = process.env.CONNECTION_NAME ?? defaultConnectionName;
+  if (!value) throw new Error("Missing env var: CONNECTION_NAME");
+  return value;
 }
 
 function resolveConnectionDescription(): string {

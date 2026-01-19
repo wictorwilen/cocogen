@@ -127,13 +127,14 @@ Microsoft Graph connector schema is a **flat** property list (not nested). TypeS
 - `@coco.description("...")`: maps to Graph schema property `description` (and may also be used for generated help/docs).
 - `@coco.content({ type?: "text" })` on a property: marks full-text source for `externalItem.content`.
 - `@coco.source(...)` on a property: maps the property to a source field (CSV header).
+  - `@coco.noSource` marks a property as having no CSV source mapping (value computed elsewhere).
   - Multi-column source transforms are deferred to a future version; preprocess input data instead.
 
 Notes on People connectors:
 - People connectors do not support `externalItem.content`; all data must be represented as schema properties.
 
 People connectors (preview) helpers:
-- `@coco.connection({ contentCategory?: string })` on the item model: sets connection-level settings in IR (Graph /beta `externalConnection.contentCategory`).
+- `@coco.connection({ contentCategory?, name, connectionId, connectionDescription })` on the item model: sets connection-level settings in IR (Graph /beta `externalConnection.contentCategory`).
 - `contentCategory` MUST be specified in the TypeSpec input (not as a `cocogen` CLI flag) because it changes downstream validation and may require Graph beta.
 - Graph beta usage requires `cocogen --use-preview-features` so that beta endpoints and SDKs are explicitly opt-in.
 - People-domain labels are validated against the supported set (preview):

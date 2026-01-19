@@ -10,8 +10,9 @@ using TypeSpec.Reflection;
 namespace coco {
   model ConnectionSettings {
     contentCategory?: ContentCategory;
-    connectionId?: string;
-    connectionDescription?: string;
+    name: string;
+    connectionId: string;
+    connectionDescription: string;
   }
 
   model ProfileSourceSettings {
@@ -111,6 +112,9 @@ namespace coco {
 
   // Maps a source field (CSV header) to a property or entity path.
   extern dec source(target: ModelProperty, from: SourceSettings | string, to?: string);
+
+  // Marks a property as having no CSV source mapping.
+  extern dec noSource(target: ModelProperty);
 
   // A custom scalar we map to Graph schema propertyType = principal.
   scalar Principal;

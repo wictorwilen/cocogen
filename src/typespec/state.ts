@@ -9,6 +9,7 @@ export const COCOGEN_STATE_PROPERTY_NAME_OVERRIDES = Symbol.for("@wictorwilen/co
 export const COCOGEN_STATE_PROPERTY_DESCRIPTIONS = Symbol.for("@wictorwilen/cocogen/propertyDescriptions");
 export const COCOGEN_STATE_PROPERTY_SEARCH = Symbol.for("@wictorwilen/cocogen/propertySearch");
 export const COCOGEN_STATE_PROPERTY_SOURCE = Symbol.for("@wictorwilen/cocogen/propertySource");
+export const COCOGEN_STATE_PROPERTY_NO_SOURCE = Symbol.for("@wictorwilen/cocogen/propertyNoSource");
 export const COCOGEN_STATE_PROPERTY_PERSON_FIELDS = Symbol.for("@wictorwilen/cocogen/propertyPersonFields");
 
 export type CocogenConnectionSettings = {
@@ -27,6 +28,7 @@ export type CocogenConnectionSettings = {
     | "meetingTranscripts"
     | "taskManagement"
     | "learningManagement";
+  name?: string;
   connectionId?: string;
   connectionDescription?: string;
 };

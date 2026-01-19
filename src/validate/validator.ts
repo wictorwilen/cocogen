@@ -190,6 +190,30 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
     });
   }
 
+  if (!ir.connection.connectionName || ir.connection.connectionName.trim().length === 0) {
+    issues.push({
+      severity: "error",
+      message: "Missing @coco.connection name.",
+      hint: "Add @coco.connection({ name: \"Your connector\", connectionId: \"yourconnectionid\", connectionDescription: \"Your connector\" }) to the @coco.item model.",
+    });
+  }
+
+  if (!ir.connection.connectionId || ir.connection.connectionId.trim().length === 0) {
+    issues.push({
+      severity: "error",
+      message: "Missing @coco.connection connectionId.",
+      hint: "Add @coco.connection({ name: \"Your connector\", connectionId: \"yourconnectionid\", connectionDescription: \"Your connector\" }) to the @coco.item model.",
+    });
+  }
+
+  if (!ir.connection.connectionDescription || ir.connection.connectionDescription.trim().length === 0) {
+    issues.push({
+      severity: "error",
+      message: "Missing @coco.connection connectionDescription.",
+      hint: "Add @coco.connection({ name: \"Your connector\", connectionId: \"yourconnectionid\", connectionDescription: \"Your connector\" }) to the @coco.item model.",
+    });
+  }
+
   if (ir.connection.connectionId && !/^[A-Za-z0-9]+$/.test(ir.connection.connectionId)) {
     issues.push({
       severity: "error",

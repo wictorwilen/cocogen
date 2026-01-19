@@ -7,6 +7,9 @@ function baseIr(): ConnectorIr {
   return {
     connection: {
       graphApiVersion: "v1.0",
+      connectionName: "Test connector",
+      connectionId: "testconnection",
+      connectionDescription: "Test connector",
     },
     item: {
       typeName: "Item",
@@ -65,10 +68,41 @@ describe("validateIr", () => {
 
   test("errors when connectionId contains non-alphanumeric characters", () => {
     const ir = baseIr();
-    ir.connection = { graphApiVersion: "v1.0", connectionId: "bad-id" };
+    ir.connection = {
+      graphApiVersion: "v1.0",
+      connectionName: "Test connector",
+      connectionId: "bad-id",
+      connectionDescription: "Test connector",
+    };
 
     const issues = validateIr(ir);
     expect(issues.some((i) => i.severity === "error" && i.message.includes("connectionId"))).toBe(true);
+  });
+
+  test("errors when connectionId is missing", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "v1.0", connectionName: "Test connector", connectionDescription: "Test connector" };
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("Missing @coco.connection connectionId"))).toBe(true);
+  });
+
+  test("errors when connectionDescription is missing", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "v1.0", connectionName: "Test connector", connectionId: "testconnection" };
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some((i) => i.severity === "error" && i.message.includes("Missing @coco.connection connectionDescription"))
+    ).toBe(true);
+  });
+
+  test("errors when connection name is missing", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "v1.0", connectionId: "testconnection", connectionDescription: "Test connector" };
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("Missing @coco.connection name"))).toBe(true);
   });
 
   test("errors on overly long property names", () => {

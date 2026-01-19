@@ -39,6 +39,24 @@ describe("loadIrFromTypeSpec", () => {
     expect(titleProp?.description).toBe("Decorator description");
   });
 
+  test("@coco.noSource disables default CSV mapping", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.noSource
+        title: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    const titleProp = ir.properties.find((p) => p.name === "title");
+    expect(titleProp?.source.csvHeaders).toEqual([]);
+    expect(titleProp?.source.noSource).toBe(true);
+  });
+
   test("rejects principalCollection", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

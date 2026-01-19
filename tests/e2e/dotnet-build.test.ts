@@ -19,6 +19,7 @@ const dotnetAvailable = await isCommandAvailable(dotnetCommand());
 describe("cocogen init (dotnet) + dotnet build (e2e)", () => {
   test("generates a .NET project", async () => {
     const entry = await writeTempTspFile(`
+      @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
       @coco.item
       model Item {
         @coco.id
@@ -54,6 +55,7 @@ describe("cocogen init (dotnet) + dotnet build (e2e)", () => {
     { timeout: 12 * 60_000 },
     async () => {
       const entry = await writeTempTspFile(`
+        @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
         @coco.item
         model Item {
           @coco.id

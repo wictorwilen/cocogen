@@ -30,7 +30,7 @@ Run `npm install` to fetch the TypeSpec library.
 - **Schema and fields**: edit `schema.tsp` (copied into this folder) and run `cocogen update --out .` to regenerate `src/schema`.
 - **Ingestion**: replace the datasource in `src/datasource` (CSV is the default) and wire it in `src/cli.ts`.
 - **Property transforms**: edit `src/schema/propertyTransform.ts` (kept on updates) to customize per-field parsing/mapping.
-- **Connection defaults**: `@coco.connection` can set `connectionId` and `connectionDescription` defaults for `.env.example`.
+- **Connection defaults**: `@coco.connection` must set `name`, `connectionId`, and `connectionDescription` defaults for `.env.example`.
 - **Profile source defaults**: `@coco.profileSource` sets defaults for `PROFILE_SOURCE_*` (people connectors only).
 - **Access control**: edit `src/schema/itemPayload.ts` to change ACL behavior.
 

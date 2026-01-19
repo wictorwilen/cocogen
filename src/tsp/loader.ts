@@ -27,6 +27,7 @@ import {
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_SEARCH,
   COCOGEN_STATE_PROPERTY_SOURCE,
+  COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   type CocogenConnectionSettings,
   type CocogenProfileSourceSettings,
@@ -98,8 +99,9 @@ function getSearchFlags(program: Program, prop: ModelProperty): SearchFlags {
 function normalizeSourceSettings(
   raw: unknown,
   fallbackName: string,
-  explicit: boolean
-): { csvHeaders: string[]; explicit: boolean } {
+  explicit: boolean,
+  noSource: boolean
+): { csvHeaders: string[]; explicit: boolean; noSource: boolean } {
   const settings = (raw ?? {}) as CocogenSourceSettings | string | undefined;
   const csv = typeof settings === "string" ? settings : settings?.csv;
 
@@ -112,24 +114,30 @@ function normalizeSourceSettings(
     );
   }
 
-  if (csvHeaders.length === 0) {
+  if (csvHeaders.length === 0 && !noSource) {
     csvHeaders = [fallbackName];
   }
 
   return {
     csvHeaders,
     explicit,
+    noSource,
   };
 }
 
 function getSourceSettings(program: Program, prop: ModelProperty, fallbackName: string): {
   csvHeaders: string[];
   explicit: boolean;
+  noSource: boolean;
 } {
   const map = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE);
   const raw = map.get(prop) as CocogenSourceSettings | string | undefined;
   const explicit = map.has(prop);
-  return normalizeSourceSettings(raw, fallbackName, explicit);
+  const noSource = Boolean(program.stateMap(COCOGEN_STATE_PROPERTY_NO_SOURCE).get(prop));
+  if (noSource) {
+    return normalizeSourceSettings(undefined, fallbackName, true, true);
+  }
+  return normalizeSourceSettings(raw, fallbackName, explicit, false);
 }
 
 function getPersonEntityMapping(
@@ -152,7 +160,7 @@ function getPersonEntityMapping(
     | "personWebsite"
     | "personAnniversary"
     | "personAnnotation";
-  fields: Array<{ path: string; source: { csvHeaders: string[]; explicit: boolean } }>;
+  fields: Array<{ path: string; source: { csvHeaders: string[] } }>;
 } | undefined {
   const labelToEntity = new Map<
     string,
@@ -197,10 +205,10 @@ function getPersonEntityMapping(
     .map((field) => {
       const path = typeof field.path === "string" ? field.path : "";
       if (!path) return undefined;
-      const source = normalizeSourceSettings(field.source, path, true);
-      return { path, source };
+      const sourceSettings = normalizeSourceSettings(field.source, path, true, false);
+      return { path, source: { csvHeaders: sourceSettings.csvHeaders } };
     })
-    .filter((value): value is { path: string; source: { csvHeaders: string[]; explicit: boolean } } => Boolean(value));
+    .filter((value): value is { path: string; source: { csvHeaders: string[] } } => Boolean(value));
 
   if (fields.length === 0) return undefined;
   if (!entity) {
@@ -387,12 +395,14 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
   const graphApiVersion = computeGraphApiVersion(connection.contentCategory, usesPrincipal);
 
   const connectionCategory = connection.contentCategory;
+  const connectionName = typeof connection.name === "string" ? connection.name.trim() : "";
   const connectionId = typeof connection.connectionId === "string" ? connection.connectionId.trim() : "";
   const connectionDescription =
     typeof connection.connectionDescription === "string" ? connection.connectionDescription.trim() : "";
   return {
     connection: {
       ...(connectionCategory ? { contentCategory: connectionCategory } : {}),
+      ...(connectionName ? { connectionName } : {}),
       ...(connectionId ? { connectionId } : {}),
       ...(connectionDescription ? { connectionDescription } : {}),
       ...(profileSource ? { profileSource } : {}),

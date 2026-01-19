@@ -21,6 +21,7 @@ describe("cocogen init + npm install + npm run build (e2e)", () => {
     { timeout: 15 * 60_000 },
     async () => {
       const entry = await writeTempTspFile(`
+        @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
         @coco.item
         model Item {
           @coco.id

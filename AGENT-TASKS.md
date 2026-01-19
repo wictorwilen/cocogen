@@ -32,6 +32,10 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Required @coco.connection name ✅
+- Required @coco.connection connectionId/connectionDescription ✅
+- Fixed person-entity source typing for @coco.noSource build ✅
+- Added @coco.noSource to disable default CSV mapping ✅
 - Aligned people label validation with people connectors docs + added warnings/tests ✅
 - Added validation for semantic label retrievable/type rules ✅
 - Aligned example connectionId values with alphanumeric validation ✅

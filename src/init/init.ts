@@ -246,10 +246,13 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
 
     const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
     const needsManualEntity = isPeopleLabel && !p.personEntity;
+    const noSource = Boolean(p.source.noSource);
     const expression = needsManualEntity
       ? `(() => { throw new Error("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement transform in propertyTransform.ts."); })()`
       : personEntity
       ? personEntity
+      : noSource
+      ? `undefined as unknown as ${toTsType(p.type)}`
       : `${parser}(readSourceValue(row, ${JSON.stringify(p.source.csvHeaders)}))`;
 
     return {
@@ -276,6 +279,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> 
     await renderTemplate("ts/src/generated/constants.ts.ejs", {
       graphApiVersion: ir.connection.graphApiVersion,
       contentCategory: ir.connection.contentCategory ?? null,
+      connectionName: ir.connection.connectionName ?? null,
       connectionId: ir.connection.connectionId ?? null,
       connectionDescription: ir.connection.connectionDescription ?? null,
       profileSourceWebUrl: ir.connection.profileSource?.webUrl ?? null,
@@ -754,12 +758,15 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
       : null;
     const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
     const needsManualEntity = isPeopleLabel && !p.personEntity;
+    const noSource = Boolean(p.source.noSource);
     const transformExpression = needsManualEntity
       ? `throw new NotImplementedException("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement in PropertyTransform.cs.")`
       : personEntity
       ? isCollection
         ? buildCsPersonEntityCollectionExpression(personEntity.fields)
         : buildCsPersonEntityExpression(personEntity.fields)
+      : noSource
+      ? "default!"
       : `${parseFn}(row, ${csvHeadersLiteral})`;
 
     return {
@@ -878,6 +885,7 @@ async function writeGeneratedDotnet(outDir: string, ir: ConnectorIr, namespaceNa
       namespaceName,
       graphApiVersion: ir.connection.graphApiVersion,
       contentCategory: ir.connection.contentCategory ?? null,
+      connectionName: ir.connection.connectionName ?? null,
       profileSourceWebUrl: ir.connection.profileSource?.webUrl ?? null,
       profileSourceDisplayName: ir.connection.profileSource?.displayName ?? null,
       profileSourcePriority: ir.connection.profileSource?.priority ?? null,
@@ -1081,6 +1089,7 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
     await renderTemplate("ts/.env.example.ejs", {
       itemTypeName: ir.item.typeName,
       isPeopleConnector: ir.connection.contentCategory === "people",
+      connectionName: ir.connection.connectionName ?? null,
       connectionId: ir.connection.connectionId ?? null,
       connectionDescription: ir.connection.connectionDescription ?? null,
       profileSourceWebUrl: ir.connection.profileSource?.webUrl ?? null,
@@ -1222,6 +1231,7 @@ export async function initDotnetProject(
     await renderTemplate("dotnet/appsettings.json.ejs", {
       itemTypeName: ir.item.typeName,
       isPeopleConnector: ir.connection.contentCategory === "people",
+      connectionName: ir.connection.connectionName ?? null,
       connectionId: ir.connection.connectionId ?? null,
       connectionDescription: ir.connection.connectionDescription ?? null,
       profileSourceWebUrl: ir.connection.profileSource?.webUrl ?? null,
