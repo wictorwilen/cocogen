@@ -2,11 +2,11 @@ import "@wictorwilen/cocogen";
 using coco;
 
 // Optional: set connection defaults in generated config.
-// @coco.connection({ connectionId: "my-connection", connectionDescription: "My connector" })
+// @coco.connection({ connectionId: "myconnection", connectionDescription: "My connector" })
 
 @coco.item()
 @connection({
-  connectionId: "project-connector",
+  connectionId: "projectconnector",
   connectionDescription: "Connector for project items",
 })
 model Project {

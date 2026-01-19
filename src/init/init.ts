@@ -187,7 +187,13 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
   if ((parsed.lang !== "ts" && parsed.lang !== "dotnet") || typeof parsed.tsp !== "string") {
     throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen init or fix the file.`);
   }
-  return { config: { lang: parsed.lang, tsp: parsed.tsp, cocogenVersion: parsed.cocogenVersion } };
+  return {
+    config: {
+      lang: parsed.lang,
+      tsp: parsed.tsp,
+      ...(parsed.cocogenVersion ? { cocogenVersion: parsed.cocogenVersion } : {}),
+    },
+  };
 }
 
 async function writeGeneratedTs(outDir: string, ir: ConnectorIr): Promise<void> {
