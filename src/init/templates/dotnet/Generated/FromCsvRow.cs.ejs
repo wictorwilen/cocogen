@@ -1,10 +1,17 @@
+// Map CSV rows into the schema model.
 using <%= namespaceName %>;
 using <%= namespaceName %>.Datasource;
 
 namespace <%= namespaceName %>.Schema;
 
+/// <summary>
+/// Maps CSV rows into the schema model using generated transforms.
+/// </summary>
 public static class FromCsvRow
 {
+    /// <summary>
+    /// Convert a CSV row dictionary into a schema model instance.
+    /// </summary>
     public static <%= itemTypeName %> Parse(IReadOnlyDictionary<string, string?> row)
     {
         var transforms = new PropertyTransform();

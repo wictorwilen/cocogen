@@ -1,3 +1,4 @@
+// Default CSV datasource implementation.
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
@@ -7,16 +8,24 @@ using <%= namespaceName %>.Schema;
 
 namespace <%= namespaceName %>.Datasource;
 
-// CSV-based datasource (default). Replace with your own IItemSource as needed.
+/// <summary>
+/// CSV-based datasource (default). Replace with your own IItemSource as needed.
+/// </summary>
 public sealed class CsvItemSource : IItemSource
 {
     private readonly string _csvPath;
 
+    /// <summary>
+    /// Create a CSV datasource reading from the provided file path.
+    /// </summary>
     public CsvItemSource(string csvPath)
     {
         _csvPath = csvPath;
     }
 
+    /// <summary>
+    /// Stream items from the CSV file and map each row to the schema model.
+    /// </summary>
     public async IAsyncEnumerable<<%= itemTypeName %>> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // CsvHelper is sync; we still expose async enumeration for consistency.

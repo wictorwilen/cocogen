@@ -1,3 +1,6 @@
+/**
+ * Default CSV datasource implementation.
+ */
 import { createReadStream } from "node:fs";
 import { parse } from "csv-parse";
 
@@ -5,10 +8,15 @@ import type { <%= itemTypeName %> } from "../schema/model.js";
 import type { ItemSource } from "./itemSource.js";
 import { fromCsvRow } from "../schema/fromCsvRow.js";
 
-// CSV-based datasource (default). Replace with your own ItemSource as needed.
+/**
+ * CSV-based datasource (default). Replace with your own ItemSource as needed.
+ */
 export class CsvItemSource implements ItemSource {
   constructor(private readonly filePath: string) {}
 
+  /**
+   * Stream items from the CSV file and map each row to the schema model.
+   */
   async *getItems(): AsyncIterable<<%= itemTypeName %>> {
     const parser = parse({
       columns: true,

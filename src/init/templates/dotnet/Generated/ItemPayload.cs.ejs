@@ -1,15 +1,25 @@
 <% const graphNs = graphApiVersion === "beta" ? "Microsoft.Graph.Beta" : "Microsoft.Graph"; -%>
+// Build ExternalItem payloads for Graph ingestion.
 using <%= graphNs %>.Models.ExternalConnectors;
 
 namespace <%= namespaceName %>.Schema;
 
+/// <summary>
+/// Maps schema model instances into Graph ExternalItem payloads.
+/// </summary>
 public static class ItemPayload
 {
+    /// <summary>
+    /// Resolve the external item ID for a schema model instance.
+    /// </summary>
     public static string GetItemId(<%= itemTypeName %> item)
     {
         return <%- itemIdExpression %>;
     }
 
+    /// <summary>
+    /// Convert a schema model instance into a Graph ExternalItem payload.
+    /// </summary>
     public static ExternalItem ToExternalItem(<%= itemTypeName %> item)
     {
         var props = new Properties

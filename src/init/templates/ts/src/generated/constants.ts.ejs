@@ -1,10 +1,24 @@
+/**
+ * Schema and connection constants derived from TypeSpec.
+ * This file is generated; edit TypeSpec or rerun cocogen to update.
+ */
 export const graphApiVersion = <%= JSON.stringify(graphApiVersion) %> as const;
+/** Graph API version used by the connector. */
 export const contentCategory: string | null = <%= JSON.stringify(contentCategory) %>;
+/** Optional content category for the connection. */
 export const connectionId: string | null = <%= JSON.stringify(connectionId) %>;
+/** Default connection ID, if provided in TypeSpec. */
 export const connectionDescription: string | null = <%= JSON.stringify(connectionDescription) %>;
+/** Default connection description, if provided in TypeSpec. */
 export const profileSourceWebUrl: string | null = <%= JSON.stringify(profileSourceWebUrl) %>;
+/** Default profile source URL for people connectors. */
 export const profileSourceDisplayName: string | null = <%= JSON.stringify(profileSourceDisplayName) %>;
+/** Default profile source display name for people connectors. */
 export const profileSourcePriority: "first" | "last" | null = <%= JSON.stringify(profileSourcePriority) %>;
+/** Default profile source priority for people connectors. */
 export const itemTypeName = <%= JSON.stringify(itemTypeName) %> as const;
+/** Item model name declared in TypeSpec. */
 export const idPropertyName = <%= JSON.stringify(idPropertyName) %> as const;
+/** Property name used as the external item ID. */
 export const contentPropertyName: string | null = <%= JSON.stringify(contentPropertyName) %>;
+/** Optional content property for full-text indexing. */

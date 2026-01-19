@@ -1,72 +1,115 @@
+// CSV parsing helpers used by generated transforms.
 namespace <%= namespaceName %>.Datasource;
 
+/// <summary>
+/// Helpers for parsing typed values from CSV rows.
+/// </summary>
 public static class CsvParser
 {
+    /// <summary>
+    /// Read the first matching header value from the row.
+    /// </summary>
     public static string ReadValue(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         if (headers.Length == 0) return "";
         return row.TryGetValue(headers[0], out var v) ? (v ?? "") : "";
     }
 
+    /// <summary>
+    /// Parse a nullable string value into a string.
+    /// </summary>
     public static string ParseString(string? value)
     {
         return value ?? "";
     }
 
+    /// <summary>
+    /// Parse a string from a CSV row using the provided headers.
+    /// </summary>
     public static string ParseString(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseString(ReadValue(row, headers));
     }
 
+    /// <summary>
+    /// Parse a boolean from a CSV row using the provided headers.
+    /// </summary>
     public static bool ParseBoolean(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseBoolean(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse a boolean from a string value.
+    /// </summary>
     public static bool ParseBoolean(string? value)
     {
         var v = ParseString(value);
         return v.Equals("true", StringComparison.OrdinalIgnoreCase) || v.Equals("1");
     }
 
+    /// <summary>
+    /// Parse an Int64 from a CSV row using the provided headers.
+    /// </summary>
     public static long ParseInt64(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseInt64(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse an Int64 from a string value.
+    /// </summary>
     public static long ParseInt64(string? value)
     {
         var v = ParseString(value);
         return long.TryParse(v, out var n) ? n : 0;
     }
 
+    /// <summary>
+    /// Parse a double from a CSV row using the provided headers.
+    /// </summary>
     public static double ParseDouble(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseDouble(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse a double from a string value.
+    /// </summary>
     public static double ParseDouble(string? value)
     {
         var v = ParseString(value);
         return double.TryParse(v, out var n) ? n : 0;
     }
 
+    /// <summary>
+    /// Parse a DateTimeOffset from a CSV row using the provided headers.
+    /// </summary>
     public static DateTimeOffset ParseDateTime(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseDateTime(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse a DateTimeOffset from a string value.
+    /// </summary>
     public static DateTimeOffset ParseDateTime(string? value)
     {
         var v = ParseString(value);
         return DateTimeOffset.TryParse(v, out var dt) ? dt : DateTimeOffset.MinValue;
     }
 
+    /// <summary>
+    /// Parse a string collection from a CSV row using the provided headers.
+    /// </summary>
     public static List<string> ParseStringCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseStringCollection(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse a string collection from a string value.
+    /// </summary>
     public static List<string> ParseStringCollection(string? value)
     {
         var v = ParseString(value);
@@ -75,11 +118,17 @@ public static class CsvParser
             : v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
     }
 
+    /// <summary>
+    /// Parse an Int64 collection from a CSV row using the provided headers.
+    /// </summary>
     public static List<long> ParseInt64Collection(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseInt64Collection(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse an Int64 collection from a string value.
+    /// </summary>
     public static List<long> ParseInt64Collection(string? value)
     {
         var v = ParseString(value);
@@ -89,11 +138,17 @@ public static class CsvParser
             .ToList();
     }
 
+    /// <summary>
+    /// Parse a double collection from a CSV row using the provided headers.
+    /// </summary>
     public static List<double> ParseDoubleCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseDoubleCollection(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse a double collection from a string value.
+    /// </summary>
     public static List<double> ParseDoubleCollection(string? value)
     {
         var v = ParseString(value);
@@ -103,11 +158,17 @@ public static class CsvParser
             .ToList();
     }
 
+    /// <summary>
+    /// Parse a DateTimeOffset collection from a CSV row using the provided headers.
+    /// </summary>
     public static List<DateTimeOffset> ParseDateTimeCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
     {
         return ParseDateTimeCollection(ParseString(row, headers));
     }
 
+    /// <summary>
+    /// Parse a DateTimeOffset collection from a string value.
+    /// </summary>
     public static List<DateTimeOffset> ParseDateTimeCollection(string? value)
     {
         var v = ParseString(value);

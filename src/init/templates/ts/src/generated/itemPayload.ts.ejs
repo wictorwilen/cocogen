@@ -1,10 +1,19 @@
+/**
+ * Build ExternalItem payloads for Graph ingestion.
+ */
 import type { <%= itemTypeName %> } from "./model.js";
 import { contentPropertyName, idPropertyName } from "./constants.js";
 
+/**
+ * Resolve the external item ID from the schema model.
+ */
 export function getItemId(item: <%= itemTypeName %>): string {
   return String((item as any)[idPropertyName] ?? "");
 }
 
+/**
+ * Convert a schema model instance into a Graph ExternalItem payload.
+ */
 export function toExternalItem(item: <%= itemTypeName %>): {
   acl: Array<{ type: string; value: string; accessType: string }>;
   properties: Record<string, unknown>;

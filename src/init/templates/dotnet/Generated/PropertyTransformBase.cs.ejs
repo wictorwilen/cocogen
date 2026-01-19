@@ -1,3 +1,4 @@
+// Generated property transforms derived from TypeSpec.
 using System;
 using System.Collections.Generic;
 <% if (usesPersonEntity) { -%>
@@ -8,8 +9,14 @@ using <%= namespaceName %>.Datasource;
 
 namespace <%= namespaceName %>.Schema;
 
+/// <summary>
+/// Base class for CSV-to-model property transforms.
+/// </summary>
 public abstract class PropertyTransformBase
 {
+    /// <summary>
+    /// Transform a property by name using the generated transform methods.
+    /// </summary>
     public object TransformProperty(string name, IReadOnlyDictionary<string, string?> row)
     {
         return name switch
@@ -22,6 +29,9 @@ public abstract class PropertyTransformBase
     }
 
 <% for (const prop of properties) { -%>
+    /// <summary>
+    /// Transform the <%= prop.name %> property from a CSV row.
+    /// </summary>
     protected virtual <%= prop.csType %> Transform<%= prop.csName %>(IReadOnlyDictionary<string, string?> row)
     {
     <% if (prop.transformThrows) { -%>

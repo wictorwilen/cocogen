@@ -1,8 +1,15 @@
+/**
+ * Datasource contract for producing items to ingest.
+ */
 import type { <%= itemTypeName %> } from "../schema/model.js";
 
-// Contract for any datasource that yields Items for ingestion.
-// Implement this interface to swap CSV for an API, database, or other system.
+/**
+ * Contract for any datasource that yields items for ingestion.
+ * Implement this interface to swap CSV for an API, database, or other system.
+ */
 export interface ItemSource {
-  // Return items as an async iterable (streaming preferred).
+  /**
+   * Return items as an async iterable (streaming preferred).
+   */
   getItems(): AsyncIterable<<%= itemTypeName %>>;
 }

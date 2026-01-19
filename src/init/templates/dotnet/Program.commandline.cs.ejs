@@ -1,3 +1,4 @@
+// Connector CLI for provisioning, ingestion, and deletion.
 using Azure.Core;
 using Azure.Identity;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +29,9 @@ var configuration = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
+/// <summary>
+/// Resolve a required configuration value or throw a friendly error.
+/// </summary>
 string RequiredSetting(string key, string? fallback = null)
 {
     var value = configuration[key];
@@ -61,6 +65,9 @@ string ProfileSourcePriority()
 }
 <% } -%>
 
+/// <summary>
+/// Create an app-only credential for Microsoft Graph.
+/// </summary>
 ClientSecretCredential CreateCredential()
 {
     var tenantId = RequiredSetting("AzureAd:TenantId");
@@ -69,6 +76,9 @@ ClientSecretCredential CreateCredential()
     return new ClientSecretCredential(tenantId, clientId, clientSecret);
 }
 
+/// <summary>
+/// Create a Graph client configured for the selected API version.
+/// </summary>
 GraphServiceClient CreateGraphClient()
 {
     var credential = CreateCredential();
@@ -83,6 +93,9 @@ const int MaxDelayMs = 30000;
 
 static bool ShouldRetry(int statusCode) => statusCode is 429 or 503 or 504;
 
+/// <summary>
+/// Parse Retry-After headers into a delay (milliseconds).
+/// </summary>
 static int? ParseRetryAfterMs(IDictionary<string, IEnumerable<string>>? headers)
 {
     if (headers is null) return null;
@@ -110,6 +123,9 @@ static int? ParseRetryAfterMs(IDictionary<string, IEnumerable<string>>? headers)
     return null;
 }
 
+/// <summary>
+/// Compute retry delay with exponential backoff and jitter.
+/// </summary>
 static int ComputeDelayMs(int attempt, int? retryAfterMs)
 {
     if (retryAfterMs.HasValue) return Math.Min(retryAfterMs.Value, MaxDelayMs);
@@ -118,6 +134,9 @@ static int ComputeDelayMs(int attempt, int? retryAfterMs)
     return Math.Min(MaxDelayMs, exp + jitter);
 }
 
+/// <summary>
+/// Execute an action with throttling retries and backoff.
+/// </summary>
 async Task RetryAsync(Func<Task> action, Func<ApiException, int?>? getStatusCode, string operation)
 {
     for (var attempt = 0; attempt <= MaxRetries; attempt++)
@@ -144,6 +163,9 @@ async Task RetryAsync(Func<Task> action, Func<ApiException, int?>? getStatusCode
 }
 
 <% if (isPeopleConnector) { -%>
+/// <summary>
+/// Acquire an access token for the Graph people profile endpoints.
+/// </summary>
 async Task<string> GetAccessTokenAsync(ClientSecretCredential credential)
 {
     var token = await credential.GetTokenAsync(
@@ -152,6 +174,9 @@ async Task<string> GetAccessTokenAsync(ClientSecretCredential credential)
     return token.Token;
 }
 
+/// <summary>
+/// Execute a raw Graph request for people profile management.
+/// </summary>
 async Task<HttpResponseMessage> GraphRequestAsync(ClientSecretCredential credential, HttpMethod method, string url, object? body = null)
 {
     using var http = new HttpClient();
@@ -174,6 +199,9 @@ bool IsStatus(ApiException ex, int statusCode)
     return ex.ResponseStatusCode is int sc && sc == statusCode;
 }
 
+/// <summary>
+/// Ensure the external connection exists (create if missing).
+/// </summary>
 async Task EnsureConnectionAsync(GraphServiceClient graph, string connectionId)
 {
     try
@@ -211,6 +239,9 @@ async Task EnsureConnectionAsync(GraphServiceClient graph, string connectionId)
     );
 }
 
+/// <summary>
+/// Patch the connection schema using the generated payload.
+/// </summary>
 async Task PatchSchemaAsync(GraphServiceClient graph, string connectionId)
 {
     var schema = SchemaPayload.BuildSchema();
@@ -221,6 +252,9 @@ async Task PatchSchemaAsync(GraphServiceClient graph, string connectionId)
     );
 }
 
+/// <summary>
+/// Provision the connection and schema (and profile source for people connectors).
+/// </summary>
 async Task ProvisionAsync()
 {
     var graph = CreateGraphClient();
@@ -235,6 +269,9 @@ async Task ProvisionAsync()
     Console.WriteLine("ok: provisioned");
 }
 
+/// <summary>
+/// Upsert a single item into the external connection.
+/// </summary>
 async Task PutItemAsync(GraphServiceClient graph, string connectionId, <%= itemTypeName %> item, bool verbose)
 {
     var itemId = ItemPayload.GetItemId(item);

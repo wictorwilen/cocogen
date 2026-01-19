@@ -1,3 +1,6 @@
+/**
+ * Connector CLI for provisioning, ingestion, and deletion.
+ */
 import "dotenv/config";
 
 import { Command } from "commander";
@@ -19,12 +22,18 @@ import { CsvItemSource } from "./datasource/csvItemSource.js";
 const GRAPH_BASE_URL = <%= JSON.stringify(graphBaseUrl) %>;
 const PROFILE_SOURCE_URL_PREFIX = `${GRAPH_BASE_URL}/admin/people/profileSources`;
 
+/**
+ * Resolve a required environment variable or throw a friendly error.
+ */
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing env var: ${name}`);
   return value;
 }
 
+/**
+ * Resolve the connection ID from env or schema defaults.
+ */
 function resolveConnectionId(): string {
   const value = process.env.CONNECTION_ID ?? defaultConnectionId;
   if (!value) throw new Error("Missing env var: CONNECTION_ID");
@@ -56,6 +65,9 @@ function resolveProfileSourcePriority(): "first" | "last" {
   return value;
 }
 
+/**
+ * Acquire an app-only access token for Microsoft Graph.
+ */
 async function getAccessToken(): Promise<string> {
   const tenantId = requiredEnv("TENANT_ID");
   const clientId = requiredEnv("CLIENT_ID");
@@ -101,6 +113,9 @@ function shouldRetry(status: number): boolean {
   return status === 429 || status === 503 || status === 504;
 }
 
+/**
+ * Execute a Graph request with throttling retries and backoff.
+ */
 async function graphRequest(method: string, url: string, body?: unknown): Promise<Response> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const token = await getAccessToken();
@@ -127,6 +142,9 @@ async function graphRequest(method: string, url: string, body?: unknown): Promis
 }
 
 <% if (isPeopleConnector) { -%>
+/**
+ * List profile property settings to update profile source priority.
+ */
 async function listProfilePropertySettings(): Promise<Array<{ id: string; prioritizedSourceUrls: string[] }>> {
   const res = await graphRequest("GET", `${GRAPH_BASE_URL}/admin/people/profilePropertySettings`);
   if (!res.ok) {
@@ -142,6 +160,9 @@ async function listProfilePropertySettings(): Promise<Array<{ id: string; priori
     }));
 }
 
+/**
+ * Register this connection as a people profile source.
+ */
 async function registerProfileSource(connectionId: string): Promise<void> {
   const webUrl = resolveProfileSourceWebUrl();
   const displayName =
@@ -180,6 +201,9 @@ async function registerProfileSource(connectionId: string): Promise<void> {
   }
 }
 
+/**
+ * Remove this connection from people profile source registrations.
+ */
 async function unregisterProfileSource(connectionId: string): Promise<void> {
   const sourceUrl = `${PROFILE_SOURCE_URL_PREFIX}(sourceId='${connectionId}')`;
   const settings = await listProfilePropertySettings();
@@ -210,6 +234,9 @@ async function unregisterProfileSource(connectionId: string): Promise<void> {
 }
 <% } -%>
 
+/**
+ * Ensure the external connection exists (create if missing).
+ */
 async function ensureConnection(connectionId: string): Promise<void> {
   const name = resolveConnectionName();
   const description = resolveConnectionDescription();
@@ -232,6 +259,9 @@ async function ensureConnection(connectionId: string): Promise<void> {
   }
 }
 
+/**
+ * Patch the external connection schema using the generated payload.
+ */
 async function patchSchema(connectionId: string): Promise<void> {
   const schemaUrl = `${GRAPH_BASE_URL}/external/connections/${connectionId}/schema`;
   const res = await graphRequest("PATCH", schemaUrl, schemaPayload);
@@ -241,6 +271,9 @@ async function patchSchema(connectionId: string): Promise<void> {
   }
 }
 
+/**
+ * Provision connection + schema and (optionally) profile source.
+ */
 async function provision(): Promise<void> {
   const connectionId = resolveConnectionId();
   await ensureConnection(connectionId);
@@ -251,6 +284,9 @@ async function provision(): Promise<void> {
   console.log("ok: provisioned");
 }
 
+/**
+ * Delete the external connection.
+ */
 async function deleteConnection(): Promise<void> {
   const connectionId = resolveConnectionId();
 <% if (isPeopleConnector) { -%>
@@ -264,6 +300,9 @@ async function deleteConnection(): Promise<void> {
   console.log("ok: deleted");
 }
 
+/**
+ * Upsert a single item to Graph.
+ */
 async function putItem(connectionId: string, item: <%= itemTypeName %>, verbose: boolean): Promise<void> {
   const itemId = getItemId(item);
   const url = `${GRAPH_BASE_URL}/external/connections/${connectionId}/items/${encodeURIComponent(itemId)}`;
@@ -281,6 +320,9 @@ async function putItem(connectionId: string, item: <%= itemTypeName %>, verbose:
   }
 }
 
+/**
+ * Ingest items from the configured datasource.
+ */
 async function ingest(options: {
   csvPath?: string;
   dryRun?: boolean;

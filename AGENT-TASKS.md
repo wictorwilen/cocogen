@@ -32,6 +32,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Added purpose comments to generated files, classes, and functions ✅
 - Fixed init-tsp prompt spinner hang + added CLI integration test ✅
 - Fixed .NET retry header parsing + nullable status handling ✅
 - Fixed people manual mapping stub to throw correctly in .NET ✅

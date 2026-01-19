@@ -1,5 +1,9 @@
+// C# representation of the external item schema.
 namespace <%= namespaceName %>.Schema;
 
+/// <summary>
+/// Schema model generated from TypeSpec.
+/// </summary>
 public sealed record <%= itemTypeName %>(
 <% for (let i = 0; i < properties.length; i++) { -%>
     <%= properties[i].csType %> <%= properties[i].csName %><%= i < properties.length - 1 ? "," : "" %>

@@ -1,3 +1,6 @@
+/**
+ * TypeScript representation of the external item schema.
+ */
 export type <%= itemTypeName %> = {
 <% for (const prop of properties) { -%>
   <%= prop.name %>: <%= prop.tsType %>;

@@ -27,8 +27,6 @@
 - ✅ Retry throttled requests with backoff + logging
 - ✅ Customize transforms without losing changes on update
 
-Design spec: see [docs/architecture.md](https://github.com/wictorwilen/cocogen/blob/main/docs/architecture.md)
-
 End-user guide:
 - [docs/end-user.md](https://github.com/wictorwilen/cocogen/blob/main/docs/end-user.md)
 
@@ -74,7 +72,7 @@ Non-interactive:
 npx @wictorwilen/cocogen@latest init-tsp --out ./schema.tsp --kind content
 ```
 
-`init-tsp` also creates `package.json` and `tspconfig.yaml` in the same folder (if missing) so TypeSpec can resolve `@wictorwilen/cocogen` without squiggles.
+`init-tsp` also creates `package.json` and `tspconfig.yaml` in the same folder (if missing) so TypeSpec can resolve `@wictorwilen/cocogen`.
 
 ### Validate a schema
 
@@ -92,24 +90,6 @@ JSON output (useful in CI):
 
 ```bash
 npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --json
-```
-
-### Emit IR JSON
-
-```bash
-npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp
-```
-
-For beta schemas:
-
-```bash
-npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp --use-preview-features
-```
-
-Write to a file:
-
-```bash
-npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp --out ./connector.ir.json
 ```
 
 ### Generate a runnable TypeScript project
@@ -161,17 +141,26 @@ npx @wictorwilen/cocogen@latest update --out ./my-connector --tsp ../schema.tsp
 - Set `NO_COLOR=1` to disable colors/spinners.
 - In CI/non-TTY, spinners are automatically disabled.
 
-## Development
+## Emit IR JSON (advanced)
 
 ```bash
-npm install
-npm test
+npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp
 ```
 
-Build output is in `dist/`. The CLI is `dist/cli.js`.
+For beta schemas:
+
+```bash
+npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp --use-preview-features
+```
+
+Write to a file:
+
+```bash
+npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp --out ./connector.ir.json
+```
 
 ## License
 MIT. See LICENSE.
 
 ## Trademarks
-Microsoft, Microsoft Graph, and Microsoft 365 are trademarks of Microsoft Corporation.
+Microsoft, Microsoft Graph, Microsoft 365, and Microsoft 365 Copilot are trademarks of Microsoft Corporation.

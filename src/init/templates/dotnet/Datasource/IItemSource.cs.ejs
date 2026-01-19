@@ -1,12 +1,18 @@
+// Datasource contract for producing items to ingest.
 using System.Collections.Generic;
 
 using <%= namespaceName %>.Schema;
 
 namespace <%= namespaceName %>.Datasource;
 
-// Contract for any datasource that yields Items for ingestion.
-// Implement this interface to swap CSV for an API, database, or other system.
+/// <summary>
+/// Contract for any datasource that yields items for ingestion.
+/// Implement this interface to swap CSV for an API, database, or other system.
+/// </summary>
 public interface IItemSource
 {
+    /// <summary>
+    /// Stream items asynchronously for ingestion.
+    /// </summary>
     IAsyncEnumerable<<%= itemTypeName %>> GetItemsAsync(CancellationToken cancellationToken = default);
 }

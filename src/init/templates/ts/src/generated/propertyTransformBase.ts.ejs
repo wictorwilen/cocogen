@@ -1,5 +1,7 @@
-// Auto-generated property transforms.
-// Regenerated on every cocogen update.
+/**
+ * Generated property transforms derived from TypeSpec.
+ * Regenerated on every cocogen update.
+ */
 
 import {
   parseBoolean,
@@ -10,7 +12,13 @@ import {
   readSourceValue
 } from "../datasource/csv.js";
 
+/**
+ * Base class for CSV-to-model transforms.
+ */
 export abstract class PropertyTransformBase {
+  /**
+   * Transform a property by name using the generated transform methods.
+   */
   public transformProperty<T>(name: string, row: Record<string, unknown>): T {
     switch (name) {
 <% for (const prop of properties) { -%>
@@ -23,6 +31,7 @@ export abstract class PropertyTransformBase {
   }
 
 <% for (const prop of properties) { -%>
+  /** Transform the <%= prop.name %> property from a CSV row. */
   protected transform<%= prop.transformName %>(row: Record<string, unknown>): <%= prop.tsType %> {
     return <%- prop.expression %>;
   }

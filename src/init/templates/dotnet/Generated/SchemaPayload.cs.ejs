@@ -1,10 +1,17 @@
 <% const graphNs = graphApiVersion === "beta" ? "Microsoft.Graph.Beta" : "Microsoft.Graph"; -%>
+// Graph schema payload derived from the TypeSpec model.
 using <%= graphNs %>.Models.ExternalConnectors;
 
 namespace <%= namespaceName %>.Schema;
 
+/// <summary>
+/// Builds the Graph schema payload for this connector.
+/// </summary>
 public static class SchemaPayload
 {
+    /// <summary>
+    /// Build the schema payload for the external connection.
+    /// </summary>
     public static global::<%= graphNs %>.Models.ExternalConnectors.Schema BuildSchema()
     {
         return new global::<%= graphNs %>.Models.ExternalConnectors.Schema
