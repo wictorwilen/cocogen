@@ -18,18 +18,18 @@ using coco;
     priority: "last",
   }
 )
-@TypeSpec.doc("People profiles with awards and recognitions.")
+@doc("People profiles with awards and recognitions.")
 @coco.item()
 model PersonProfile {
   @coco.id
   @coco.label("personAccount")
-  @TypeSpec.example("maria@contoso.com")
-  @TypeSpec.format("email")
+  @example("maria@contoso.com")
+  @format("email")
   @coco.source("UPN", "userPrincipalName")
   account: string;
 
   @coco.label("personAwards")
   @coco.source("Awards", "displayName")
-  @TypeSpec.example(#["Employee of the Month", "Top Innovator 2024"])
+  @example(#["Employee of the Month", "Top Innovator 2024"])
   awards: string[];
 }

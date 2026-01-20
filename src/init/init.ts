@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { access, copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, copyFile, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +30,15 @@ type CocogenProjectConfig = {
 };
 
 const COCOGEN_CONFIG_FILE = "cocogen.json";
+
+async function removeIfExists(filePath: string): Promise<void> {
+  try {
+    await unlink(filePath);
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err.code !== "ENOENT") throw error;
+  }
+}
 
 function toTsType(type: PropertyType): string {
   switch (type) {
@@ -241,8 +250,12 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
 }
 
 async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderName: string): Promise<void> {
+  await mkdir(path.join(outDir, "src", "datasource"), { recursive: true });
   await mkdir(path.join(outDir, "src", schemaFolderName), { recursive: true });
   await mkdir(path.join(outDir, "src", "core"), { recursive: true });
+
+  await removeIfExists(path.join(outDir, "src", schemaFolderName, "fromCsvRow.ts"));
+  await removeIfExists(path.join(outDir, "src", "datasource", "csv.ts"));
 
   const modelProperties = ir.properties.map((p) => ({
     name: p.name,
@@ -1026,7 +1039,11 @@ async function writeGeneratedDotnet(
   schemaNamespace: string
 ): Promise<void> {
   await mkdir(path.join(outDir, schemaFolderName), { recursive: true });
+  await mkdir(path.join(outDir, "Datasource"), { recursive: true });
   await mkdir(path.join(outDir, "Core"), { recursive: true });
+
+  await removeIfExists(path.join(outDir, schemaFolderName, "FromCsvRow.cs"));
+  await removeIfExists(path.join(outDir, "Datasource", "CsvParser.cs"));
 
   const usedPropertyNames = new Set<string>();
   const itemTypeName = toCsIdentifier(ir.item.typeName);

@@ -360,20 +360,20 @@ model Item {
   test("init projects use @example in CSV and emit validation", async () => {
     const tspPath = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
-      @TypeSpec.doc("Example item")
+      @doc("Example item")
       @coco.item
       model Item {
         @coco.id
-        @TypeSpec.example("PRJ-1001")
-        @TypeSpec.pattern("^PRJ-[0-9]+$")
+        @example("PRJ-1001")
+        @pattern("^PRJ-[0-9]+$")
         id: string;
 
-        @TypeSpec.doc("Display title")
-        @TypeSpec.example("Alpha project")
-        @TypeSpec.minLength(2)
+        @doc("Display title")
+        @example("Alpha project")
+        @minLength(2)
         title: string;
 
-        @TypeSpec.format("email")
+        @format("email")
         ownerEmail: string;
       }
     `);

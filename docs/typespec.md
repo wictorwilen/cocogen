@@ -189,7 +189,7 @@ If omitted, `cocogen` will also consider the TypeSpec doc comment on the propert
 
 `cocogen` also respects these standard TypeSpec decorators on models and properties:
 
-Note: use the fully-qualified form (for example `@TypeSpec.doc`) to avoid naming ambiguity. The `#deprecated` directive is not namespaced.
+Note: do NOT add `using TypeSpec;` and do NOT use `@TypeSpec.*`. Use unqualified decorators like `@doc` and `@example`. The `#deprecated` directive is not namespaced.
 
 ### `@doc("...")` / doc comments
 

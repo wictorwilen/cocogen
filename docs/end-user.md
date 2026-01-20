@@ -89,6 +89,8 @@ model PersonProfile {
 - `@minLength`, `@maxLength`, `@minValue`, `@maxValue`, `@pattern`, `@format` — runtime validation in transform methods
 - `#deprecated "message"` — omit the property from generated schema/model/mapping
 
+Note: do NOT add `using TypeSpec;` and do NOT use `@TypeSpec.*` in schemas.
+
 For the complete spec and validation rules, see docs/typespec.md.
 
 ### Fixing TypeSpec editor squiggles (VS Code)

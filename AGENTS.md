@@ -44,6 +44,10 @@ This repo contains **cocogen**, an `npx`-runnable generator for Microsoft Copilo
   - Prompts: `@inquirer/prompts`.
   - Spinners: `ora`.
 
+  ## TypeSpec usage guardrails
+  - Do NOT add `using TypeSpec;` in schemas.
+  - Do NOT use `@TypeSpec.*` decorators; use unqualified `@doc`, `@example`, `@minLength`, `@maxLength`, `@pattern`, `@format`, `@minValue`, `@maxValue` instead.
+
 ## Repository structure (intended)
 - Keep a single TypeScript codebase for:
   - TypeSpec parsing → IR

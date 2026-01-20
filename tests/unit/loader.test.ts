@@ -170,26 +170,26 @@ describe("loadIrFromTypeSpec", () => {
 
   test("captures docs, examples, and validation metadata", async () => {
     const entry = await writeTempTspFile(`
-      @TypeSpec.doc("Item-level docs")
+      @doc("Item-level docs")
       @coco.item
       model Item {
         @coco.id
-        @TypeSpec.example("TCK-1001")
-        @TypeSpec.pattern("^TCK-[0-9]+$")
+        @example("TCK-1001")
+        @pattern("^TCK-[0-9]+$")
         id: string;
 
-        @TypeSpec.doc("Display name")
-        @TypeSpec.example("Ada Lovelace")
-        @TypeSpec.minLength(2)
-        @TypeSpec.maxLength(64)
+        @doc("Display name")
+        @example("Ada Lovelace")
+        @minLength(2)
+        @maxLength(64)
         name: string;
 
-        @TypeSpec.format("email")
-        @TypeSpec.example("ada@contoso.com")
+        @format("email")
+        @example("ada@contoso.com")
         email: string;
 
-        @TypeSpec.minValue(1)
-        @TypeSpec.maxValue(10)
+        @minValue(1)
+        @maxValue(10)
         rating: int64;
       }
     `);

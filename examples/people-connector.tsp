@@ -12,30 +12,30 @@ using coco;
   displayName: "Example People Directory",
   priority: "first"
 })
-@TypeSpec.doc("People profiles synchronized into Microsoft 365.")
+@doc("People profiles synchronized into Microsoft 365.")
 @coco.item()
 model PersonProfile {
   @coco.id
   @coco.label("personAccount")
   @coco.description("Unique identifier for this person profile.")
-    @TypeSpec.doc("User principal name used to identify the person.")
-    @TypeSpec.example("alex@contoso.com")
-    @TypeSpec.format("email")
+    @doc("User principal name used to identify the person.")
+    @example("alex@contoso.com")
+    @format("email")
   @coco.source("upn", "userPrincipalName")
   userPrincipalName: string;
 
   @coco.label("personName")
   @coco.description("Preferred display name for this person.")
-    @TypeSpec.doc("Display name shown in people search results.")
-    @TypeSpec.example("Alex Wilber")
-    @TypeSpec.minLength(2)
-    @TypeSpec.maxLength(128)
+    @doc("Display name shown in people search results.")
+    @example("Alex Wilber")
+    @minLength(2)
+    @maxLength(128)
   @coco.source("displayName", "displayName")
   displayName: string;
 
   @coco.label("personCurrentPosition")
   @coco.description("Current work position mapped from source fields.")
-    @TypeSpec.example("Senior Software Engineer")
+    @example("Senior Software Engineer")
   @coco.source("job title", "detail.jobTitle")
   @coco.source("company", "detail.company.displayName")
   @coco.source("employee id", "detail.employeeId")
@@ -43,7 +43,7 @@ model PersonProfile {
 
   @coco.label("personEmails")
   @coco.description("Email addresses associated with this person.")
-    @TypeSpec.example(#["alex@contoso.com", "alex.wilber@contoso.com"])
+    @example(#["alex@contoso.com", "alex.wilber@contoso.com"])
   @coco.source("email", "address")
   emails: string[];
 
@@ -54,7 +54,7 @@ model PersonProfile {
 
   @coco.label("personNote")
   @coco.description("Short bio or summary for this person.")
-    @TypeSpec.example("Customer success leader based in Seattle.")
+    @example("Customer success leader based in Seattle.")
   @coco.source("bio", "detail")
   bio: string;
 
