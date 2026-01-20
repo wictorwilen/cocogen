@@ -64,14 +64,10 @@ string RequiredSetting(string key, string? fallback = null)
 
 string ConnectionId() => RequiredSetting("Connection:Id", SchemaConstants.ConnectionId);
 string ConnectionName() => RequiredSetting("Connection:Name", SchemaConstants.ConnectionName);
-string ConnectionDescription() => configuration["Connection:Description"]
-    ?? SchemaConstants.ConnectionDescription
-    ?? string.Empty;
+string ConnectionDescription() => RequiredSetting("Connection:Description", SchemaConstants.ConnectionDescription);
 <% if (isPeopleConnector) { -%>
 string ProfileSourceWebUrl() => RequiredSetting("ProfileSource:WebUrl", SchemaConstants.ProfileSourceWebUrl);
-string ProfileSourceDisplayName() => configuration["ProfileSource:DisplayName"]
-    ?? SchemaConstants.ProfileSourceDisplayName
-    ?? ConnectionName();
+string ProfileSourceDisplayName() => RequiredSetting("ProfileSource:DisplayName", SchemaConstants.ProfileSourceDisplayName);
 string ProfileSourcePriority()
 {
     var raw = configuration["ProfileSource:Priority"];
