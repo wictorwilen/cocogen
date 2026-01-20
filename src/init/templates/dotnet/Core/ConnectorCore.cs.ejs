@@ -14,6 +14,7 @@ using System.CommandLine;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 using <%= namespaceName %>.Datasource;
 using <%= schemaNamespace %>;
@@ -362,7 +363,8 @@ public sealed class ConnectorCore
     private async Task<string> GetAccessTokenAsync(TokenCredential credential)
     {
         var token = await credential.GetTokenAsync(
-            new TokenRequestContext(new[] { "https://graph.microsoft.com/.default" })
+            new TokenRequestContext(new[] { "https://graph.microsoft.com/.default" }),
+            CancellationToken.None
         );
         return token.Token;
     }
