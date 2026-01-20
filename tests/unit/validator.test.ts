@@ -14,6 +14,7 @@ function baseIr(): ConnectorIr {
     item: {
       typeName: "Item",
       idPropertyName: "id",
+      idEncoding: "slug",
     },
     properties: [
       {
@@ -240,7 +241,7 @@ describe("validateIr", () => {
         fields: [
           {
             path: "userPrincipalName",
-            source: { csvHeaders: ["account"], explicit: true },
+            source: { csvHeaders: ["account"] },
           },
         ],
       },
@@ -265,7 +266,7 @@ describe("validateIr", () => {
         fields: [
           {
             path: "userPrincipalName",
-            source: { csvHeaders: ["account"], explicit: true },
+            source: { csvHeaders: ["account"] },
           },
         ],
       },
@@ -300,7 +301,7 @@ describe("validateIr", () => {
       labels: ["personAwards"],
       aliases: [],
       search: {},
-      source: { csvHeaders: ["Awards"], explicit: true },
+      source: { csvHeaders: ["Awards"] },
     });
 
     const issues = validateIr(ir);
@@ -318,13 +319,13 @@ describe("validateIr", () => {
       labels: ["personAwards"],
       aliases: [],
       search: {},
-      source: { csvHeaders: ["Awards"], explicit: true },
+      source: { csvHeaders: ["Awards"] },
       personEntity: {
         entity: "personAward",
         fields: [
           {
             path: "displayName",
-            source: { csvHeaders: ["Awards"], explicit: true },
+            source: { csvHeaders: ["Awards"] },
           },
         ],
       },
@@ -440,7 +441,7 @@ describe("validateIr", () => {
     ir.connection = {
       graphApiVersion: "beta",
       contentCategory: "people",
-      profileSource: { webUrl: "https://contoso.com" },
+      profileSource: { webUrl: "https://contoso.com", displayName: "Directory" },
     };
 
     const issues = validateIr(ir);
@@ -464,7 +465,7 @@ describe("validateIr", () => {
         fields: [
           {
             path: "userPrincipalName",
-            source: { csvHeaders: ["account"], explicit: true },
+            source: { csvHeaders: ["account"] },
           },
         ],
       },
@@ -491,7 +492,7 @@ describe("validateIr", () => {
         fields: [
           {
             path: "userPrincipalName",
-            source: { csvHeaders: ["account"], explicit: true },
+            source: { csvHeaders: ["account"] },
           },
         ],
       },

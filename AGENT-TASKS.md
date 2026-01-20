@@ -22,7 +22,9 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 
 ## Later
 - Add snapshot tests for emitted file trees
+- Add "continue on fail" for generated ingestion logic (abort on fail as option instead)
 - Add richer schema features (display templates, activities) if needed
+- Rust export to complement dotnet and node
 
 ## Decisions / Notes
 - Generator code: TypeScript only
@@ -32,6 +34,9 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Removed CSV naming from generic helpers and moved validation to core ✅
+- Aligned deprecated handling to `#deprecated` and fixed example serialization/people entity validation ✅
+- Plan and implement TypeSpec metadata support (@doc, @example, @min/@max/@pattern/@format, @deprecated) ✅
 - Fixed external item id/content payload rules for TS and .NET ✅
 - Preserve raw @coco.id values for people connectors ✅
 - Added @coco.id encoding option (slug/base64/hash) ✅

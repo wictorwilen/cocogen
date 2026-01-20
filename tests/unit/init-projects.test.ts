@@ -356,4 +356,59 @@ model Item {
     expect(csv).toContain('"header,with,comma"');
     expect(csv).toContain("alice@contoso.com");
   });
+
+  test("init projects use @example in CSV and emit validation", async () => {
+    const tspPath = await writeTempTspFile(`
+      @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
+      @TypeSpec.doc("Example item")
+      @coco.item
+      model Item {
+        @coco.id
+        @TypeSpec.example("PRJ-1001")
+        @TypeSpec.pattern("^PRJ-[0-9]+$")
+        id: string;
+
+        @TypeSpec.doc("Display title")
+        @TypeSpec.example("Alpha project")
+        @TypeSpec.minLength(2)
+        title: string;
+
+        @TypeSpec.format("email")
+        ownerEmail: string;
+      }
+    `);
+
+    const outRoot = await writeTempDir();
+    const outTs = path.join(outRoot, "example-ts");
+    const outDotnet = path.join(outRoot, "example-dotnet");
+
+    await initTsProject({ tspPath, outDir: outTs, force: false });
+    await initDotnetProject({ tspPath, outDir: outDotnet, force: false });
+
+    const csv = await readFile(path.join(outTs, "data.csv"), "utf8");
+    expect(csv).toContain("PRJ-1001");
+    expect(csv).toContain("Alpha project");
+
+    const tsModel = await readFile(path.join(outTs, "src", "TestConnector", "model.ts"), "utf8");
+    expect(tsModel).toContain("Example item");
+    expect(tsModel).toContain("Display title");
+
+    const tsTransforms = await readFile(
+      path.join(outTs, "src", "TestConnector", "propertyTransformBase.ts"),
+      "utf8"
+    );
+    expect(tsTransforms).toContain("validateString");
+    expect(tsTransforms).toContain("^PRJ-[0-9]+$");
+
+    const csTransforms = await readFile(
+      path.join(outDotnet, "TestConnector", "PropertyTransformBase.cs"),
+      "utf8"
+    );
+    expect(csTransforms).toContain("ValidateString");
+    expect(csTransforms).toContain("^PRJ-[0-9]+$");
+
+    const csModel = await readFile(path.join(outDotnet, "TestConnector", "Model.cs"), "utf8");
+    expect(csModel).toContain("Example item");
+    expect(csModel).toContain("Display title");
+  });
 });

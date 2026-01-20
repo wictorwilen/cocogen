@@ -5,7 +5,7 @@ import type { <%= itemTypeName %> } from "../<%= schemaFolderName %>/model.js";
 
 /**
  * Contract for any datasource that yields items for ingestion.
- * Implement this interface to swap CSV for an API, database, or other system.
+ * Implement this interface to swap the default datasource for an API, database, or other system.
  */
 export interface ItemSource {
   /**

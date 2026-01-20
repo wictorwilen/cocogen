@@ -35,7 +35,7 @@ function encodeId(value: string): string {
  * Resolve the external item ID from the schema model.
  */
 export function getItemId(item: <%= itemTypeName %>): string {
-  const raw = (item as any).__cocoId ?? (item as any)[idPropertyName] ?? "";
+  const raw = (item as any).internalId ?? (item as any)[idPropertyName] ?? "";
   return encodeId(String(raw ?? ""));
 }
 

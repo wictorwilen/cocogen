@@ -1,3 +1,4 @@
+import "@wictorwilen/cocogen";
 using coco;
 
 @coco.connection({
@@ -11,21 +12,26 @@ using coco;
   displayName: "Example People Skills",
   priority: "last"
 })
+@TypeSpec.doc("People profiles with skills and proficiencies.")
 @coco.item()
 model PersonProfile {
   @coco.id
   @coco.label("personAccount")
   @coco.description("Unique identifier for this person profile.")
+  @TypeSpec.example("jordan@contoso.com")
+  @TypeSpec.format("email")
   @coco.source("upn", "userPrincipalName")
   userPrincipalName: string;
 
   @coco.label("personName")
   @coco.description("Preferred display name for this person.")
+  @TypeSpec.example("Jordan Kent")
   @coco.source("displayName", "displayName")
   displayName: string;
 
   @coco.label("personSkills")
   @coco.description("Skills mapped into skillProficiency entities.")
+  @TypeSpec.example(#["TypeScript", "C#", "Azure"])
   @coco.source("skill", "displayName")
   @coco.source("proficiency", "proficiency")
   skills: string[];

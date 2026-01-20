@@ -1,0 +1,20 @@
+/**
+ * Map raw source rows into the schema model.
+ */
+import type { <%= itemTypeName %> } from "./model.js";
+import { PropertyTransform } from "./propertyTransform.js";
+import { parseString, readSourceValue } from "../datasource/row.js";
+
+const transforms = new PropertyTransform();
+
+/**
+ * Convert a source row into the schema model using generated transforms.
+ */
+export function fromRow(row: Record<string, unknown>): <%= itemTypeName %> {
+  return {
+    internalId: <%- idRawExpression %>,
+<% for (const prop of properties) { -%>
+    <%= prop.name %>: transforms.transformProperty<%= prop.tsType ? `<${prop.tsType}>` : "" %>(<%= JSON.stringify(prop.name) %>, row),
+<% } -%>
+  };
+}

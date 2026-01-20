@@ -1,0 +1,23 @@
+// Map source rows into the schema model.
+using System.Collections.Generic;
+using <%= namespaceName %>;
+using <%= namespaceName %>.Datasource;
+
+namespace <%= schemaNamespace %>;
+
+/// <summary>
+/// Maps source rows into the schema model using generated transforms.
+/// </summary>
+public static class FromRow
+{
+    /// <summary>
+    /// Convert a row dictionary into a schema model instance.
+    /// </summary>
+    public static <%= itemTypeName %> Parse(IReadOnlyDictionary<string, string?> row)
+    {
+        var transforms = new PropertyTransform();
+        return new <%= itemTypeName %>(
+<%- constructorArgLines %>
+        );
+    }
+}

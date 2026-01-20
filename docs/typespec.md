@@ -185,6 +185,35 @@ Sets the Graph schema property description.
 
 If omitted, `cocogen` will also consider the TypeSpec doc comment on the property.
 
+## Standard TypeSpec decorators supported
+
+`cocogen` also respects these standard TypeSpec decorators on models and properties:
+
+Note: use the fully-qualified form (for example `@TypeSpec.doc`) to avoid naming ambiguity. The `#deprecated` directive is not namespaced.
+
+### `@doc("...")` / doc comments
+
+- Model-level docs are emitted into generated model files.
+- Property-level docs are emitted into generated model files.
+- If `@coco.description` is missing, the doc comment is also used for the Graph schema description.
+
+### `@example(...)`
+
+- The first example value is used to seed the generated `data.csv` sample row (when possible).
+- Arrays are joined with `;` for CSV collection fields.
+
+### `@minLength`, `@maxLength`, `@minValue`, `@maxValue`, `@pattern`, `@format`
+
+- These constraints are enforced in the generated transform methods at runtime.
+- `@pattern` and `@format` apply to string values.
+- `@minValue` and `@maxValue` apply to numeric values.
+- Known `@format` checks include `email`, `uri`/`url`, `uuid`, and `date-time`.
+
+### `#deprecated`
+
+- Deprecated properties are ignored during generation (not emitted in schema, models, or source mapping).
+- The `@coco.id` and `@coco.content` properties cannot be deprecated.
+
 ### `@coco.name("...")`
 
 Overrides the emitted Graph schema property name.
@@ -284,7 +313,7 @@ Multi-value CSV handling:
 
 ### Generated property transform samples
 
-`cocogen` generates a `PropertyTransformBase` with default implementations and a `PropertyTransform` override you can edit. Defaults always receive the full row and read the configured CSV headers.
+`cocogen` generates a `PropertyTransformBase` with default implementations and a `PropertyTransform` override you can edit. Defaults always receive the full row and read the configured source headers.
 
 TypeSpec:
 
@@ -317,12 +346,12 @@ public abstract class PropertyTransformBase
 {
     protected virtual string TransformBody(IReadOnlyDictionary<string, string?> row)
     {
-        return CsvParser.ParseString(row, new[] { "body" });
+        return RowParser.ParseString(row, new[] { "body" });
     }
 
     protected virtual string TransformStatus(IReadOnlyDictionary<string, string?> row)
     {
-        return CsvParser.ParseString(row, new[] { "status" });
+        return RowParser.ParseString(row, new[] { "status" });
     }
 }
 ```

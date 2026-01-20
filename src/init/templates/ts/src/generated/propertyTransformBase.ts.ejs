@@ -10,10 +10,16 @@ import {
   parseString,
   parseStringCollection,
   readSourceValue
-} from "../datasource/csv.js";
+} from "../datasource/row.js";
+import {
+  validateNumber,
+  validateNumberCollection,
+  validateString,
+  validateStringCollection
+} from "../core/validation.js";
 
 /**
- * Base class for CSV-to-model transforms.
+ * Base class for row-to-model transforms.
  */
 export abstract class PropertyTransformBase {
   /**
@@ -31,7 +37,7 @@ export abstract class PropertyTransformBase {
   }
 
 <% for (const prop of properties) { -%>
-  /** Transform the <%= prop.name %> property from a CSV row. */
+  /** Transform the <%= prop.name %> property from a source row. */
   protected transform<%= prop.transformName %>(row: Record<string, unknown>): <%= prop.tsType %> {
     return <%- prop.expression %>;
   }

@@ -38,11 +38,23 @@ export type ConnectorIr = {
     idPropertyName: string;
     idEncoding: "slug" | "base64" | "hash";
     contentPropertyName?: string;
+    doc?: string;
   };
   properties: Array<{
     name: string;
     type: PropertyType;
     description?: string;
+    doc?: string;
+    example?: unknown;
+    format?: string;
+    pattern?: {
+      regex: string;
+      message?: string;
+    };
+    minLength?: number;
+    maxLength?: number;
+    minValue?: number;
+    maxValue?: number;
     labels: string[];
     aliases: string[];
     search: SearchFlags;

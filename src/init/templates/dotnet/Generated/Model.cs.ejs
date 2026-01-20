@@ -1,12 +1,16 @@
 // C# representation of the external item schema.
 namespace <%= schemaNamespace %>;
 
+<% if (recordDocLines && recordDocLines.length) { -%>
+<%- recordDocLines.join("\n") %>
+<% } else { -%>
 /// <summary>
 /// Schema model generated from TypeSpec.
 /// </summary>
+<% } -%>
 public sealed record <%= itemTypeName %>(
 <% for (let i = 0; i < properties.length; i++) { -%>
     <%= properties[i].csType %> <%= properties[i].csName %>,
 <% } -%>
-    string CocoId = ""
+    string InternalId = ""
 );

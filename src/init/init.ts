@@ -247,6 +247,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
   const modelProperties = ir.properties.map((p) => ({
     name: p.name,
     tsType: toTsType(p.type),
+    docComment: p.doc ? formatDocComment(p.doc, "  ") : undefined,
   }));
 
   const transformProperties = ir.properties.map((p) => {
@@ -272,19 +273,33 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       }
     })();
 
+    const nameLiteral = JSON.stringify(p.name);
+    const stringConstraints = buildTsStringConstraintsLiteral(p);
     const personEntity = p.personEntity
       ? (p.type === "stringCollection"
           ? buildTsPersonEntityCollectionExpression(
               p.personEntity.fields.map((field) => ({
                 path: field.path,
                 source: field.source,
-              }))
+              })),
+              (headersLiteral) => {
+                const base = `parseStringCollection(readSourceValue(row, ${headersLiteral}))`;
+                return stringConstraints
+                  ? `validateStringCollection(${nameLiteral}, ${base}, ${stringConstraints})`
+                  : base;
+              }
             )
           : buildTsPersonEntityExpression(
               p.personEntity.fields.map((field) => ({
                 path: field.path,
                 source: field.source,
-              }))
+              })),
+              (headersLiteral) => {
+                const base = `parseString(readSourceValue(row, ${headersLiteral}))`;
+                return stringConstraints
+                  ? `validateString(${nameLiteral}, ${base}, ${stringConstraints})`
+                  : base;
+              }
             ))
       : null;
 
@@ -299,10 +314,25 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       ? `undefined as unknown as ${toTsType(p.type)}`
       : `${parser}(readSourceValue(row, ${JSON.stringify(p.source.csvHeaders)}))`;
 
+    const validationMetadata = {
+      name: p.name,
+      type: p.type,
+      ...(p.minLength !== undefined ? { minLength: p.minLength } : {}),
+      ...(p.maxLength !== undefined ? { maxLength: p.maxLength } : {}),
+      ...(p.pattern ? { pattern: p.pattern } : {}),
+      ...(p.format ? { format: p.format } : {}),
+      ...(p.minValue !== undefined ? { minValue: p.minValue } : {}),
+      ...(p.maxValue !== undefined ? { maxValue: p.maxValue } : {}),
+    };
+
+    const validatedExpression = needsManualEntity || noSource || personEntity
+      ? expression
+      : applyTsValidationExpression(validationMetadata, expression);
+
     return {
       name: p.name,
       parser,
-      expression,
+      expression: validatedExpression,
       isCollection: p.type === "stringCollection",
       transformName: toTsIdentifier(p.name),
       tsType: toTsType(p.type),
@@ -320,7 +350,14 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     await renderTemplate("ts/src/generated/model.ts.ejs", {
       itemTypeName: ir.item.typeName,
       properties: modelProperties,
+      itemDocComment: ir.item.doc ? formatDocComment(ir.item.doc) : undefined,
     }),
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(outDir, "src", "datasource", "row.ts"),
+    await renderTemplate("ts/src/generated/row.ts.ejs", {}),
     "utf8"
   );
 
@@ -351,12 +388,6 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
   );
 
   await writeFile(
-    path.join(outDir, "src", "datasource", "csv.ts"),
-    await renderTemplate("ts/src/generated/csv.ts.ejs", {}),
-    "utf8"
-  );
-
-  await writeFile(
     path.join(outDir, "src", schemaFolderName, "propertyTransformBase.ts"),
     await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
       properties: transformProperties,
@@ -376,8 +407,8 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
   }
 
   await writeFile(
-    path.join(outDir, "src", schemaFolderName, "fromCsvRow.ts"),
-    await renderTemplate("ts/src/generated/fromCsvRow.ts.ejs", {
+    path.join(outDir, "src", schemaFolderName, "fromRow.ts"),
+    await renderTemplate("ts/src/generated/fromRow.ts.ejs", {
       properties: transformProperties,
       itemTypeName: ir.item.typeName,
       idRawExpression,
@@ -427,6 +458,12 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     }),
     "utf8"
   );
+
+  await writeFile(
+    path.join(outDir, "src", "core", "validation.ts"),
+    await renderTemplate("ts/src/core/validation.ts.ejs", {}),
+    "utf8"
+  );
 }
 
 function toGraphPropertyTypeEnumName(type: PropertyType): string {
@@ -474,25 +511,25 @@ function toOdataCollectionType(type: PropertyType): string | null {
 function toCsParseFunction(type: PropertyType): string {
   switch (type) {
     case "stringCollection":
-      return "CsvParser.ParseStringCollection";
+      return "RowParser.ParseStringCollection";
     case "int64Collection":
-      return "CsvParser.ParseInt64Collection";
+      return "RowParser.ParseInt64Collection";
     case "doubleCollection":
-      return "CsvParser.ParseDoubleCollection";
+      return "RowParser.ParseDoubleCollection";
     case "dateTimeCollection":
-      return "CsvParser.ParseDateTimeCollection";
+      return "RowParser.ParseDateTimeCollection";
     case "boolean":
-      return "CsvParser.ParseBoolean";
+      return "RowParser.ParseBoolean";
     case "int64":
-      return "CsvParser.ParseInt64";
+      return "RowParser.ParseInt64";
     case "double":
-      return "CsvParser.ParseDouble";
+      return "RowParser.ParseDouble";
     case "dateTime":
-      return "CsvParser.ParseDateTime";
+      return "RowParser.ParseDateTime";
     case "principal":
     case "string":
     default:
-      return "CsvParser.ParseString";
+      return "RowParser.ParseString";
   }
 }
 
@@ -505,6 +542,16 @@ function toCsPropertyValueExpression(type: PropertyType, csPropertyName: string)
     default:
       return `item.${csPropertyName}`;
   }
+}
+
+function formatDocComment(doc: string, indent = ""): string {
+  const lines = doc.split(/\r?\n/).map((line) => `${indent} * ${line}`);
+  return `${indent}/**\n${lines.join("\n")}\n${indent} */`;
+}
+
+function formatCsDocSummary(doc: string): string[] {
+  const lines = doc.split(/\r?\n/).map((line) => `/// ${line}`);
+  return ["/// <summary>", ...lines, "/// </summary>"];
 }
 
 type PersonEntityField = {
@@ -540,7 +587,11 @@ function buildObjectTree(fields: PersonEntityField[]): Record<string, unknown> {
   return root;
 }
 
-function buildTsPersonEntityExpression(fields: PersonEntityField[]): string {
+function buildTsPersonEntityExpression(
+  fields: PersonEntityField[],
+  valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
+    `parseString(readSourceValue(row, ${headersLiteral}))`
+): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "  ";
 
@@ -551,7 +602,7 @@ function buildTsPersonEntityExpression(fields: PersonEntityField[]): string {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const headers = JSON.stringify(field.source.csvHeaders);
-        return `${childIndent}${JSON.stringify(key)}: parseString(readSourceValue(row, ${headers}))`;
+        return `${childIndent}${JSON.stringify(key)}: ${valueExpressionBuilder(headers)}`;
       }
       return `${childIndent}${JSON.stringify(key)}: ${renderNode(value as Record<string, unknown>, level + 1)}`;
     });
@@ -564,7 +615,11 @@ ${indent}}`;
   return `JSON.stringify(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)})`;
 }
 
-function buildTsPersonEntityCollectionExpression(fields: PersonEntityField[]): string {
+function buildTsPersonEntityCollectionExpression(
+  fields: PersonEntityField[],
+  collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
+    `parseStringCollection(readSourceValue(row, ${headersLiteral}))`
+): string {
   const indentUnit = "  ";
   const renderNode = (node: Record<string, unknown>, level: number, valueVar: string): string => {
     const indent = indentUnit.repeat(level);
@@ -586,7 +641,7 @@ ${indent}}`;
     const headers = JSON.stringify(field.source.csvHeaders);
     const rendered = renderNode(tree, 2, "value");
 
-    return `parseStringCollection(readSourceValue(row, ${headers}))
+    return `${collectionExpressionBuilder(headers)}
   .map((value) => JSON.stringify(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)}))`;
   }
 
@@ -596,7 +651,7 @@ ${indent}}`;
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
     const headers = JSON.stringify(field.source.csvHeaders);
-    return `  const ${varName} = parseStringCollection(readSourceValue(row, ${headers}));`;
+    return `  const ${varName} = ${collectionExpressionBuilder(headers)};`;
   });
 
   const renderNodeMany = (node: Record<string, unknown>): string => {
@@ -621,7 +676,11 @@ ${indentUnit}}`;
   return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(\n      ${renderNodeMany(tree)}\n    ));\n  }\n  return results;\n})()`;
 }
 
-function buildCsPersonEntityExpression(fields: PersonEntityField[]): string {
+function buildCsPersonEntityExpression(
+  fields: PersonEntityField[],
+  valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
+    `RowParser.ParseString(row, ${headersLiteral})`
+): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "    ";
 
@@ -632,7 +691,7 @@ function buildCsPersonEntityExpression(fields: PersonEntityField[]): string {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-        return `${childIndent}[${JSON.stringify(key)}] = CsvParser.ParseString(row, ${headers})`;
+        return `${childIndent}[${JSON.stringify(key)}] = ${valueExpressionBuilder(headers)}`;
       }
       return `${childIndent}[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>, level + 1)}`;
     });
@@ -644,7 +703,11 @@ function buildCsPersonEntityExpression(fields: PersonEntityField[]): string {
   return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)})`;
 }
 
-function buildCsPersonEntityCollectionExpression(fields: PersonEntityField[]): string {
+function buildCsPersonEntityCollectionExpression(
+  fields: PersonEntityField[],
+  collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
+    `RowParser.ParseStringCollection(row, ${headersLiteral})`
+): string {
   const indentUnit = "    ";
   const renderNode = (node: Record<string, unknown>, level: number, valueVar: string): string => {
     const indent = indentUnit.repeat(level);
@@ -665,7 +728,7 @@ function buildCsPersonEntityCollectionExpression(fields: PersonEntityField[]): s
     const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
     const rendered = renderNode(tree, 3, "value");
 
-    return `CsvParser.ParseStringCollection(row, ${headers})
+    return `${collectionExpressionBuilder(headers)}
             .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${rendered}\n${indentUnit.repeat(3)}))
             .ToList()`;
   }
@@ -676,7 +739,7 @@ function buildCsPersonEntityCollectionExpression(fields: PersonEntityField[]): s
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
     const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-    return `        var ${varName} = CsvParser.ParseStringCollection(row, ${headers});`;
+    return `        var ${varName} = ${collectionExpressionBuilder(headers)};`;
   });
 
   const renderNodeMany = (node: Record<string, unknown>): string => {
@@ -733,6 +796,159 @@ function sampleValueForType(type: PropertyType): string {
   }
 }
 
+function buildTsStringConstraintsLiteral(prop: {
+  minLength?: number;
+  maxLength?: number;
+  pattern?: { regex: string; message?: string };
+  format?: string;
+}): string | undefined {
+  const parts: string[] = [];
+  if (prop.minLength !== undefined) parts.push(`minLength: ${prop.minLength}`);
+  if (prop.maxLength !== undefined) parts.push(`maxLength: ${prop.maxLength}`);
+  if (prop.pattern?.regex) parts.push(`pattern: ${JSON.stringify(prop.pattern.regex)}`);
+  if (prop.format) parts.push(`format: ${JSON.stringify(prop.format)}`);
+  return parts.length > 0 ? `{ ${parts.join(", ")} }` : undefined;
+}
+
+function buildTsNumberConstraintsLiteral(prop: { minValue?: number; maxValue?: number }): string | undefined {
+  const parts: string[] = [];
+  if (prop.minValue !== undefined) parts.push(`minValue: ${prop.minValue}`);
+  if (prop.maxValue !== undefined) parts.push(`maxValue: ${prop.maxValue}`);
+  return parts.length > 0 ? `{ ${parts.join(", ")} }` : undefined;
+}
+
+function applyTsValidationExpression(
+  prop: {
+    name: string;
+    type: PropertyType;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: { regex: string; message?: string };
+    format?: string;
+    minValue?: number;
+    maxValue?: number;
+  },
+  expression: string
+): string {
+  const stringConstraints = buildTsStringConstraintsLiteral(prop);
+  const numberConstraints = buildTsNumberConstraintsLiteral(prop);
+  const nameLiteral = JSON.stringify(prop.name);
+
+  switch (prop.type) {
+    case "string":
+    case "principal":
+    case "dateTime":
+      return stringConstraints ? `validateString(${nameLiteral}, ${expression}, ${stringConstraints})` : expression;
+    case "stringCollection":
+    case "dateTimeCollection":
+      return stringConstraints
+        ? `validateStringCollection(${nameLiteral}, ${expression}, ${stringConstraints})`
+        : expression;
+    case "int64":
+    case "double":
+      return numberConstraints ? `validateNumber(${nameLiteral}, ${expression}, ${numberConstraints})` : expression;
+    case "int64Collection":
+    case "doubleCollection":
+      return numberConstraints
+        ? `validateNumberCollection(${nameLiteral}, ${expression}, ${numberConstraints})`
+        : expression;
+    default:
+      return expression;
+  }
+}
+
+function buildCsStringConstraintsLiteral(prop: {
+  minLength?: number;
+  maxLength?: number;
+  pattern?: { regex: string; message?: string };
+  format?: string;
+}): { minLength: string; maxLength: string; pattern: string; format: string; hasAny: boolean } {
+  const minLength = prop.minLength !== undefined ? prop.minLength.toString() : "null";
+  const maxLength = prop.maxLength !== undefined ? prop.maxLength.toString() : "null";
+  const pattern = prop.pattern?.regex ? JSON.stringify(prop.pattern.regex) : "null";
+  const format = prop.format ? JSON.stringify(prop.format) : "null";
+  const hasAny = prop.minLength !== undefined || prop.maxLength !== undefined || Boolean(prop.pattern?.regex) || Boolean(prop.format);
+  return { minLength, maxLength, pattern, format, hasAny };
+}
+
+function buildCsNumberConstraintsLiteral(prop: { minValue?: number; maxValue?: number }): { minValue: string; maxValue: string; hasAny: boolean } {
+  const minValue = prop.minValue !== undefined ? prop.minValue.toString() : "null";
+  const maxValue = prop.maxValue !== undefined ? prop.maxValue.toString() : "null";
+  const hasAny = prop.minValue !== undefined || prop.maxValue !== undefined;
+  return { minValue, maxValue, hasAny };
+}
+
+function applyCsValidationExpression(
+  prop: {
+    name: string;
+    type: PropertyType;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: { regex: string; message?: string };
+    format?: string;
+    minValue?: number;
+    maxValue?: number;
+  },
+  expression: string,
+  csvHeadersLiteral: string
+): string {
+  const stringConstraints = buildCsStringConstraintsLiteral(prop);
+  const numberConstraints = buildCsNumberConstraintsLiteral(prop);
+  const nameLiteral = JSON.stringify(prop.name);
+
+  switch (prop.type) {
+    case "string":
+    case "principal":
+      return stringConstraints.hasAny
+        ? `Validation.ValidateString(${nameLiteral}, ${expression}, ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format})`
+        : expression;
+    case "dateTime":
+      if (!stringConstraints.hasAny) return expression;
+      return `RowParser.ParseDateTime(Validation.ValidateString(${nameLiteral}, RowParser.ReadValue(row, ${csvHeadersLiteral}), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format}))`;
+    case "stringCollection":
+      return stringConstraints.hasAny
+        ? `Validation.ValidateStringCollection(${nameLiteral}, ${expression}, ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format})`
+        : expression;
+    case "dateTimeCollection":
+      if (!stringConstraints.hasAny) return expression;
+      return `ValidateDateTimeCollection(${nameLiteral}, RowParser.ReadValue(row, ${csvHeadersLiteral}), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format})`;
+    case "int64":
+      return numberConstraints.hasAny
+        ? `Validation.ValidateInt64(${nameLiteral}, ${expression}, ${numberConstraints.minValue}, ${numberConstraints.maxValue})`
+        : expression;
+    case "double":
+      return numberConstraints.hasAny
+        ? `Validation.ValidateDouble(${nameLiteral}, ${expression}, ${numberConstraints.minValue}, ${numberConstraints.maxValue})`
+        : expression;
+    case "int64Collection":
+      return numberConstraints.hasAny
+        ? `Validation.ValidateInt64Collection(${nameLiteral}, ${expression}, ${numberConstraints.minValue}, ${numberConstraints.maxValue})`
+        : expression;
+    case "doubleCollection":
+      return numberConstraints.hasAny
+        ? `Validation.ValidateDoubleCollection(${nameLiteral}, ${expression}, ${numberConstraints.minValue}, ${numberConstraints.maxValue})`
+        : expression;
+    default:
+      return expression;
+  }
+}
+
+function exampleValueForType(example: unknown, type: PropertyType): string | undefined {
+  if (example === undefined || example === null) return undefined;
+
+  if (type.endsWith("Collection")) {
+    if (Array.isArray(example)) {
+      return example.map((value) => (value === undefined || value === null ? "" : String(value))).join(";");
+    }
+    if (typeof example === "string") return example;
+    return JSON.stringify(example);
+  }
+
+  if (typeof example === "string") return example;
+  if (typeof example === "number" || typeof example === "boolean") return String(example);
+  return JSON.stringify(example);
+}
+
 function sampleValueForHeader(header: string, type?: PropertyType): string {
   const lower = header.toLowerCase();
   if (lower.includes("job title")) return "Software Engineer";
@@ -774,6 +990,13 @@ function buildSampleCsv(ir: ConnectorIr): string {
   const valueByHeader = new Map<string, string>();
   for (const prop of ir.properties) {
     if (prop.personEntity) {
+      const exampleValue = exampleValueForType(prop.example, prop.type);
+      if (exampleValue && prop.personEntity.fields.length === 1) {
+        const headers = prop.personEntity.fields[0]?.source.csvHeaders ?? [];
+        for (const header of headers) {
+          if (!valueByHeader.has(header)) valueByHeader.set(header, exampleValue);
+        }
+      }
       for (const field of prop.personEntity.fields) {
         for (const header of field.source.csvHeaders) {
           if (!valueByHeader.has(header)) valueByHeader.set(header, sampleValueForHeader(header));
@@ -782,8 +1005,11 @@ function buildSampleCsv(ir: ConnectorIr): string {
       continue;
     }
 
+    const exampleValue = exampleValueForType(prop.example, prop.type);
     for (const header of prop.source.csvHeaders) {
-      if (!valueByHeader.has(header)) valueByHeader.set(header, sampleValueForHeader(header, prop.type));
+      if (!valueByHeader.has(header)) {
+        valueByHeader.set(header, exampleValue ?? sampleValueForHeader(header, prop.type));
+      }
     }
   }
 
@@ -808,6 +1034,8 @@ async function writeGeneratedDotnet(
     const parseFn = toCsParseFunction(p.type);
     const csvHeadersLiteral = `new[] { ${p.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
     const isCollection = p.type === "stringCollection";
+    const nameLiteral = JSON.stringify(p.name);
+    const csStringConstraints = buildCsStringConstraintsLiteral(p);
     const personEntity = p.personEntity
       ? {
           entity: p.personEntity.entity,
@@ -824,11 +1052,36 @@ async function writeGeneratedDotnet(
       ? `throw new NotImplementedException("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement in PropertyTransform.cs.")`
       : personEntity
       ? isCollection
-        ? buildCsPersonEntityCollectionExpression(personEntity.fields)
-        : buildCsPersonEntityExpression(personEntity.fields)
+          ? buildCsPersonEntityCollectionExpression(personEntity.fields, (headersLiteral) => {
+            const base = `RowParser.ParseStringCollection(row, ${headersLiteral})`;
+            return csStringConstraints.hasAny
+              ? `Validation.ValidateStringCollection(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
+              : base;
+          })
+        : buildCsPersonEntityExpression(personEntity.fields, (headersLiteral) => {
+            const base = `RowParser.ParseString(row, ${headersLiteral})`;
+            return csStringConstraints.hasAny
+              ? `Validation.ValidateString(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
+              : base;
+          })
       : noSource
       ? "default!"
       : `${parseFn}(row, ${csvHeadersLiteral})`;
+
+    const validationMetadata = {
+      name: p.name,
+      type: p.type,
+      ...(p.minLength !== undefined ? { minLength: p.minLength } : {}),
+      ...(p.maxLength !== undefined ? { maxLength: p.maxLength } : {}),
+      ...(p.pattern ? { pattern: p.pattern } : {}),
+      ...(p.format ? { format: p.format } : {}),
+      ...(p.minValue !== undefined ? { minValue: p.minValue } : {}),
+      ...(p.maxValue !== undefined ? { maxValue: p.maxValue } : {}),
+    };
+
+    const validatedExpression = needsManualEntity || noSource || personEntity
+      ? transformExpression
+      : applyCsValidationExpression(validationMetadata, transformExpression, csvHeadersLiteral);
 
     return {
       name: p.name,
@@ -839,16 +1092,34 @@ async function writeGeneratedDotnet(
       isCollection,
       personEntity,
       parseFn,
-      transformExpression,
+      transformExpression: validatedExpression,
       transformThrows: needsManualEntity,
       graphTypeEnumName: toGraphPropertyTypeEnumName(p.type),
       description: p.description,
+      doc: p.doc,
       labels: p.labels,
       aliases: p.aliases,
       search: p.search,
       type: p.type,
+      format: p.format,
+      pattern: p.pattern,
+      minLength: p.minLength,
+      maxLength: p.maxLength,
+      minValue: p.minValue,
+      maxValue: p.maxValue,
     };
   });
+
+  const recordDocLines: string[] = [];
+  if (ir.item.doc) {
+    recordDocLines.push(...formatCsDocSummary(ir.item.doc));
+  }
+  for (const prop of properties) {
+    if (!prop.doc) continue;
+    const docLines = prop.doc.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (docLines.length === 0) continue;
+    recordDocLines.push(`/// <param name=\"${prop.csName}\">${docLines.join(" ")}</param>`);
+  }
 
   const schemaPropertyLines = properties
     .filter((p) => p.name !== ir.item.contentPropertyName)
@@ -902,7 +1173,7 @@ async function writeGeneratedDotnet(
     itemIdProperty?.personEntity?.fields[0]?.source.csvHeaders ?? itemIdProperty?.csvHeaders ?? [];
   const idRawHeadersLiteral = `new[] { ${idRawHeadersDotnet.map((h) => JSON.stringify(h)).join(", ")} }`;
   const idRawExpressionDotnet = idRawHeadersDotnet.length
-    ? `CsvParser.ParseString(row, ${idRawHeadersLiteral})`
+    ? `RowParser.ParseString(row, ${idRawHeadersLiteral})`
     : "string.Empty";
   const constructorArgs = [
     ...properties.map((p) => `(${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row)`),
@@ -929,7 +1200,7 @@ async function writeGeneratedDotnet(
     .join("\n");
 
   const itemIdExpression = itemIdProperty
-    ? `!string.IsNullOrEmpty(item.CocoId) ? item.CocoId : (item.${itemIdProperty.csName} ?? string.Empty)`
+    ? `!string.IsNullOrEmpty(item.InternalId) ? item.InternalId : (item.${itemIdProperty.csName} ?? string.Empty)`
     : "\"\"";
 
   const contentValueExpression = ir.item.contentPropertyName
@@ -949,6 +1220,7 @@ async function writeGeneratedDotnet(
       schemaNamespace,
       itemTypeName: ir.item.typeName,
       properties: properties.map((p) => ({ csName: p.csName, csType: p.csType })),
+      recordDocLines,
     }),
     "utf8"
   );
@@ -983,8 +1255,8 @@ async function writeGeneratedDotnet(
   );
 
   await writeFile(
-    path.join(outDir, "Datasource", "CsvParser.cs"),
-    await renderTemplate("dotnet/Generated/CsvParser.cs.ejs", {
+    path.join(outDir, "Datasource", "RowParser.cs"),
+    await renderTemplate("dotnet/Generated/RowParser.cs.ejs", {
       namespaceName,
     }),
     "utf8"
@@ -1015,8 +1287,8 @@ async function writeGeneratedDotnet(
   }
 
   await writeFile(
-    path.join(outDir, schemaFolderName, "FromCsvRow.cs"),
-    await renderTemplate("dotnet/Generated/FromCsvRow.cs.ejs", {
+    path.join(outDir, schemaFolderName, "FromRow.cs"),
+    await renderTemplate("dotnet/Generated/FromRow.cs.ejs", {
       namespaceName,
       schemaNamespace,
       itemTypeName: ir.item.typeName,
@@ -1048,6 +1320,14 @@ async function writeGeneratedDotnet(
       itemTypeName: ir.item.typeName,
       isPeopleConnector: ir.connection.contentCategory === "people",
       graphApiVersion: ir.connection.graphApiVersion,
+    }),
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(outDir, "Core", "Validation.cs"),
+    await renderTemplate("dotnet/Core/Validation.cs.ejs", {
+      namespaceName,
     }),
     "utf8"
   );

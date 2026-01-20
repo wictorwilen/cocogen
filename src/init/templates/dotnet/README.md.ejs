@@ -60,7 +60,7 @@ Note: `--dry-run` does not require Azure AD or connection settings.
 
 ## Switching from CSV to another datasource
 1) Implement `IItemSource` in `Datasource/`.
-2) If your source yields raw records, map them to `<%= itemTypeName %>` using `FromCsvRow`-style logic.
+2) If your source yields raw records, map them to `<%= itemTypeName %>` using `FromRow`-style logic.
 3) Update `Program.cs` to instantiate your new source instead of `CsvItemSource`.
 
 Tip: keep the `IAsyncEnumerable<<%= itemTypeName %>>` pattern for large datasets.

@@ -1,0 +1,108 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Mail;
+using System.Text.RegularExpressions;
+
+namespace <%= namespaceName %>.Core;
+
+/// <summary>
+/// Shared validation helpers for generated transforms.
+/// </summary>
+public static class Validation
+{
+    public static string ValidateString(string name, string value, int? minLength, int? maxLength, string? pattern, string? format)
+    {
+        if (minLength.HasValue && value.Length < minLength.Value)
+            throw new InvalidOperationException($"Invalid {name}: minimum length is {minLength}.");
+        if (maxLength.HasValue && value.Length > maxLength.Value)
+            throw new InvalidOperationException($"Invalid {name}: maximum length is {maxLength}.");
+        if (!string.IsNullOrWhiteSpace(pattern))
+        {
+            var regex = new Regex(pattern);
+            if (!string.IsNullOrWhiteSpace(value) && !regex.IsMatch(value))
+                throw new InvalidOperationException($"Invalid {name}: does not match required pattern.");
+        }
+        ValidateFormat(name, value, format);
+        return value;
+    }
+
+    public static void ValidateFormat(string name, string value, string? format)
+    {
+        if (string.IsNullOrWhiteSpace(format) || string.IsNullOrWhiteSpace(value)) return;
+        var normalized = format.Trim().ToLowerInvariant();
+        switch (normalized)
+        {
+            case "email":
+                try
+                {
+                    _ = new MailAddress(value);
+                }
+                catch
+                {
+                    throw new InvalidOperationException($"Invalid {name}: expected email format.");
+                }
+                break;
+            case "uri":
+            case "url":
+                if (!Uri.TryCreate(value, UriKind.Absolute, out _))
+                    throw new InvalidOperationException($"Invalid {name}: expected URI format.");
+                break;
+            case "uuid":
+                if (!Guid.TryParse(value, out _))
+                    throw new InvalidOperationException($"Invalid {name}: expected UUID format.");
+                break;
+            case "date-time":
+                if (!DateTimeOffset.TryParse(value, out _))
+                    throw new InvalidOperationException($"Invalid {name}: expected date-time format.");
+                break;
+        }
+    }
+
+    public static long ValidateInt64(string name, long value, long? minValue, long? maxValue)
+    {
+        if (minValue.HasValue && value < minValue.Value)
+            throw new InvalidOperationException($"Invalid {name}: minimum value is {minValue}.");
+        if (maxValue.HasValue && value > maxValue.Value)
+            throw new InvalidOperationException($"Invalid {name}: maximum value is {maxValue}.");
+        return value;
+    }
+
+    public static double ValidateDouble(string name, double value, double? minValue, double? maxValue)
+    {
+        if (minValue.HasValue && value < minValue.Value)
+            throw new InvalidOperationException($"Invalid {name}: minimum value is {minValue}.");
+        if (maxValue.HasValue && value > maxValue.Value)
+            throw new InvalidOperationException($"Invalid {name}: maximum value is {maxValue}.");
+        return value;
+    }
+
+    public static List<string> ValidateStringCollection(string name, List<string> values, int? minLength, int? maxLength, string? pattern, string? format)
+    {
+        if (values.Count == 0) return values;
+        for (var index = 0; index < values.Count; index++)
+        {
+            values[index] = ValidateString(name, values[index], minLength, maxLength, pattern, format);
+        }
+        return values;
+    }
+
+    public static List<long> ValidateInt64Collection(string name, List<long> values, long? minValue, long? maxValue)
+    {
+        if (values.Count == 0) return values;
+        for (var index = 0; index < values.Count; index++)
+        {
+            values[index] = ValidateInt64(name, values[index], minValue, maxValue);
+        }
+        return values;
+    }
+
+    public static List<double> ValidateDoubleCollection(string name, List<double> values, double? minValue, double? maxValue)
+    {
+        if (values.Count == 0) return values;
+        for (var index = 0; index < values.Count; index++)
+        {
+            values[index] = ValidateDouble(name, values[index], minValue, maxValue);
+        }
+        return values;
+    }
+}

@@ -1,0 +1,89 @@
+type StringConstraints = {
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: string;
+};
+
+type NumberConstraints = {
+  minValue?: number;
+  maxValue?: number;
+};
+
+function validateFormat(name: string, value: string, format?: string): void {
+  if (!format || !value) return;
+  const normalized = format.toLowerCase();
+  if (normalized === "email") {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+      throw new Error(`Invalid ${name}: expected email format.`);
+    }
+    return;
+  }
+  if (normalized === "uri" || normalized === "url") {
+    try {
+      new URL(value);
+    } catch {
+      throw new Error(`Invalid ${name}: expected URI format.`);
+    }
+    return;
+  }
+  if (normalized === "uuid") {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+      throw new Error(`Invalid ${name}: expected UUID format.`);
+    }
+    return;
+  }
+  if (normalized === "date-time") {
+    const time = Date.parse(value);
+    if (Number.isNaN(time)) {
+      throw new Error(`Invalid ${name}: expected date-time format.`);
+    }
+  }
+}
+
+function validateString(name: string, value: string, constraints?: StringConstraints): string {
+  if (!constraints) return value;
+  const length = value.length;
+  if (constraints.minLength !== undefined && length < constraints.minLength) {
+    throw new Error(`Invalid ${name}: minimum length is ${constraints.minLength}.`);
+  }
+  if (constraints.maxLength !== undefined && length > constraints.maxLength) {
+    throw new Error(`Invalid ${name}: maximum length is ${constraints.maxLength}.`);
+  }
+  if (constraints.pattern) {
+    const regex = new RegExp(constraints.pattern);
+    if (value && !regex.test(value)) {
+      throw new Error(`Invalid ${name}: does not match required pattern.`);
+    }
+  }
+  validateFormat(name, value, constraints.format);
+  return value;
+}
+
+function validateNumber(name: string, value: number, constraints?: NumberConstraints): number {
+  if (!constraints) return value;
+  if (constraints.minValue !== undefined && value < constraints.minValue) {
+    throw new Error(`Invalid ${name}: minimum value is ${constraints.minValue}.`);
+  }
+  if (constraints.maxValue !== undefined && value > constraints.maxValue) {
+    throw new Error(`Invalid ${name}: maximum value is ${constraints.maxValue}.`);
+  }
+  return value;
+}
+
+function validateStringCollection(name: string, values: string[], constraints?: StringConstraints): string[] {
+  if (!constraints) return values;
+  return values.map((value) => validateString(name, value, constraints));
+}
+
+function validateNumberCollection(name: string, values: number[], constraints?: NumberConstraints): number[] {
+  if (!constraints) return values;
+  return values.map((value) => validateNumber(name, value, constraints));
+}
+
+export {
+  validateString,
+  validateNumber,
+  validateStringCollection,
+  validateNumberCollection
+};

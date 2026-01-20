@@ -84,6 +84,10 @@ model PersonProfile {
 - `@coco.noSource` — mark a property as having no CSV source mapping
 - `@coco.connection({ contentCategory?, name, connectionId, connectionDescription? })`
 - `@coco.profileSource({ webUrl, displayName, priority? })` (people connectors)
+- `@doc("...")` — add inline documentation to generated model files
+- `@example(...)` — seed the sample CSV row
+- `@minLength`, `@maxLength`, `@minValue`, `@maxValue`, `@pattern`, `@format` — runtime validation in transform methods
+- `#deprecated "message"` — omit the property from generated schema/model/mapping
 
 For the complete spec and validation rules, see docs/typespec.md.
 
@@ -167,7 +171,7 @@ Ingest debugging flags:
 
 ### Switching from CSV to another datasource (TypeScript)
 1) Implement `ItemSource` in `src/datasource`.
-2) Map your raw records to `Item` objects (you can reuse `fromCsvRow` logic or create your own mapping).
+2) Map your raw records to `Item` objects (you can reuse `fromRow` logic or create your own mapping).
 3) Update `src/cli.ts` to instantiate your new source instead of `CsvItemSource`.
 
 ## 6) Working with generated .NET projects
@@ -202,7 +206,7 @@ Ingest debugging flags:
 
 ### Switching from CSV to another datasource (.NET)
 1) Implement `IItemSource` in `Datasource/`.
-2) Map your raw records to `Item` objects (you can reuse `FromCsvRow` logic or create your own mapping).
+2) Map your raw records to `Item` objects (you can reuse `FromRow` logic or create your own mapping).
 3) Update `Program.cs` to instantiate your new source instead of `CsvItemSource`.
 
 ## 7) Common customization scenarios

@@ -1,9 +1,15 @@
 /**
  * TypeScript representation of the external item schema.
  */
+<% if (itemDocComment) { -%>
+<%- itemDocComment %>
+<% } -%>
 export type <%= itemTypeName %> = {
-  __cocoId?: string;
+  internalId?: string;
 <% for (const prop of properties) { -%>
+<% if (prop.docComment) { -%>
+<%- prop.docComment %>
+<% } -%>
   <%= prop.name %>: <%= prop.tsType %>;
 <% } -%>
 };

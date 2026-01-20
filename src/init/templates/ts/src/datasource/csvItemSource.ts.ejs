@@ -6,7 +6,7 @@ import { parse } from "csv-parse";
 
 import type { <%= itemTypeName %> } from "../<%= schemaFolderName %>/model.js";
 import type { ItemSource } from "./itemSource.js";
-import { fromCsvRow } from "../<%= schemaFolderName %>/fromCsvRow.js";
+import { fromRow } from "../<%= schemaFolderName %>/fromRow.js";
 
 /**
  * CSV-based datasource (default). Replace with your own ItemSource as needed.
@@ -27,7 +27,7 @@ export class CsvItemSource implements ItemSource {
     const stream = createReadStream(this.filePath, { encoding: "utf8" }).pipe(parser);
 
     for await (const row of stream as AsyncIterable<Record<string, unknown>>) {
-      yield fromCsvRow(row);
+      yield fromRow(row);
     }
   }
 }

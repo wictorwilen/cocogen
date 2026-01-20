@@ -168,6 +168,82 @@ describe("loadIrFromTypeSpec", () => {
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/Missing @coco.id/);
   });
 
+  test("captures docs, examples, and validation metadata", async () => {
+    const entry = await writeTempTspFile(`
+      @TypeSpec.doc("Item-level docs")
+      @coco.item
+      model Item {
+        @coco.id
+        @TypeSpec.example("TCK-1001")
+        @TypeSpec.pattern("^TCK-[0-9]+$")
+        id: string;
+
+        @TypeSpec.doc("Display name")
+        @TypeSpec.example("Ada Lovelace")
+        @TypeSpec.minLength(2)
+        @TypeSpec.maxLength(64)
+        name: string;
+
+        @TypeSpec.format("email")
+        @TypeSpec.example("ada@contoso.com")
+        email: string;
+
+        @TypeSpec.minValue(1)
+        @TypeSpec.maxValue(10)
+        rating: int64;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.item.doc).toBe("Item-level docs");
+
+    const idProp = ir.properties.find((p) => p.name === "id");
+    expect(idProp?.example).toBe("TCK-1001");
+    expect(idProp?.pattern?.regex).toBe("^TCK-[0-9]+$");
+
+    const nameProp = ir.properties.find((p) => p.name === "name");
+    expect(nameProp?.doc).toBe("Display name");
+    expect(nameProp?.example).toBe("Ada Lovelace");
+    expect(nameProp?.minLength).toBe(2);
+    expect(nameProp?.maxLength).toBe(64);
+
+    const emailProp = ir.properties.find((p) => p.name === "email");
+    expect(emailProp?.format).toBe("email");
+
+    const ratingProp = ir.properties.find((p) => p.name === "rating");
+    expect(ratingProp?.minValue).toBe(1);
+    expect(ratingProp?.maxValue).toBe(10);
+  });
+
+  test("ignores deprecated properties", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        #deprecated "Legacy field"
+        legacy: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.properties.some((p) => p.name === "legacy")).toBe(false);
+  });
+
+  test("errors when #deprecated is used on @coco.id", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        #deprecated "Legacy id"
+        id: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/@coco.id property cannot be marked #deprecated/i);
+  });
+
   test("defaults id encoding to slug", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

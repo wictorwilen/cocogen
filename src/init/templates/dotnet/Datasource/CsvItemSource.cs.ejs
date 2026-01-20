@@ -45,7 +45,7 @@ public sealed class CsvItemSource : IItemSource
                 row[header] = csv.GetField(header);
             }
 
-            yield return FromCsvRow.Parse(row);
+            yield return FromRow.Parse(row);
         }
     }
 }

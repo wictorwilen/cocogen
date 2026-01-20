@@ -6,6 +6,15 @@ import {
   compile,
   formatDiagnostic,
   getDoc,
+  getExamples,
+  serializeValueAsJson,
+  getFormat,
+  getPatternData,
+  getDeprecated,
+  getMinLengthAsNumeric,
+  getMaxLengthAsNumeric,
+  getMinValueAsNumeric,
+  getMaxValueAsNumeric,
   isArrayModelType,
   type Model,
   type ModelProperty,
@@ -241,6 +250,33 @@ function getDescription(program: Program, prop: ModelProperty): string | undefin
   return undefined;
 }
 
+function getDocText(program: Program, prop: ModelProperty): string | undefined {
+  const text = getDoc(program, prop);
+  return text && text.trim().length > 0 ? text : undefined;
+}
+
+function getItemDoc(program: Program, model: Model): string | undefined {
+  const text = getDoc(program, model);
+  return text && text.trim().length > 0 ? text : undefined;
+}
+
+function getExampleValue(program: Program, prop: ModelProperty): unknown | undefined {
+  const examples = getExamples(program, prop);
+  if (!examples || examples.length === 0) return undefined;
+  try {
+    return serializeValueAsJson(program, examples[0]!.value, prop.type);
+  } catch {
+    return undefined;
+  }
+}
+
+function getPattern(program: Program, prop: ModelProperty): { regex: string; message?: string } | undefined {
+  const data = getPatternData(program, prop);
+  if (!data?.pattern) return undefined;
+  const message = data?.validationMessage;
+  return message ? { regex: data.pattern, message } : { regex: data.pattern };
+}
+
 function getName(program: Program, prop: ModelProperty): string {
   const override = program.stateMap(COCOGEN_STATE_PROPERTY_NAME_OVERRIDES).get(prop) as string | undefined;
   return override ?? prop.name;
@@ -371,6 +407,9 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
   const connection = getConnectionSettings(program, itemModel);
   const profileSource = getProfileSourceSettings(program, itemModel);
   const properties = [...itemModel.properties.values()];
+  const itemDoc = getItemDoc(program, itemModel);
+
+  const deprecatedProps = new Set(properties.filter((prop) => Boolean(getDeprecated(program, prop))));
 
   const idProps = properties.filter((p) => isIdProperty(program, p));
   if (idProps.length !== 1) {
@@ -381,14 +420,35 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
     );
   }
 
+  if (deprecatedProps.has(idProps[0]!)) {
+    throw new CocogenError("The @coco.id property cannot be marked #deprecated.");
+  }
+
   const contentProps = properties.filter((p) => isContentProperty(program, p));
   const contentPropName = contentProps.length > 0 ? getName(program, contentProps[0]!) : undefined;
+  if (contentProps.some((prop) => deprecatedProps.has(prop))) {
+    throw new CocogenError("The @coco.content property cannot be marked #deprecated.");
+  }
 
-  const irProperties: ConnectorIr["properties"] = properties.map((prop) => {
+  const irProperties: ConnectorIr["properties"] = properties
+    .filter((prop) => !deprecatedProps.has(prop))
+    .map((prop) => {
     const name = getName(program, prop);
     const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
     const aliases = getStringArray(program, COCOGEN_STATE_PROPERTY_ALIASES, prop);
     const description = getDescription(program, prop);
+    const doc = getDocText(program, prop);
+    const example = getExampleValue(program, prop);
+    const pattern = getPattern(program, prop);
+    const format = getFormat(program, prop);
+    const minLengthRaw = getMinLengthAsNumeric(program, prop);
+    const maxLengthRaw = getMaxLengthAsNumeric(program, prop);
+    const minValueRaw = getMinValueAsNumeric(program, prop);
+    const maxValueRaw = getMaxValueAsNumeric(program, prop);
+    const minLength = minLengthRaw === undefined ? undefined : Number(minLengthRaw);
+    const maxLength = maxLengthRaw === undefined ? undefined : Number(maxLengthRaw);
+    const minValue = minValueRaw === undefined ? undefined : Number(minValueRaw);
+    const maxValue = maxValueRaw === undefined ? undefined : Number(maxValueRaw);
 
     const propertyType = mapTypeToPropertyType(program, prop.type);
     const personEntity = getPersonEntityMapping(program, prop, propertyType);
@@ -397,6 +457,14 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
       name,
       type: propertyType,
       ...(description ? { description } : {}),
+      ...(doc ? { doc } : {}),
+      ...(example !== undefined ? { example } : {}),
+      ...(format ? { format } : {}),
+      ...(pattern ? { pattern } : {}),
+      ...(minLength !== undefined && Number.isFinite(minLength) ? { minLength } : {}),
+      ...(maxLength !== undefined && Number.isFinite(maxLength) ? { maxLength } : {}),
+      ...(minValue !== undefined && Number.isFinite(minValue) ? { minValue } : {}),
+      ...(maxValue !== undefined && Number.isFinite(maxValue) ? { maxValue } : {}),
       labels,
       aliases,
       search: getSearchFlags(program, prop),
@@ -427,6 +495,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
       idPropertyName: getName(program, idProps[0]!),
       idEncoding: getIdEncoding(program, idProps[0]!),
       ...(contentPropName ? { contentPropertyName: contentPropName } : {}),
+      ...(itemDoc ? { doc: itemDoc } : {}),
     },
     properties: irProperties,
   };
