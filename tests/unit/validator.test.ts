@@ -87,13 +87,13 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "error" && i.message.includes("Missing @coco.connection connectionId"))).toBe(true);
   });
 
-  test("errors when connectionDescription is missing", () => {
+  test("warns when connectionDescription is missing", () => {
     const ir = baseIr();
     ir.connection = { graphApiVersion: "v1.0", connectionName: "Test connector", connectionId: "testconnection" };
 
     const issues = validateIr(ir);
     expect(
-      issues.some((i) => i.severity === "error" && i.message.includes("Missing @coco.connection connectionDescription"))
+      issues.some((i) => i.severity === "warning" && i.message.includes("Missing @coco.connection connectionDescription"))
     ).toBe(true);
   });
 
@@ -212,7 +212,14 @@ describe("validateIr", () => {
 
   test("people connectors require exactly one personAccount label", () => {
     const ir = baseIr();
-    ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
+    ir.connection = {
+      graphApiVersion: "beta",
+      contentCategory: "people",
+      profileSource: {
+        webUrl: "https://example.com",
+        displayName: "Example source",
+      },
+    };
 
     const issues = validateIr(ir);
     expect(
@@ -421,11 +428,52 @@ describe("validateIr", () => {
     ir.connection = {
       graphApiVersion: "beta",
       contentCategory: "people",
-      profileSource: { webUrl: " " },
+      profileSource: { webUrl: " ", displayName: "Directory" },
     };
 
     const issues = validateIr(ir);
     expect(issues.some((i) => i.severity === "error" && i.message.includes("profileSource"))).toBe(true);
+  });
+
+  test("profileSource requires personAccount label", () => {
+    const ir = baseIr();
+    ir.connection = {
+      graphApiVersion: "beta",
+      contentCategory: "people",
+      profileSource: { webUrl: "https://contoso.com" },
+    };
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some((i) => i.severity === "error" && i.message.includes("no property is labeled personAccount"))
+    ).toBe(true);
+  });
+
+  test("personAccount label requires profileSource", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
+    ir.properties.push({
+      name: "account",
+      type: "string",
+      labels: ["personAccount"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["account"] },
+      personEntity: {
+        entity: "userAccountInformation",
+        fields: [
+          {
+            path: "userPrincipalName",
+            source: { csvHeaders: ["account"], explicit: true },
+          },
+        ],
+      },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some((i) => i.severity === "error" && i.message.includes("personAccount label requires @coco.profileSource"))
+    ).toBe(true);
   });
 
   test("people labels require specific types", () => {
@@ -482,10 +530,22 @@ describe("validateIr", () => {
     const ir = baseIr();
     ir.connection = {
       graphApiVersion: "v1.0",
-      profileSource: { webUrl: "https://contoso.com" },
+      profileSource: { webUrl: "https://contoso.com", displayName: "Directory" },
     };
 
     const issues = validateIr(ir);
     expect(issues.some((i) => i.severity === "error" && i.message.includes("profileSource"))).toBe(true);
+  });
+
+  test("profileSource requires displayName", () => {
+    const ir = baseIr();
+    ir.connection = {
+      graphApiVersion: "beta",
+      contentCategory: "people",
+      profileSource: { webUrl: "https://contoso.com", displayName: "" },
+    };
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("displayName"))).toBe(true);
   });
 });

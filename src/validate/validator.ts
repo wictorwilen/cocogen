@@ -208,9 +208,35 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
 
   if (!ir.connection.connectionDescription || ir.connection.connectionDescription.trim().length === 0) {
     issues.push({
-      severity: "error",
+      severity: "warning",
       message: "Missing @coco.connection connectionDescription.",
-      hint: "Add @coco.connection({ name: \"Your connector\", connectionId: \"yourconnectionid\", connectionDescription: \"Your connector\" }) to the @coco.item model.",
+      hint: "Add @coco.connection({ name: \"Your connector\", connectionId: \"yourconnectionid\", connectionDescription: \"Your connector\" }) to improve Copilot reasoning quality.",
+    });
+  }
+
+  const hasPersonAccount = ir.properties.some((p) => p.labels.includes("personAccount"));
+  const hasProfileSource = Boolean(ir.connection.profileSource);
+  if (hasProfileSource && !hasPersonAccount) {
+    issues.push({
+      severity: "error",
+      message: "@coco.profileSource is set but no property is labeled personAccount.",
+      hint: "Add @coco.label(\"personAccount\") to a string property (usually the user principal name).",
+    });
+  }
+
+  if (hasProfileSource && (!ir.connection.profileSource?.displayName || ir.connection.profileSource.displayName.trim().length === 0)) {
+    issues.push({
+      severity: "error",
+      message: "@coco.profileSource displayName is required.",
+      hint: "Add displayName to @coco.profileSource({ webUrl: \"https://example.com\", displayName: \"Your source\" }).",
+    });
+  }
+
+  if (hasPersonAccount && !hasProfileSource) {
+    issues.push({
+      severity: "error",
+      message: "personAccount label requires @coco.profileSource on the model.",
+      hint: "Add @coco.profileSource({ webUrl: \"https://example.com\", displayName: \"Your source\" }) to the @coco.item model.",
     });
   }
 

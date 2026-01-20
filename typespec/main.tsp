@@ -21,7 +21,7 @@ namespace coco {
 
   model ProfileSourceSettings {
     webUrl: string;
-    displayName?: string;
+    displayName: string;
     priority?: "first" | "last";
   }
 

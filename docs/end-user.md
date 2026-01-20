@@ -70,7 +70,7 @@ model PersonProfile {
 ### Required rules
 - Exactly one model must be marked with `@coco.item()`.
 - Exactly one property must be marked with `@coco.id` (and it must be `string`).
-- The item model must define `@coco.connection` with `name`, `connectionId`, and `connectionDescription`.
+- The item model must define `@coco.connection` with `name` and `connectionId` (description recommended).
 - The model must be flat (no nested objects or models).
 - Property names in Graph must be alphanumeric and ≤ 32 characters. Use `@coco.name("...")` if needed.
 - People-labeled properties must define at least one `@coco.source("column", "entity.path")` mapping.
@@ -82,8 +82,8 @@ model PersonProfile {
 - `@coco.source("csvHeader")` — map a property to a CSV header
 - `@coco.source("csvHeader", "entity.path")` — people entity mapping from CSV to entity path
 - `@coco.noSource` — mark a property as having no CSV source mapping
-- `@coco.connection({ contentCategory?, name, connectionId, connectionDescription })`
-- `@coco.profileSource({ webUrl, displayName?, priority? })` (people connectors)
+- `@coco.connection({ contentCategory?, name, connectionId, connectionDescription? })`
+- `@coco.profileSource({ webUrl, displayName, priority? })` (people connectors)
 
 For the complete spec and validation rules, see docs/typespec.md.
 

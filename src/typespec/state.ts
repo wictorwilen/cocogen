@@ -36,7 +36,7 @@ export type CocogenConnectionSettings = {
 
 export type CocogenProfileSourceSettings = {
   webUrl: string;
-  displayName?: string;
+  displayName: string;
   priority?: "first" | "last";
 };
 

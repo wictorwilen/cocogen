@@ -28,7 +28,7 @@ export type ConnectorIr = {
     connectionDescription?: string;
     profileSource?: {
       webUrl: string;
-      displayName?: string;
+      displayName: string;
       priority?: "first" | "last";
     };
     graphApiVersion: GraphApiVersion;

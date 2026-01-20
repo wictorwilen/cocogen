@@ -101,13 +101,13 @@ Reference:
 Notes:
 - `people` enables people connector validation rules.
 
-### `@coco.profileSource({ webUrl, displayName?, priority? })`
+### `@coco.profileSource({ webUrl, displayName, priority? })`
 
 People connectors only. Attach to the same model as `@coco.item()`.
 
 This decorator configures the default profile source settings for the generated project:
 - `webUrl` (required): The profile source web URL.
-- `displayName` (optional): Defaults to the connection name if omitted.
+- `displayName` (required): Display name shown for the profile source.
 - `priority` (optional): `first` or `last` (default: `first`). Controls where the profile source is placed in `prioritizedSourceUrls`.
 
 Example:
