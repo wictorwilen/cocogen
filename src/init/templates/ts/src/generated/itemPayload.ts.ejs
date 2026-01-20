@@ -8,22 +8,24 @@ import { contentPropertyName, idPropertyName } from "./constants.js";
  * Resolve the external item ID from the schema model.
  */
 export function getItemId(item: <%= itemTypeName %>): string {
-  return String((item as any)[idPropertyName] ?? "");
+  return (item as any).__cocoId ?? (item as any)[idPropertyName] ?? "";
 }
 
 /**
  * Convert a schema model instance into a Graph ExternalItem payload.
  */
 export function toExternalItem(item: <%= itemTypeName %>): {
+  id: string;
   acl: Array<{ type: string; value: string; accessType: string }>;
   properties: Record<string, unknown>;
-  content?: { type: string; value: string };
+  content: { type: string; value: string };
 } {
   const properties = {
 <%- propertiesObjectLines %>
   };
 
   return {
+    id: getItemId(item),
     acl: [{ type: "everyone", value: "everyone", accessType: "grant" }],
     properties<%- contentBlock %>
   };

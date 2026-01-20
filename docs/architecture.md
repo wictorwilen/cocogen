@@ -297,11 +297,10 @@ Default: app-only client credentials.
 For each item:
 - `acl`: default `[ { type: "everyone", value: "everyone", accessType: "grant" } ]` (configurable)
 - `properties`: the mapped schema fields
-- `content`: optional full-text content derived from `@coco.content` field
+- `content`: always included. If `@coco.content` is present, `content.value` is derived from it; otherwise `content.value` is an empty string and `content.type` is "text".
 
 People connectors (preview) overrides:
 - Item `acl` MUST grant access to everyone (generated templates should enforce this).
-- People connectors MUST NOT set `externalItem.content`.
 
 ### 10.2 Id strategy
 - Item id is mandatory.

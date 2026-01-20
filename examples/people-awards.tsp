@@ -26,6 +26,6 @@ model PersonProfile {
   account: string;
 
   @coco.label("personAwards")
-  @coco.source("Awards")
+  @coco.source("Awards", "displayName")
   awards: string[];
 }

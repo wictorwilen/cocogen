@@ -118,6 +118,16 @@ public sealed class ConnectorCore
 
         var itemId = ItemPayload.GetItemId(item);
         var externalItem = ItemPayload.ToExternalItem(item);
+        externalItem.Id = itemId;
+        if (externalItem.Content == null)
+        {
+            externalItem.Content = new ExternalItemContent
+            {
+                Type = ExternalItemContentType.Text,
+                Value = string.Empty,
+            };
+        }
+        Console.WriteLine($"info: PUT item (id={itemId})");
         if (verbose)
         {
             var url = $"{_graph!.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl}/external/connections/{_connectionId}/items/{Uri.EscapeDataString(itemId)}";

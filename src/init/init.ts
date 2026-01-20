@@ -308,6 +308,12 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     };
   });
 
+  const idProperty = ir.properties.find((p) => p.name === ir.item.idPropertyName);
+  const idRawHeaders = idProperty?.personEntity?.fields[0]?.source.csvHeaders ?? idProperty?.source.csvHeaders ?? [];
+  const idRawExpression = idRawHeaders.length
+    ? `parseString(readSourceValue(row, ${JSON.stringify(idRawHeaders)}))`
+    : '""';
+
   await writeFile(
     path.join(outDir, "src", schemaFolderName, "model.ts"),
     await renderTemplate("ts/src/generated/model.ts.ejs", {
@@ -373,6 +379,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     await renderTemplate("ts/src/generated/fromCsvRow.ts.ejs", {
       properties: transformProperties,
       itemTypeName: ir.item.typeName,
+      idRawExpression,
     }),
     "utf8"
   );
@@ -389,9 +396,10 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       return lines;
     })
     .join("\n");
-  const contentBlock = ir.item.contentPropertyName
-    ? `,\n    content: {\n      type: \"text\",\n      value: String((item as any)[contentPropertyName ?? \"\"] ?? \"\"),\n    }`
-    : "";
+  const contentValueExpression = ir.item.contentPropertyName
+    ? "String((item as any)[contentPropertyName ?? \"\"] ?? \"\")"
+    : "\"\"";
+  const contentBlock = `,\n    content: {\n      type: \"text\",\n      value: ${contentValueExpression},\n    }`;
 
   await writeFile(
     path.join(outDir, "src", schemaFolderName, "itemPayload.ts"),
@@ -887,10 +895,21 @@ async function writeGeneratedDotnet(
     })
     .join("\n");
 
-  const constructorArgLines = properties
-    .map((p, index) => {
-      const comma = index < properties.length - 1 ? "," : "";
-      return `            (${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row)${comma}`;
+  const itemIdProperty = properties.find((p) => p.name === ir.item.idPropertyName);
+  const idRawHeadersDotnet =
+    itemIdProperty?.personEntity?.fields[0]?.source.csvHeaders ?? itemIdProperty?.csvHeaders ?? [];
+  const idRawHeadersLiteral = `new[] { ${idRawHeadersDotnet.map((h) => JSON.stringify(h)).join(", ")} }`;
+  const idRawExpressionDotnet = idRawHeadersDotnet.length
+    ? `CsvParser.ParseString(row, ${idRawHeadersLiteral})`
+    : "string.Empty";
+  const constructorArgs = [
+    ...properties.map((p) => `(${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row)`),
+    idRawExpressionDotnet,
+  ];
+  const constructorArgLines = constructorArgs
+    .map((arg, index) => {
+      const comma = index < constructorArgs.length - 1 ? "," : "";
+      return `            ${arg}${comma}`;
     })
     .join("\n");
 
@@ -907,18 +926,20 @@ async function writeGeneratedDotnet(
     })
     .join("\n");
 
-  const itemIdProperty = properties.find((p) => p.name === ir.item.idPropertyName);
-  const itemIdExpression = itemIdProperty ? `Convert.ToString(item.${itemIdProperty.csName}) ?? ""` : "\"\"";
+  const itemIdExpression = itemIdProperty
+    ? `!string.IsNullOrEmpty(item.CocoId) ? item.CocoId : (item.${itemIdProperty.csName} ?? string.Empty)`
+    : "\"\"";
 
-  const contentBlock = ir.item.contentPropertyName
-    ? [
-        "        externalItem.Content = new ExternalItemContent",
-        "        {",
-        "            Type = ExternalItemContentType.Text,",
-        `            Value = Convert.ToString(item.${toCsIdentifier(ir.item.contentPropertyName)}) ?? string.Empty,`,
-        "        };",
-      ].join("\n")
-    : "";
+  const contentValueExpression = ir.item.contentPropertyName
+    ? `Convert.ToString(item.${toCsIdentifier(ir.item.contentPropertyName)}) ?? string.Empty`
+    : "string.Empty";
+  const contentBlock = [
+    "        externalItem.Content = new ExternalItemContent",
+    "        {",
+    "            Type = ExternalItemContentType.Text,",
+    `            Value = ${contentValueExpression},`,
+    "        };",
+  ].join("\n");
 
   await writeFile(
     path.join(outDir, schemaFolderName, "Model.cs"),

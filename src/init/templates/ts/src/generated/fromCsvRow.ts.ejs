@@ -3,6 +3,7 @@
  */
 import type { <%= itemTypeName %> } from "./model.js";
 import { PropertyTransform } from "./propertyTransform.js";
+import { parseString, readSourceValue } from "../datasource/csv.js";
 
 const transforms = new PropertyTransform();
 
@@ -11,6 +12,7 @@ const transforms = new PropertyTransform();
  */
 export function fromCsvRow(row: Record<string, unknown>): <%= itemTypeName %> {
   return {
+    __cocoId: <%- idRawExpression %>,
 <% for (const prop of properties) { -%>
     <%= prop.name %>: transforms.transformProperty<%= prop.tsType ? `<${prop.tsType}>` : "" %>(<%= JSON.stringify(prop.name) %>, row),
 <% } -%>

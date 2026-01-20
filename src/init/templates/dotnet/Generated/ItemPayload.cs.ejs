@@ -32,6 +32,7 @@ public static class ItemPayload
 
         var externalItem = new ExternalItem
         {
+            Id = GetItemId(item),
             Acl = new List<Acl>
             {
                 new Acl
@@ -44,7 +45,7 @@ public static class ItemPayload
             Properties = props,
         };
 
-<%- contentBlock %>
+    <%- contentBlock %>
 
         return externalItem;
     }

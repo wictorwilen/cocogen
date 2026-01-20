@@ -13,6 +13,7 @@ export type ConnectorCoreOptions<Item> = {
   getAccessToken: () => Promise<string>;
   getItemId: (item: Item) => string;
   toExternalItem: (item: Item) => {
+    id?: string;
     acl: Array<{ type: string; value: string; accessType: string }>;
     properties: Record<string, unknown>;
     content?: { type: string; value: string };
@@ -45,6 +46,7 @@ export class ConnectorCore<Item> {
   private readonly getAccessToken: () => Promise<string>;
   private readonly getItemId: (item: Item) => string;
   private readonly toExternalItem: (item: Item) => {
+    id?: string;
     acl: Array<{ type: string; value: string; accessType: string }>;
     properties: Record<string, unknown>;
     content?: { type: string; value: string };
@@ -153,12 +155,18 @@ export class ConnectorCore<Item> {
     const url = `${this.graphBaseUrl}/external/connections/${connectionId}/items/${encodeURIComponent(itemId)}`;
 
     const payload = this.toExternalItem(item);
+    const payloadWithId = {
+      ...payload,
+      id: itemId,
+      content: payload.content ?? { type: "text", value: "" },
+    };
+    console.log(`info: PUT item (id=${itemId})`);
     if (verbose) {
       console.log("verbose: PUT", url);
-      console.log("verbose: payload", JSON.stringify(payload, null, 2));
+      console.log("verbose: payload", JSON.stringify(payloadWithId, null, 2));
     }
 
-    const res = await this.graphRequest("PUT", url, payload);
+    const res = await this.graphRequest("PUT", url, payloadWithId);
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Failed to ingest item '${itemId}' (HTTP ${res.status}): ${text}`);
@@ -183,7 +191,13 @@ export class ConnectorCore<Item> {
           throw error;
         }
       } else if (options.verbose) {
-        console.log(`verbose: DRY RUN item ${count + 1} (id=${itemId})`, JSON.stringify(options.toExternalItem(item as Item), null, 2));
+        const payload = options.toExternalItem(item as Item) as any;
+        const payloadWithId = {
+          ...payload,
+          id: itemId,
+          content: payload?.content ?? { type: "text", value: "" },
+        };
+        console.log(`verbose: DRY RUN item ${count + 1} (id=${itemId})`, JSON.stringify(payloadWithId, null, 2));
       }
       count++;
     }

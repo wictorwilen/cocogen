@@ -2,6 +2,7 @@
  * TypeScript representation of the external item schema.
  */
 export type <%= itemTypeName %> = {
+  __cocoId?: string;
 <% for (const prop of properties) { -%>
   <%= prop.name %>: <%= prop.tsType %>;
 <% } -%>
