@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,3 +70,30 @@ const updatedChangelog =
 const finalChangelog = updateLinks(updatedChangelog, version);
 
 await writeFile(changelogPath, finalChangelog, "utf8");
+
+const runGit = (args) =>
+  new Promise((resolve, reject) => {
+    execFile("git", args, { cwd: repoRoot }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(stderr?.trim() || error.message));
+        return;
+      }
+      resolve(stdout.trim());
+    });
+  });
+
+try {
+  await runGit(["rev-parse", "--is-inside-work-tree"]);
+  await runGit(["add", "CHANGELOG.md", "package.json"]);
+
+  const hasStagedChanges =
+    (await runGit(["diff", "--cached", "--name-only"]))
+      .split("\n")
+      .filter(Boolean).length > 0;
+
+  if (hasStagedChanges) {
+    await runGit(["commit", "-m", `chore: publish v${version}`]);
+  }
+} catch (error) {
+  throw new Error(`Failed to commit changelog updates: ${error.message}`);
+}
