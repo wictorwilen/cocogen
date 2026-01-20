@@ -29,6 +29,7 @@ import {
   COCOGEN_STATE_PROPERTY_SOURCE,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
+  COCOGEN_STATE_ID_SETTINGS,
   type CocogenConnectionSettings,
   type CocogenProfileSourceSettings,
   type CocogenSearchFlags,
@@ -253,6 +254,13 @@ function isIdProperty(program: Program, prop: ModelProperty): boolean {
   return Boolean(program.stateMap(COCOGEN_STATE_ID_PROPERTIES).get(prop));
 }
 
+function getIdEncoding(program: Program, prop: ModelProperty): "slug" | "base64" | "hash" {
+  const settings = program.stateMap(COCOGEN_STATE_ID_SETTINGS).get(prop) as { encoding?: string } | undefined;
+  const encoding = settings?.encoding;
+  if (encoding === "base64" || encoding === "hash" || encoding === "slug") return encoding;
+  return "slug";
+}
+
 function isPrincipalScalar(type: Type): boolean {
   if (type.kind !== "Scalar") return false;
   const scalar = type as Scalar;
@@ -344,12 +352,18 @@ export async function compileTypeSpec(entryTspPath: string): Promise<Program> {
 export async function loadIrFromTypeSpec(entryTspPath: string): Promise<ConnectorIr> {
   const program = await compileTypeSpec(entryTspPath);
   if (program.hasError()) {
+    const missingConnectionSettings = program.diagnostics.some(
+      (d) => d.severity === "error" && d.code === "invalid-argument" && String(d.message).includes("coco.ConnectionSettings")
+    );
     const formatted = program.diagnostics
       .filter((d) => d.severity === "error")
       .map((d) => formatDiagnostic(d, { pretty: true, pathRelativeTo: process.cwd() }))
       .join("\n");
+    const hint = missingConnectionSettings
+      ? "\n\nHint: @coco.connection requires name, connectionId, and connectionDescription (contentCategory is optional)."
+      : "";
 
-    throw new CocogenError(`TypeSpec compilation failed:\n${formatted}`);
+    throw new CocogenError(`TypeSpec compilation failed:\n${formatted}${hint}`);
   }
 
   const itemModel = requireSingleItemModel(program);
@@ -411,6 +425,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
     item: {
       typeName: itemModel.name,
       idPropertyName: getName(program, idProps[0]!),
+      idEncoding: getIdEncoding(program, idProps[0]!),
       ...(contentPropName ? { contentPropertyName: contentPropName } : {}),
     },
     properties: irProperties,

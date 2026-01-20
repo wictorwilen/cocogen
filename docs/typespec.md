@@ -57,6 +57,7 @@ model PersonProfile {
 - Exactly one model must be marked with `@coco.item()`.
 - Exactly one property on that model must be marked with `@coco.id`.
   - The `@coco.id` property must be `string`.
+  - Optional encoding: `@coco.id({ encoding: "slug" | "base64" | "hash" })` (default: `slug`), where `hash` provides a non-reversible value.
 - The item model must define `@coco.connection` with `name`, `connectionId`, and `connectionDescription`.
 - The item model must be *flat*.
   - No nested models/objects; every property must be a scalar or scalar collection.

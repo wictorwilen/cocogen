@@ -15,6 +15,10 @@ namespace coco {
     connectionDescription: string;
   }
 
+  model IdSettings {
+    encoding?: IdEncoding;
+  }
+
   model ProfileSourceSettings {
     webUrl: string;
     displayName?: string;
@@ -54,6 +58,11 @@ namespace coco {
     | "taskManagement"
     | "learningManagement";
 
+  alias IdEncoding =
+    | "slug"
+    | "base64"
+    | "hash";
+
   alias Label =
     | "title"
     | "url"
@@ -84,7 +93,7 @@ namespace coco {
   extern dec item(target: Model);
 
   // Marks the item ID field.
-  extern dec id(target: ModelProperty);
+  extern dec id(target: ModelProperty, settings?: IdSettings);
 
   // Schema labels (Graph externalConnectors.label values).
   extern dec label(target: ModelProperty, value: Label);

@@ -168,6 +168,32 @@ describe("loadIrFromTypeSpec", () => {
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/Missing @coco.id/);
   });
 
+  test("defaults id encoding to slug", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.item.idEncoding).toBe("slug");
+  });
+
+  test("supports @coco.id encoding settings", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id({ encoding: "base64" })
+        id: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.item.idEncoding).toBe("base64");
+  });
+
   test("errors when multiple @coco.id properties exist", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

@@ -19,6 +19,7 @@ import {
 import {
   COCOGEN_STATE_CONNECTION_SETTINGS,
   COCOGEN_STATE_CONTENT_PROPERTIES,
+  COCOGEN_STATE_ID_SETTINGS,
   COCOGEN_STATE_ID_PROPERTIES,
   COCOGEN_STATE_ITEM_MODELS,
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
@@ -97,6 +98,15 @@ describe("TypeSpec decorators", () => {
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_SEARCH).get(prop)).toEqual({ searchable: true });
   });
 
+  test("captures id settings", () => {
+    const context = createContext();
+    const program = (context.program as unknown as ProgramMock);
+    const prop = createProperty("id");
+
+    $id(context, prop, { encoding: "hash" });
+
+    expect(program.stateMap(COCOGEN_STATE_ID_SETTINGS).get(prop)).toEqual({ encoding: "hash" });
+  });
   test("captures labels, aliases, description, and name overrides", () => {
     const context = createContext();
     const program = (context.program as unknown as ProgramMock);

@@ -34,6 +34,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 ## Recently done
 - Fixed external item id/content payload rules for TS and .NET ✅
 - Preserve raw @coco.id values for people connectors ✅
+- Added @coco.id encoding option (slug/base64/hash) ✅
 - Added CLI update notifier ✅
 - Add AGENTS.md to generated projects ✅
 - Enforced no description/search/label/alias on @coco.content ✅

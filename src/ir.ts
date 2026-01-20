@@ -36,6 +36,7 @@ export type ConnectorIr = {
   item: {
     typeName: string;
     idPropertyName: string;
+    idEncoding: "slug" | "base64" | "hash";
     contentPropertyName?: string;
   };
   properties: Array<{

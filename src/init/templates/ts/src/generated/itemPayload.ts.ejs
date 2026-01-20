@@ -3,12 +3,39 @@
  */
 import type { <%= itemTypeName %> } from "./model.js";
 import { contentPropertyName, idPropertyName } from "./constants.js";
+import { createHash } from "node:crypto";
+
+const idEncoding: "slug" | "base64" | "hash" = <%= JSON.stringify(idEncoding ?? "slug") %>;
+
+function toBase64Url(value: string): string {
+  return Buffer.from(value, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function slugify(value: string): string {
+  const normalized = value.normalize("NFKD");
+  const slug = normalized
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-+|-+$)/g, "");
+  return slug;
+}
+
+function encodeId(value: string): string {
+  if (idEncoding === "base64") return toBase64Url(value);
+  if (idEncoding === "hash") return toBase64Url(createHash("sha256").update(value, "utf8").digest());
+  return slugify(value);
+}
 
 /**
  * Resolve the external item ID from the schema model.
  */
 export function getItemId(item: <%= itemTypeName %>): string {
-  return (item as any).__cocoId ?? (item as any)[idPropertyName] ?? "";
+  const raw = (item as any).__cocoId ?? (item as any)[idPropertyName] ?? "";
+  return encodeId(String(raw ?? ""));
 }
 
 /**

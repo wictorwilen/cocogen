@@ -407,6 +407,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       propertiesObjectLines,
       contentBlock,
       itemTypeName: ir.item.typeName,
+      idEncoding: ir.item.idEncoding,
     }),
     "utf8"
   );
@@ -1031,6 +1032,7 @@ async function writeGeneratedDotnet(
       propertiesObjectLines,
       contentBlock,
       graphApiVersion: ir.connection.graphApiVersion,
+      idEncoding: ir.item.idEncoding,
     }),
     "utf8"
   );

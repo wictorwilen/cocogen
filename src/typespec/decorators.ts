@@ -10,6 +10,7 @@ import {
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
   COCOGEN_STATE_CONTENT_PROPERTIES,
   COCOGEN_STATE_ID_PROPERTIES,
+  COCOGEN_STATE_ID_SETTINGS,
   COCOGEN_STATE_ITEM_MODELS,
   COCOGEN_STATE_PROPERTY_ALIASES,
   COCOGEN_STATE_PROPERTY_DESCRIPTIONS,
@@ -20,6 +21,7 @@ import {
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   type CocogenConnectionSettings,
+  type CocogenIdSettings,
   type CocogenProfileSourceSettings,
   type CocogenSearchFlags,
   type CocogenSourceSettings,
@@ -85,9 +87,15 @@ export function $item(context: DecoratorContext, target: Model): void {
   context.program.stateSet(COCOGEN_STATE_ITEM_MODELS).add(target);
 }
 
-export function $id(context: DecoratorContext, target: ModelProperty): void {
+export function $id(context: DecoratorContext, target: ModelProperty, settings?: CocogenIdSettings): void {
   if (!isModelProperty(target)) return;
   context.program.stateMap(COCOGEN_STATE_ID_PROPERTIES).set(target, true);
+  if (settings) {
+    context.program.stateMap(COCOGEN_STATE_ID_SETTINGS).set(
+      target,
+      normalizeObject<CocogenIdSettings>(settings)
+    );
+  }
 }
 
 export function $label(context: DecoratorContext, target: ModelProperty, value: string): void {

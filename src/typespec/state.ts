@@ -1,5 +1,6 @@
 export const COCOGEN_STATE_ITEM_MODELS = Symbol.for("@wictorwilen/cocogen/itemModels");
 export const COCOGEN_STATE_ID_PROPERTIES = Symbol.for("@wictorwilen/cocogen/idProperties");
+export const COCOGEN_STATE_ID_SETTINGS = Symbol.for("@wictorwilen/cocogen/idSettings");
 export const COCOGEN_STATE_CONTENT_PROPERTIES = Symbol.for("@wictorwilen/cocogen/contentProperties");
 export const COCOGEN_STATE_CONNECTION_SETTINGS = Symbol.for("@wictorwilen/cocogen/connectionSettings");
 export const COCOGEN_STATE_PROFILE_SOURCE_SETTINGS = Symbol.for("@wictorwilen/cocogen/profileSourceSettings");
@@ -37,6 +38,10 @@ export type CocogenProfileSourceSettings = {
   webUrl: string;
   displayName?: string;
   priority?: "first" | "last";
+};
+
+export type CocogenIdSettings = {
+  encoding?: "slug" | "base64" | "hash";
 };
 
 export type CocogenSearchFlags = {
