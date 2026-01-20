@@ -172,6 +172,7 @@ async function ingest(options: {
   dryRun?: boolean;
   limit?: number;
   verbose?: boolean;
+  failFast?: boolean;
 }): Promise<void> {
   const connectionId = options.dryRun ? "dry-run" : resolveConnectionId();
   // Swap this for any ItemSource implementation (API, DB, queue, etc.).
@@ -183,6 +184,7 @@ async function ingest(options: {
     dryRun: options.dryRun,
     limit: options.limit,
     verbose: options.verbose,
+    failFast: options.failFast,
     toExternalItem
   });
 }
@@ -200,12 +202,14 @@ program
   .description("Ingest items from CSV")
   .option("--csv <path>", "CSV path")
   .option("--dry-run", "Build payloads but do not send to Graph")
+  .option("--fail-fast", "Abort on the first item failure")
   .option("--limit <n>", "Limit number of items", (value) => Number(value))
   .option("--verbose", "Print payloads sent to Graph")
-  .action((options: { csv?: string; dryRun?: boolean; limit?: number; verbose?: boolean }) =>
+  .action((options: { csv?: string; dryRun?: boolean; limit?: number; verbose?: boolean; failFast?: boolean }) =>
     ingest({
       csvPath: options.csv,
       dryRun: options.dryRun,
+      failFast: options.failFast,
       limit: options.limit,
       verbose: options.verbose,
     })

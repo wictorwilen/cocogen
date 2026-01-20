@@ -167,7 +167,7 @@ async Task ProvisionAsync()
 /// <summary>
 /// Ingest items from CSV.
 /// </summary>
-async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose)
+async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose, bool failFast)
 {
     GraphServiceClient? graph = null;
     TokenCredential? credential = null;
@@ -186,7 +186,7 @@ async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose)
     IItemSource source = new CsvItemSource(path);
     var core = BuildConnectorCore(graph, credential, connectionId);
 
-    await core.IngestAsync(source, dryRun, limit, verbose);
+    await core.IngestAsync(source, dryRun, limit, verbose, failFast);
 }
 
 /// <summary>
@@ -205,6 +205,7 @@ async Task DeleteConnectionAsync()
 
 var csvOption = new Option<string>("--csv", description: "CSV path");
 var dryRunOption = new Option<bool>("--dry-run", description: "Build payloads but do not send to Graph");
+var failFastOption = new Option<bool>("--fail-fast", description: "Abort on the first item failure");
 var limitOption = new Option<int?>("--limit", description: "Limit number of items");
 var verboseOption = new Option<bool>("--verbose", description: "Print payloads sent to Graph");
 
@@ -216,12 +217,14 @@ provisionCommand.SetHandler(async () => await ProvisionAsync());
 var ingestCommand = new Command("ingest", "Ingest items from CSV");
 ingestCommand.AddOption(csvOption);
 ingestCommand.AddOption(dryRunOption);
+ingestCommand.AddOption(failFastOption);
 ingestCommand.AddOption(limitOption);
 ingestCommand.AddOption(verboseOption);
 ingestCommand.SetHandler(
-    async (string? csv, bool dryRun, int? limit, bool verbose) => await IngestAsync(csv, dryRun, limit, verbose),
+    async (string? csv, bool dryRun, bool failFast, int? limit, bool verbose) => await IngestAsync(csv, dryRun, limit, verbose, failFast),
     csvOption,
     dryRunOption,
+    failFastOption,
     limitOption,
     verboseOption
 );

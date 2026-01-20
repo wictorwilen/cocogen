@@ -33,6 +33,7 @@ export type IngestOptions<Item> = {
   dryRun?: boolean;
   limit?: number;
   verbose?: boolean;
+  failFast?: boolean;
   toExternalItem: (item: Item) => unknown;
 };
 
@@ -178,6 +179,8 @@ export class ConnectorCore<Item> {
    */
   async ingest(options: IngestOptions<Item>): Promise<void> {
     let count = 0;
+    let successCount = 0;
+    const failures: Array<{ index: number; id: string; message: string }> = [];
     for await (const item of options.source.getItems()) {
       if (options.limit && count >= options.limit) break;
       const itemId = this.getItemId(item as Item);
@@ -186,9 +189,14 @@ export class ConnectorCore<Item> {
         try {
           await this.putItem(options.connectionId, item as Item, Boolean(options.verbose));
           console.log(`ok: ingested item ${count + 1} (id=${itemId})`);
+          successCount++;
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           console.error(`error: failed item ${count + 1} (id=${itemId})`);
-          throw error;
+          failures.push({ index: count + 1, id: itemId, message });
+          if (options.failFast) {
+            throw error;
+          }
         }
       } else if (options.verbose) {
         const payload = options.toExternalItem(item as Item) as any;
@@ -202,7 +210,18 @@ export class ConnectorCore<Item> {
       count++;
     }
 
-    console.log("ok: ingested " + count + " item(s)");
+    if (!options.dryRun) {
+      console.log(`ok: ingested ${successCount} item(s)`);
+    } else {
+      console.log(`ok: inspected ${count} item(s)`);
+    }
+
+    if (failures.length > 0) {
+      console.warn(`warn: ${failures.length} item(s) failed`);
+      for (const failure of failures) {
+        console.warn(`warn: failed item ${failure.index} (id=${failure.id}) - ${failure.message}`);
+      }
+    }
   }
 
   private async graphRequest(method: string, url: string, body?: unknown): Promise<Response> {

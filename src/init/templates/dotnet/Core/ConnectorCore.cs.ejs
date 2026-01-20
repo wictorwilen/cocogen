@@ -170,9 +170,11 @@ public sealed class ConnectorCore
     /// <summary>
     /// Ingest items from a datasource.
     /// </summary>
-    public async Task IngestAsync(IItemSource source, bool dryRun, int? limit, bool verbose)
+    public async Task IngestAsync(IItemSource source, bool dryRun, int? limit, bool verbose, bool failFast)
     {
         var count = 0;
+        var successCount = 0;
+        var failures = new List<(int Index, string Id, string Message)>();
         await foreach (var item in source.GetItemsAsync())
         {
             if (limit.HasValue && count >= limit.Value)
@@ -186,11 +188,16 @@ public sealed class ConnectorCore
                 {
                     await PutItemAsync(item, verbose);
                     Console.WriteLine($"ok: ingested item {count + 1} (id={itemId})");
+                    successCount++;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     Console.Error.WriteLine($"error: failed item {count + 1} (id={itemId})");
-                    throw;
+                    failures.Add((count + 1, itemId, ex.Message));
+                    if (failFast)
+                    {
+                        throw;
+                    }
                 }
             }
             else if (verbose)
@@ -202,7 +209,23 @@ public sealed class ConnectorCore
             count++;
         }
 
-        Console.WriteLine($"ok: ingested {count} item(s)");
+        if (!dryRun)
+        {
+            Console.WriteLine($"ok: ingested {successCount} item(s)");
+        }
+        else
+        {
+            Console.WriteLine($"ok: inspected {count} item(s)");
+        }
+
+        if (failures.Count > 0)
+        {
+            Console.WriteLine($"warn: {failures.Count} item(s) failed");
+            foreach (var failure in failures)
+            {
+                Console.WriteLine($"warn: failed item {failure.Index} (id={failure.Id}) - {failure.Message}");
+            }
+        }
     }
 
     private void EnsureGraph()
