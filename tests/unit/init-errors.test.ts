@@ -81,7 +81,7 @@ describe("init errors", () => {
 
     await initTsProject({ tspPath, outDir, force: false });
 
-    await expect(updateDotnetProject({ outDir })).rejects.toThrow(/Use cocogen init\/update for that language/i);
+    await expect(updateDotnetProject({ outDir })).rejects.toThrow(/Use cocogen generate\/update for that language/i);
   });
 
   test("updateTsProject rejects dotnet project", async () => {
@@ -93,7 +93,7 @@ describe("init errors", () => {
 
     await initDotnetProject({ tspPath, outDir, force: false });
 
-    await expect(updateTsProject({ outDir })).rejects.toThrow(/Use cocogen init\/update for that language/i);
+    await expect(updateTsProject({ outDir })).rejects.toThrow(/Use cocogen generate\/update for that language/i);
   });
 
   test("updateTsProject fails when preview features are required", async () => {

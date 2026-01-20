@@ -43,7 +43,7 @@ describe("people connector collection entity defaults", () => {
     const outDir = path.join(path.dirname(entry), "out-people-skills");
     const schemaFolder = "PeopleConnector";
     const result = await runNode(
-      [distCliPath(), "init", "--tsp", entry, "--out", outDir, "--lang", "ts", "--use-preview-features"],
+      [distCliPath(), "generate", "--tsp", entry, "--out", outDir, "--lang", "ts", "--use-preview-features"],
       {
         cwd: repoRoot,
         env: {

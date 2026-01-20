@@ -4,8 +4,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 
 ## Now
 - Implement `cocogen emit` (write IR JSON) ✅
-- Start `cocogen init` for runnable TS connector output ✅ (initial scaffold)
-- Refine `cocogen init` output (datasource interface, runnable TS output) ✅
+- Start `cocogen generate` for runnable TS connector output ✅ (initial scaffold)
+- Refine `cocogen generate` output (datasource interface, runnable TS output) ✅
 - Separate static runtime vs generated code ✅
 - Add `cocogen update` to regenerate `src/<ConnectionName>/**` ✅
 
@@ -13,7 +13,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Add docs updates for `cocogen update` and generated/static layout ✅
 - Add unit tests for TypeSpec→IR loader and validation ✅
 - Add e2e tests for `cocogen validate` ✅
-- Add snapshot/e2e tests for `cocogen emit` and `cocogen init/update` output ✅ (smoke)
+- Add snapshot/e2e tests for `cocogen emit` and `cocogen generate/update` output ✅ (smoke)
 - Add full e2e test: init + install + build ✅
 - Add C#/.NET project emitter (Graph SDK) ✅ (scaffold + update + generated code)
 - Add dotnet e2e test: init + dotnet build ✅
@@ -52,7 +52,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Fixed TS CLI template duplication and restored helpers ✅
 - Added reusable connector core for TS/.NET (CLI now uses core) ✅
 - Added purpose comments to generated files, classes, and functions ✅
-- Fixed init-tsp prompt spinner hang + added CLI integration test ✅
+- Fixed init prompt spinner hang + added CLI integration test ✅
 - Fixed .NET retry header parsing + nullable status handling ✅
 - Fixed people manual mapping stub to throw correctly in .NET ✅
 - Regenerated samples and re-ran dry-run ingest ✅
@@ -75,8 +75,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Updated generated .NET target framework to net10.0 ✅
 - Added e2e fail-path test for principal preview requirement ✅
 - Prepared npm publish metadata and licensing ✅
-- Added init-tsp prompt for starter schemas ✅
-- Added package.json + tspconfig.yaml in init-tsp ✅
+- Added init prompt for starter schemas ✅
+- Added package.json + tspconfig.yaml in init ✅
 - Allowed people labels without entity mappings (warning + manual transform) ✅
 - Allowed principal entity mapping with @coco.source(..., to) ✅
 - Unified property transforms into base/override classes ✅

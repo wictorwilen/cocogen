@@ -4,7 +4,7 @@
 import "dotenv/config";
 
 import { Command } from "commander";
-import { ClientSecretCredential } from "@azure/identity";
+import { ChainedTokenCredential, ClientSecretCredential, ManagedIdentityCredential } from "@azure/identity";
 
 import type { <%= itemTypeName %> } from "./<%= schemaFolderName %>/model.js";
 import {
@@ -84,11 +84,29 @@ function resolveProfileSourcePriority(): "first" | "last" {
 }
 
 async function getAccessToken(): Promise<string> {
-  const tenantId = requiredEnv("TENANT_ID");
-  const clientId = requiredEnv("CLIENT_ID");
-  const clientSecret = requiredEnv("CLIENT_SECRET");
+  const managedIdentityClientId = process.env.MANAGED_IDENTITY_CLIENT_ID;
+  const managedIdentity = managedIdentityClientId
+    ? new ManagedIdentityCredential(managedIdentityClientId)
+    : new ManagedIdentityCredential();
 
-  const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+  const tenantId = process.env.TENANT_ID;
+  const clientId = process.env.CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET;
+
+  if (!tenantId && !clientId && !clientSecret) {
+    const token = await managedIdentity.getToken("https://graph.microsoft.com/.default");
+    if (!token?.token) throw new Error("Failed to acquire access token");
+    return token.token;
+  }
+
+  if (!tenantId || !clientId || !clientSecret) {
+    throw new Error("TENANT_ID, CLIENT_ID, and CLIENT_SECRET must all be set, or unset to use managed identity.");
+  }
+
+  const credential = new ChainedTokenCredential(
+    managedIdentity,
+    new ClientSecretCredential(tenantId, clientId, clientSecret)
+  );
   const token = await credential.getToken("https://graph.microsoft.com/.default");
   if (!token?.token) throw new Error("Failed to acquire access token");
   return token.token;

@@ -137,48 +137,48 @@ describe("cli", () => {
     expect(process.exitCode).toBe(1);
   });
 
-  test("init-tsp prints creation summary", async () => {
+  test("init prints creation summary", async () => {
     initStarterMock.mockResolvedValue({ outPath: "/tmp/schema.tsp", kind: "content" });
 
     const { main } = await import("../../src/cli.js");
     const stdout = await captureStdout(async () => {
-      await main(["node", "cli", "init-tsp", "--out", "/tmp/schema.tsp", "--kind", "content"]);
+      await main(["node", "cli", "init", "--out", "/tmp/schema.tsp", "--kind", "content"]);
     });
 
     expect(stdout).toContain("Starter TypeSpec created");
     expect(process.exitCode).toBe(0);
   });
 
-  test("init-tsp prints preview note for people schemas", async () => {
+  test("init prints preview note for people schemas", async () => {
     initStarterMock.mockResolvedValue({ outPath: "/tmp/schema.tsp", kind: "people" });
 
     const { main } = await import("../../src/cli.js");
     const stdout = await captureStdout(async () => {
-      await main(["node", "cli", "init-tsp", "--out", "/tmp/schema.tsp", "--kind", "people"]);
+      await main(["node", "cli", "init", "--out", "/tmp/schema.tsp", "--kind", "people"]);
     });
 
     expect(stdout).toContain("use-preview-features");
     expect(process.exitCode).toBe(0);
   });
 
-  test("init-tsp prints error when creation fails", async () => {
+  test("init prints error when creation fails", async () => {
     initStarterMock.mockRejectedValue(new Error("create failed"));
 
     const { main } = await import("../../src/cli.js");
     const stderr = await captureStderr(async () => {
-      await main(["node", "cli", "init-tsp", "--out", "/tmp/schema.tsp"]);
+      await main(["node", "cli", "init", "--out", "/tmp/schema.tsp"]);
     });
 
     expect(stderr).toContain("create failed");
     expect(process.exitCode).toBe(1);
   });
 
-  test("init generates a project summary", async () => {
+  test("generate prints a project summary", async () => {
     initTsMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
 
     const { main } = await import("../../src/cli.js");
     const stdout = await captureStdout(async () => {
-      await main(["node", "cli", "init", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
+      await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
     });
 
     expect(stdout).toContain("Project generated");
@@ -186,23 +186,33 @@ describe("cli", () => {
     expect(process.exitCode).toBe(0);
   });
 
-  test("init passes project name when provided", async () => {
+  test("generate passes project name when provided", async () => {
     initTsMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
 
     const { main } = await import("../../src/cli.js");
-    await main(["node", "cli", "init", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out", "--name", "MyProject"]);
+    await main([
+      "node",
+      "cli",
+      "generate",
+      "--tsp",
+      "/tmp/schema.tsp",
+      "--out",
+      "/tmp/out",
+      "--name",
+      "MyProject",
+    ]);
 
     expect(initTsMock).toHaveBeenCalled();
     const call = initTsMock.mock.calls[0]?.[0] as { projectName?: string };
     expect(call.projectName).toBe("MyProject");
   });
 
-  test("init prints error when generation fails", async () => {
+  test("generate prints error when generation fails", async () => {
     initTsMock.mockRejectedValue(new Error("init failed"));
 
     const { main } = await import("../../src/cli.js");
     const stderr = await captureStderr(async () => {
-      await main(["node", "cli", "init", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
+      await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
     });
 
     expect(stderr).toContain("init failed");
@@ -370,7 +380,7 @@ describe("cli", () => {
     expect(process.exitCode).toBe(0);
   });
 
-  test("init prints beta note for contentCategory", async () => {
+  test("generate prints beta note for contentCategory", async () => {
     initTsMock.mockResolvedValue({
       outDir: "/tmp/out",
       ir: {
@@ -381,14 +391,14 @@ describe("cli", () => {
 
     const { main } = await import("../../src/cli.js");
     const stdout = await captureStdout(async () => {
-      await main(["node", "cli", "init", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
+      await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
     });
 
     expect(stdout).toContain("contentCategory is a Graph /beta property");
     expect(process.exitCode).toBe(0);
   });
 
-  test("init handles dotnet language", async () => {
+  test("generate handles dotnet language", async () => {
     initDotnetMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
 
     const { main } = await import("../../src/cli.js");
@@ -396,7 +406,7 @@ describe("cli", () => {
       await main([
         "node",
         "cli",
-        "init",
+        "generate",
         "--tsp",
         "/tmp/schema.tsp",
         "--out",

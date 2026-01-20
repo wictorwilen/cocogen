@@ -16,7 +16,7 @@ function dotnetCommand(): string {
 
 const dotnetAvailable = await isCommandAvailable(dotnetCommand());
 
-describe("cocogen init (dotnet) + dotnet build (e2e)", () => {
+describe("cocogen generate (dotnet) + dotnet build (e2e)", () => {
   test("generates a .NET project", async () => {
     const entry = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
@@ -31,7 +31,7 @@ describe("cocogen init (dotnet) + dotnet build (e2e)", () => {
     const outDir = path.join(path.dirname(entry), "out-dotnet");
     const result = await runNode([
       distCliPath(),
-      "init",
+      "generate",
       "--lang",
       "dotnet",
       "--tsp",
@@ -65,7 +65,7 @@ describe("cocogen init (dotnet) + dotnet build (e2e)", () => {
       `);
 
       const outDir = path.join(path.dirname(entry), "out-dotnet-build");
-      const init = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir, "--lang", "dotnet"], {
+      const init = await runNode([distCliPath(), "generate", "--tsp", entry, "--out", outDir, "--lang", "dotnet"], {
         cwd: repoRoot,
         env: {
           NO_COLOR: "1",

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { access, copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -223,12 +224,12 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
   const raw = await tryRead(COCOGEN_CONFIG_FILE);
 
   if (!raw) {
-    throw new Error(`Missing ${COCOGEN_CONFIG_FILE}. Re-run cocogen init or fix the file.`);
+    throw new Error(`Missing ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
   }
 
   const parsed = JSON.parse(raw) as Partial<CocogenProjectConfig>;
   if ((parsed.lang !== "ts" && parsed.lang !== "dotnet") || typeof parsed.tsp !== "string") {
-    throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen init or fix the file.`);
+    throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
   }
   return {
     config: {
@@ -1068,7 +1069,7 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
   const tspPath = options.tspPath ? path.resolve(options.tspPath) : path.resolve(outDir, config.tsp);
 
   if (config.lang !== "ts") {
-    throw new Error(`This project is '${config.lang}'. Use cocogen init/update for that language.`);
+    throw new Error(`This project is '${config.lang}'. Use cocogen generate/update for that language.`);
   }
 
   const ir = await loadIrFromTypeSpec(tspPath);
@@ -1097,7 +1098,7 @@ export async function updateDotnetProject(
   const tspPath = options.tspPath ? path.resolve(options.tspPath) : path.resolve(outDir, config.tsp);
 
   if (config.lang !== "dotnet") {
-    throw new Error(`This project is '${config.lang}'. Use cocogen init/update for that language.`);
+    throw new Error(`This project is '${config.lang}'. Use cocogen generate/update for that language.`);
   }
 
   const ir = await loadIrFromTypeSpec(tspPath);
@@ -1276,6 +1277,7 @@ export async function initDotnetProject(
     path.join(outDir, `${projectName}.csproj`),
     await renderTemplate("dotnet/project.csproj.ejs", {
       graphApiVersion: ir.connection.graphApiVersion,
+      userSecretsId: randomUUID(),
     }),
     "utf8"
   );

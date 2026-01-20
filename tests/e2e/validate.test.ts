@@ -183,7 +183,7 @@ describe("cocogen emit (e2e)", () => {
   });
 });
 
-describe("cocogen init (e2e)", () => {
+describe("cocogen generate (e2e)", () => {
   test("generates a TS project into an empty folder", async () => {
     const entry = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
@@ -198,7 +198,7 @@ describe("cocogen init (e2e)", () => {
     const schemaFolder = "TestConnector";
 
     const outDir = path.join(path.dirname(entry), "out");
-    const result = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir], {
+    const result = await runNode([distCliPath(), "generate", "--tsp", entry, "--out", outDir], {
       cwd: repoRoot,
       env: {
         NO_COLOR: "1",
@@ -241,7 +241,7 @@ describe("cocogen init (e2e)", () => {
     const schemaFolder = "TestConnector";
 
     const outDir = path.join(path.dirname(entry), "out-update");
-    const initResult = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir], {
+    const initResult = await runNode([distCliPath(), "generate", "--tsp", entry, "--out", outDir], {
       cwd: repoRoot,
       env: {
         NO_COLOR: "1",

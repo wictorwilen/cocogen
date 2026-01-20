@@ -15,7 +15,7 @@ function npmCommand(): string {
   return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
-describe("cocogen init + npm install + npm run build (e2e)", () => {
+describe("cocogen generate + npm install + npm run build (e2e)", () => {
   test(
     "generates a runnable project that can install and build",
     { timeout: 15 * 60_000 },
@@ -32,7 +32,7 @@ describe("cocogen init + npm install + npm run build (e2e)", () => {
 
       const outDir = path.join(path.dirname(entry), "out-full-build");
 
-      const initResult = await runNode([distCliPath(), "init", "--tsp", entry, "--out", outDir], {
+      const initResult = await runNode([distCliPath(), "generate", "--tsp", entry, "--out", outDir], {
         cwd: repoRoot,
         env: {
           NO_COLOR: "1",

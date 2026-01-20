@@ -41,13 +41,13 @@ This spec defines the CLI UX, internal architecture, TypeSpec mapping rules, and
 ## 3. Primary user flows
 ### 3.1 Generate a project
 User has `schema.tsp` and runs:
-- `npx cocogen init --tsp ./schema.tsp --lang ts --out ./my-connector`
-- `npx cocogen init --tsp ./schema.tsp --lang dotnet --out ./my-connector`
+- `npx cocogen generate --tsp ./schema.tsp --lang ts --out ./my-connector`
+- `npx cocogen generate --tsp ./schema.tsp --lang dotnet --out ./my-connector`
 
 If they need a starter schema, they can scaffold one first:
-- `npx cocogen init-tsp --prompt`
+- `npx cocogen init --prompt`
 
-`init-tsp` also writes a `package.json` and `tspconfig.yaml` next to the schema (if missing) so the TypeSpec language server can resolve `@wictorwilen/cocogen`.
+`init` also writes a `package.json` and `tspconfig.yaml` next to the schema (if missing) so the TypeSpec language server can resolve `@wictorwilen/cocogen`.
 
 Generator produces:
 - project skeleton
@@ -78,7 +78,7 @@ Generated project runs:
 
 
 Notes (current implementation):
-- `cocogen init` currently supports only `--lang ts`.
+- `cocogen generate` supports `--lang ts|dotnet`.
 - `cocogen update` takes `--out` and optional `--tsp`.
 - `cocogen validate`
   - validates TypeSpec vs Graph connector constraints (names, types, labels)

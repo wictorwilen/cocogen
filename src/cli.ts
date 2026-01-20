@@ -251,7 +251,7 @@ export async function main(argv: string[]): Promise<void> {
     });
 
   program
-    .command("init-tsp")
+    .command("init")
     .description("Create a starter TypeSpec file with guidance comments")
     .option("--out <path>", "Output path for the .tsp file", "schema.tsp")
     .option("--kind <kind>", "Connector kind (content|people)", "content")
@@ -277,7 +277,7 @@ export async function main(argv: string[]): Promise<void> {
           process.stdout.write(`  ${pc.dim("kind")}: ${result.kind}\n`);
           process.stdout.write(`  ${pc.dim("next")}: cocogen validate --tsp ${result.outPath}\n`);
           if (result.kind === "people") {
-            process.stdout.write(`  ${pc.dim("note")}: re-run validate/init with --use-preview-features\n`);
+            process.stdout.write(`  ${pc.dim("note")}: re-run validate/generate with --use-preview-features\n`);
           }
           process.exitCode = 0;
         } catch (error: unknown) {
@@ -290,7 +290,7 @@ export async function main(argv: string[]): Promise<void> {
     );
 
   program
-    .command("init")
+    .command("generate")
     .description("Generate a runnable connector project")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
     .requiredOption("--out <dir>", "Output directory")

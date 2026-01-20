@@ -79,6 +79,7 @@ Examples:
 ## Requirements
 - Node.js 22+ (the generator targets Node 22 LTS)
 - A TypeSpec schema file (`.tsp`)
+- Generated projects support managed identity (preferred) or client secret auth.
 
 ## Install / Run
 No install needed:
@@ -96,19 +97,24 @@ cocogen --help
 
 ## Commands
 
-### Create a starter TypeSpec file (prompt)
+| Command | Purpose | Arguments |
+| --- | --- | --- |
+| `init` | Create a starter TypeSpec file | `--out <path>`, `--kind <content\|people>`, `--prompt`, `--force` |
+| `validate` | Validate a TypeSpec schema | `--tsp <path>`, `--json`, `--use-preview-features` |
+| `generate` | Generate a runnable connector project | `--tsp <path>`, `--out <dir>`, `--lang <ts\|dotnet>`, `--name <name>`, `--force`, `--use-preview-features` |
+| `update` | Regenerate TypeSpec-derived code in a generated project | `--out <dir>`, `--tsp <path>`, `--use-preview-features` |
+| `emit` | Emit cocogen IR as JSON | `--tsp <path>`, `--out <path>`, `--use-preview-features` |
+
+Notes:
+- `--use-preview-features` is required for Graph beta schemas (for example people connectors).
+
+### Create a starter TypeSpec file
 
 ```bash
-npx @wictorwilen/cocogen@latest init-tsp --prompt
+npx @wictorwilen/cocogen@latest init --prompt
 ```
 
-Non-interactive:
-
-```bash
-npx @wictorwilen/cocogen@latest init-tsp --out ./schema.tsp --kind content
-```
-
-`init-tsp` also creates `package.json` and `tspconfig.yaml` in the same folder (if missing) so TypeSpec can resolve `@wictorwilen/cocogen`.
+`init` also creates `package.json` and `tspconfig.yaml` in the same folder (if missing) so TypeSpec can resolve `@wictorwilen/cocogen`.
 
 ### Validate a schema
 
@@ -116,34 +122,12 @@ npx @wictorwilen/cocogen@latest init-tsp --out ./schema.tsp --kind content
 npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp
 ```
 
-If your schema uses Graph beta features (for example `contentCategory` or people connectors), add:
+Use `--use-preview-features` for Graph beta schemas (for example people connectors).
+
+### Generate a runnable project
 
 ```bash
-npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --use-preview-features
-```
-
-JSON output (useful in CI):
-
-```bash
-npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --json
-```
-
-### Generate a runnable TypeScript project
-
-```bash
-npx @wictorwilen/cocogen@latest init --tsp ./schema.tsp --out ./my-connector
-```
-
-For beta schemas:
-
-```bash
-npx @wictorwilen/cocogen@latest init --tsp ./schema.tsp --out ./my-connector --use-preview-features
-```
-
-Overwrite an existing non-empty folder:
-
-```bash
-npx @wictorwilen/cocogen@latest init --tsp ./schema.tsp --out ./my-connector --force
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector
 ```
 
 Notes:
@@ -176,24 +160,6 @@ npx @wictorwilen/cocogen@latest update --out ./my-connector --tsp ../schema.tsp
 - Colors are enabled by default in TTYs.
 - Set `NO_COLOR=1` to disable colors/spinners.
 - In CI/non-TTY, spinners are automatically disabled.
-
-## Emit IR JSON (advanced)
-
-```bash
-npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp
-```
-
-For beta schemas:
-
-```bash
-npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp --use-preview-features
-```
-
-Write to a file:
-
-```bash
-npx @wictorwilen/cocogen@latest emit --tsp ./schema.tsp --out ./connector.ir.json
-```
 
 ## License
 MIT. See LICENSE.

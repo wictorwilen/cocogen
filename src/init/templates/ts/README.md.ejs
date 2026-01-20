@@ -22,6 +22,11 @@ If your schema sets `@coco.connection({ contentCategory: "..." })`, provisioning
 	- `PeopleSettings.ReadWrite.All` (required for profile source registration)
 <% } -%>
 
+## Authentication
+The generated CLI prefers managed identity. If you run on Azure with a managed identity, leave `TENANT_ID`, `CLIENT_ID`, and `CLIENT_SECRET` unset and (optionally) set `MANAGED_IDENTITY_CLIENT_ID` for user-assigned identities.
+
+To use client secret auth locally, set `TENANT_ID`, `CLIENT_ID`, and `CLIENT_SECRET` in `.env` or environment variables.
+
 ## TypeSpec editor support
 This project includes `tspconfig.yaml` and a devDependency on `@wictorwilen/cocogen` so VS Code can resolve `using coco;`.
 Run `npm install` to fetch the TypeSpec library.

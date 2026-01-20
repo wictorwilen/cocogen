@@ -1,6 +1,8 @@
 // Connector CLI for provisioning, ingestion, and deletion.
+using Azure.Core;
 using Azure.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.UserSecrets;
 <% if (graphApiVersion === "beta") { -%>
 using Microsoft.Graph.Beta;
 <% } else { -%>
@@ -17,6 +19,7 @@ var configuration = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: true)
     .AddJsonFile("appsettings.Development.json", optional: true)
+    .AddUserSecrets<Program>(optional: true)
     .AddEnvironmentVariables()
     .Build();
 
@@ -85,12 +88,35 @@ string ProfileSourcePriority()
 /// <summary>
 /// Create an app-only credential for Microsoft Graph.
 /// </summary>
-ClientSecretCredential CreateCredential()
+TokenCredential CreateCredential()
 {
-    var tenantId = RequiredSetting("AzureAd:TenantId");
-    var clientId = RequiredSetting("AzureAd:ClientId");
-    var clientSecret = RequiredSetting("AzureAd:ClientSecret");
-    return new ClientSecretCredential(tenantId, clientId, clientSecret);
+    var managedIdentityClientId = configuration["AzureAd:ManagedIdentityClientId"];
+    TokenCredential managedIdentity = string.IsNullOrWhiteSpace(managedIdentityClientId)
+        ? new ManagedIdentityCredential()
+        : new ManagedIdentityCredential(managedIdentityClientId);
+
+    var tenantId = configuration["AzureAd:TenantId"];
+    var clientId = configuration["AzureAd:ClientId"];
+    var clientSecret = configuration["AzureAd:ClientSecret"];
+
+    if (string.IsNullOrWhiteSpace(tenantId)
+        && string.IsNullOrWhiteSpace(clientId)
+        && string.IsNullOrWhiteSpace(clientSecret))
+    {
+        return managedIdentity;
+    }
+
+    if (string.IsNullOrWhiteSpace(tenantId)
+        || string.IsNullOrWhiteSpace(clientId)
+        || string.IsNullOrWhiteSpace(clientSecret))
+    {
+        throw new InvalidOperationException(
+            "AzureAd settings are incomplete. Set TenantId, ClientId, and ClientSecret, or clear them to use managed identity."
+        );
+    }
+
+    var clientSecretCredential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    return new ChainedTokenCredential(managedIdentity, clientSecretCredential);
 }
 
 /// <summary>
@@ -104,7 +130,7 @@ GraphServiceClient CreateGraphClient()
     return graph;
 }
 
-ConnectorCore BuildConnectorCore(GraphServiceClient? graph, ClientSecretCredential? credential, string connectionId)
+ConnectorCore BuildConnectorCore(GraphServiceClient? graph, TokenCredential? credential, string connectionId)
 {
     return new ConnectorCore(
         graph,
@@ -144,7 +170,7 @@ async Task ProvisionAsync()
 async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose)
 {
     GraphServiceClient? graph = null;
-    ClientSecretCredential? credential = null;
+    TokenCredential? credential = null;
     string connectionId = "dry-run";
     if (!dryRun)
     {

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+- Renamed CLI commands: `init-tsp` → `init`, `init` → `generate`.
+
+### Added
+- Managed identity authentication as the preferred credential for generated TS and .NET projects (client secret fallback).
+- .NET user-secrets support for configuration.
+
 ## [1.0.16] - 2026-01-20
 
 ### Added

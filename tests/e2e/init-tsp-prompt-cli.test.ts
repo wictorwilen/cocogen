@@ -17,7 +17,7 @@ vi.mock("ora", () => ({
   default: oraMock,
 }));
 
-describe("init-tsp prompt CLI", () => {
+describe("init prompt CLI", () => {
   const originalTty = process.stdin.isTTY;
   const originalSkip = process.env.COCOGEN_SKIP_AUTO_RUN;
 
@@ -49,7 +49,7 @@ describe("init-tsp prompt CLI", () => {
     selectMock.mockResolvedValueOnce("content");
 
     const { main } = await import("../../src/cli.js");
-    await main(["node", "cli", "init-tsp", "--prompt", "--force"]);
+    await main(["node", "cli", "init", "--prompt", "--force"]);
 
     expect(oraMock).not.toHaveBeenCalled();
 

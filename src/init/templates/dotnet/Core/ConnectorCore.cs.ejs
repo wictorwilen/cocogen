@@ -1,5 +1,4 @@
 using Azure.Core;
-using Azure.Identity;
 <% if (graphApiVersion === "beta") { -%>
 using Microsoft.Graph.Beta;
 using Microsoft.Graph.Beta.Models.ExternalConnectors;
@@ -27,7 +26,7 @@ namespace <%= namespaceName %>.Core;
 public sealed class ConnectorCore
 {
     private readonly GraphServiceClient? _graph;
-    private readonly ClientSecretCredential? _credential;
+    private readonly TokenCredential? _credential;
     private readonly string _connectionId;
     private readonly string _connectionName;
     private readonly string _connectionDescription;
@@ -38,7 +37,7 @@ public sealed class ConnectorCore
 
     public ConnectorCore(
         GraphServiceClient? graph,
-        ClientSecretCredential? credential,
+        TokenCredential? credential,
         string connectionId,
         string connectionName,
         string connectionDescription,
@@ -360,7 +359,7 @@ public sealed class ConnectorCore
         await UnregisterProfileSourceInternalAsync(_connectionId);
     }
 
-    private async Task<string> GetAccessTokenAsync(ClientSecretCredential credential)
+    private async Task<string> GetAccessTokenAsync(TokenCredential credential)
     {
         var token = await credential.GetTokenAsync(
             new TokenRequestContext(new[] { "https://graph.microsoft.com/.default" })
@@ -368,7 +367,7 @@ public sealed class ConnectorCore
         return token.Token;
     }
 
-    private async Task<HttpResponseMessage> GraphRequestAsync(ClientSecretCredential credential, HttpMethod method, string url, object? body = null)
+    private async Task<HttpResponseMessage> GraphRequestAsync(TokenCredential credential, HttpMethod method, string url, object? body = null)
     {
         using var http = new HttpClient();
         var token = await GetAccessTokenAsync(credential);
@@ -444,7 +443,7 @@ public sealed class ConnectorCore
         }
     }
 
-    private async Task UpdateProfileSourcePrecedenceAsync(ClientSecretCredential credential, string sourceUrl, bool include, string priority)
+    private async Task UpdateProfileSourcePrecedenceAsync(TokenCredential credential, string sourceUrl, bool include, string priority)
     {
         var res = await GraphRequestAsync(
             credential,

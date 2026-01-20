@@ -33,10 +33,10 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
   out_dotnet="$TMP_DIR/${base}-dotnet"
 
   printf "Generating TS project for %s...\n" "$base"
-  node "$CLI" init --tsp "$tsp" --out "$out_ts" --lang ts --force "${preview[@]}"
+  node "$CLI" generate --tsp "$tsp" --out "$out_ts" --lang ts --force "${preview[@]}"
 
   printf "Generating .NET project for %s...\n" "$base"
-  node "$CLI" init --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force "${preview[@]}"
+  node "$CLI" generate --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force "${preview[@]}"
 
 done
 

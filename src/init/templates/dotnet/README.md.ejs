@@ -26,6 +26,18 @@ This generated CLI currently targets a single connection ID from configuration. 
   - `PeopleSettings.ReadWrite.All` (required for profile source registration)
 <% } -%>
 
+## Authentication
+The generated CLI prefers managed identity. If you run on Azure with a managed identity, leave `AzureAd:TenantId`, `AzureAd:ClientId`, and `AzureAd:ClientSecret` empty and (optionally) set `AzureAd:ManagedIdentityClientId` for user-assigned identities.
+
+To use client secret auth locally, set `AzureAd:TenantId`, `AzureAd:ClientId`, and `AzureAd:ClientSecret` in `appsettings.json`, environment variables, or user-secrets.
+
+User-secrets are supported:
+```bash
+dotnet user-secrets set "AzureAd:TenantId" "<tenant-id>"
+dotnet user-secrets set "AzureAd:ClientId" "<client-id>"
+dotnet user-secrets set "AzureAd:ClientSecret" "<client-secret>"
+```
+
 ## TypeSpec editor support
 This project includes `tspconfig.yaml` and a `package.json` with `@wictorwilen/cocogen` as a dev dependency so VS Code can resolve `using coco;`.
 Run `npm install` in this folder to fetch the TypeSpec library.

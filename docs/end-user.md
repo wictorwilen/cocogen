@@ -11,15 +11,15 @@ This guide walks you through writing TypeSpec (`.tsp`) files, running `cocogen`,
 
 ### Generate a starter schema (prompt)
 ```bash
-npx @wictorwilen/cocogen@latest init-tsp --prompt
+npx @wictorwilen/cocogen@latest init --prompt
 ```
 
 Non-interactive:
 ```bash
-npx @wictorwilen/cocogen@latest init-tsp --out ./schema.tsp --kind content
+npx @wictorwilen/cocogen@latest init --out ./schema.tsp --kind content
 ```
 
-`init-tsp` also creates `package.json` and `tspconfig.yaml` alongside the schema if they are missing.
+`init` also creates `package.json` and `tspconfig.yaml` alongside the schema if they are missing.
 
 ### Minimal content connector
 ```tsp
@@ -88,7 +88,7 @@ model PersonProfile {
 For the complete spec and validation rules, see docs/typespec.md.
 
 ### Fixing TypeSpec editor squiggles (VS Code)
-Starter schemas created by `init-tsp` include `tspconfig.yaml` and a local `package.json`. To let the TypeSpec language server resolve `using coco;`:
+Starter schemas created by `init` include `tspconfig.yaml` and a local `package.json`. To let the TypeSpec language server resolve `using coco;`:
 - TypeScript projects: run `npm install` (installs `@wictorwilen/cocogen`).
 - .NET projects: run `npm install` in the project folder (installs `@wictorwilen/cocogen`).
 
@@ -106,21 +106,21 @@ npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --use-preview-featur
 
 ### TypeScript
 ```bash
-npx @wictorwilen/cocogen@latest init --tsp ./schema.tsp --out ./my-connector
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector
 ```
 
 ### .NET
 ```bash
-npx @wictorwilen/cocogen@latest init --tsp ./schema.tsp --out ./my-connector --lang dotnet
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --lang dotnet
 ```
 
 Preview-only schemas require the flag:
 ```bash
-npx @wictorwilen/cocogen@latest init --tsp ./schema.tsp --out ./my-connector --use-preview-features
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --use-preview-features
 ```
 
 ## 4) Update generated code after schema changes
-After `init`, the project contains a `schema.tsp` copy and a `cocogen.json` that records the entry `.tsp` file.
+After `generate`, the project contains a `schema.tsp` copy and a `cocogen.json` that records the entry `.tsp` file.
 Each generated project also includes `AGENTS.md` with quick instructions for updates and customization.
 
 Regenerate TypeSpec-derived files:
@@ -150,6 +150,9 @@ npm run build
 node dist/cli.js provision
 node dist/cli.js ingest --csv ./data.csv
 ```
+
+### Authentication
+The generated CLI prefers managed identity. For Azure hosting, leave `TENANT_ID`, `CLIENT_ID`, and `CLIENT_SECRET` unset and (optionally) set `MANAGED_IDENTITY_CLIENT_ID` for user-assigned identities. For local development, set `TENANT_ID`, `CLIENT_ID`, and `CLIENT_SECRET` in `.env`.
 
 Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
@@ -182,6 +185,9 @@ dotnet build
 dotnet run -- provision
 dotnet run -- ingest --csv ./data.csv
 ```
+
+### Authentication
+The generated CLI prefers managed identity. For Azure hosting, leave `AzureAd:TenantId`, `AzureAd:ClientId`, and `AzureAd:ClientSecret` empty and (optionally) set `AzureAd:ManagedIdentityClientId` for user-assigned identities. For local development, set the AzureAd settings in `appsettings.json`, environment variables, or user-secrets.
 
 Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
