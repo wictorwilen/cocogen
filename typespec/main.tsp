@@ -12,7 +12,7 @@ namespace coco {
     contentCategory?: ContentCategory;
     name: string;
     connectionId: string;
-    connectionDescription: string;
+    connectionDescription?: string;
   }
 
   model IdSettings {

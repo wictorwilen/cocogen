@@ -62,9 +62,11 @@ string RequiredSetting(string key, string? fallback = null)
     return value;
 }
 
-string ConnectionId() => RequiredSetting("Connection:Id");
-string ConnectionName() => RequiredSetting("Connection:Name");
-string ConnectionDescription() => RequiredSetting("Connection:Description");
+string ConnectionId() => RequiredSetting("Connection:Id", SchemaConstants.ConnectionId);
+string ConnectionName() => RequiredSetting("Connection:Name", SchemaConstants.ConnectionName);
+string ConnectionDescription() => configuration["Connection:Description"]
+    ?? SchemaConstants.ConnectionDescription
+    ?? string.Empty;
 <% if (isPeopleConnector) { -%>
 string ProfileSourceWebUrl() => RequiredSetting("ProfileSource:WebUrl", SchemaConstants.ProfileSourceWebUrl);
 string ProfileSourceDisplayName() => configuration["ProfileSource:DisplayName"]
@@ -72,7 +74,11 @@ string ProfileSourceDisplayName() => configuration["ProfileSource:DisplayName"]
     ?? ConnectionName();
 string ProfileSourcePriority()
 {
-    var raw = configuration["ProfileSource:Priority"] ?? SchemaConstants.ProfileSourcePriority ?? "first";
+    var raw = configuration["ProfileSource:Priority"];
+    if (string.IsNullOrWhiteSpace(raw))
+        raw = SchemaConstants.ProfileSourcePriority;
+    if (string.IsNullOrWhiteSpace(raw))
+        raw = "first";
     var value = raw.Trim().ToLowerInvariant();
     if (value is not "first" and not "last")
         throw new InvalidOperationException("ProfileSource:Priority must be 'first' or 'last'.");

@@ -58,7 +58,8 @@ model PersonProfile {
 - Exactly one property on that model must be marked with `@coco.id`.
   - The `@coco.id` property must be `string`.
   - Optional encoding: `@coco.id({ encoding: "slug" | "base64" | "hash" })` (default: `slug`), where `hash` provides a non-reversible value.
-- The item model must define `@coco.connection` with `name`, `connectionId`, and `connectionDescription`.
+- The item model must define `@coco.connection` with `name` and `connectionId`.
+- `connectionDescription` is optional but recommended for improved Copilot reasoning quality.
 - The item model must be *flat*.
   - No nested models/objects; every property must be a scalar or scalar collection.
 
@@ -277,6 +278,7 @@ Generated projects include a `PropertyTransformBase` (regenerated) and `Property
 
 Multi-value CSV handling:
 - For people entity **collections** (`string[]`), CSV values can be separated with `;` (for example, `TypeScript;Python`).
+- Collections are always split on semicolons only (`,` is reserved for CSV column separation).
 - If multiple mapped fields have multiple values, they are aligned by index.
 - If a field has a single value while others have multiple, the single value is reused for each entity.
 

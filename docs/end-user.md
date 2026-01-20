@@ -215,6 +215,7 @@ Ingest debugging flags:
 - Use people labels like `personName` or `personCurrentPosition`.
 - Use `@coco.source("header", "entity.path")` to map CSV columns into the profile entity fields.
 - For collection properties (`string[]`), CSV values can be separated with `;` and will be aligned by index.
+- Collections split on semicolons only (`,` is reserved for CSV columns).
 - For custom entity shaping, edit the overrides file (safe file):
 - For custom entity shaping, edit the overrides file (safe file):
   - TS: `src/<ConnectionName>/propertyTransform.ts`

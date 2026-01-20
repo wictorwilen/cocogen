@@ -360,7 +360,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
       .map((d) => formatDiagnostic(d, { pretty: true, pathRelativeTo: process.cwd() }))
       .join("\n");
     const hint = missingConnectionSettings
-      ? "\n\nHint: @coco.connection requires name, connectionId, and connectionDescription (contentCategory is optional)."
+      ? "\n\nHint: @coco.connection requires name and connectionId (connectionDescription is optional but recommended)."
       : "";
 
     throw new CocogenError(`TypeSpec compilation failed:\n${formatted}${hint}`);

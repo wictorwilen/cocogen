@@ -13,6 +13,10 @@ public static class SchemaConstants
     public const string IdPropertyName = <%= JSON.stringify(idPropertyName) %>;
     public const string? ContentPropertyName = <%= contentPropertyName ? JSON.stringify(contentPropertyName) : "null" %>;
 
+    public const string? ConnectionId = <%= connectionId ? JSON.stringify(connectionId) : "null" %>;
+    public const string? ConnectionName = <%= connectionName ? JSON.stringify(connectionName) : "null" %>;
+    public const string? ConnectionDescription = <%= connectionDescription ? JSON.stringify(connectionDescription) : "null" %>;
+
     public const string? ContentCategory = <%= contentCategory ? JSON.stringify(contentCategory) : "null" %>;
 
     public const string? ProfileSourceWebUrl = <%= profileSourceWebUrl ? JSON.stringify(profileSourceWebUrl) : "null" %>;

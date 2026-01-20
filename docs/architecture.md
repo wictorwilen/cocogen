@@ -317,7 +317,7 @@ People connectors (preview) overrides:
 Type conversion rules (generated code):
 - `string`: pass through.
 - `int64`, `double`, `boolean`, `dateTime`: parse from string with clear error messages (row/column context).
-- `...Collection`: accept either a JSON array string (preferred) or a delimiter-split string (configurable).
+- `...Collection`: accept either a JSON array string (preferred) or a delimiter-split string (semicolon-only).
 - `principal`: accept a JSON object string (recommended) and parse to an object shape compatible with Microsoft Graph `externalConnectors.identity` (`{ id: string, type: "user"|"group"|"externalgroup" }`).
   - If the cell is empty, treat as missing/undefined.
   - Validation should ensure this property is *not* marked `searchable`.

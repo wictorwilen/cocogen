@@ -65,8 +65,7 @@ function resolveConnectionName(): string {
 
 function resolveConnectionDescription(): string {
   const value = process.env.CONNECTION_DESCRIPTION ?? defaultConnectionDescription;
-  if (!value) throw new Error("Missing env var: CONNECTION_DESCRIPTION");
-  return value;
+  return value ?? "";
 }
 
 function resolveProfileSourceWebUrl(): string {

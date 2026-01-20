@@ -25,7 +25,7 @@ function parseBoolean(value: unknown): boolean {
 function splitCollection(value: unknown): string[] {
   const text = parseString(value).trim();
   if (!text) return [];
-  return text.split(/\s*[;,|]\s*/).map((s) => s.trim()).filter(Boolean);
+  return text.split(/\s*;\s*/).map((s) => s.trim()).filter(Boolean);
 }
 
 /** Parse a string collection from a CSV cell. */

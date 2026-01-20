@@ -7,8 +7,9 @@ import { createHash } from "node:crypto";
 
 const idEncoding: "slug" | "base64" | "hash" = <%= JSON.stringify(idEncoding ?? "slug") %>;
 
-function toBase64Url(value: string): string {
-  return Buffer.from(value, "utf8")
+function toBase64Url(value: string | Buffer): string {
+  const buffer = typeof value === "string" ? Buffer.from(value, "utf8") : value;
+  return buffer
     .toString("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
