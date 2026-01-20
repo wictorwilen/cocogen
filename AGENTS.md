@@ -15,6 +15,8 @@ This repo contains **cocogen**, an `npx`-runnable generator for Microsoft Copilo
   - Add new tasks as they are discovered.
   - Mark tasks done when completed.
   - Keep “Now” vs “Later” up to date.
+- Maintain **CHANGELOG.md** for consumer-facing release notes (features, fixes, changes, breaking changes).
+- Do **not** log release notes in **AGENT-TASKS.md**.
 
 ## Source control (smart commits)
 - Use **standardized commit messages** and commit when a feature is complete (coherent, tested/validated, and not half-finished).

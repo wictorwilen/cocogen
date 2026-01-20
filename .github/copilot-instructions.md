@@ -48,6 +48,8 @@ Build `cocogen`: an `npx`-runnable generator that reads TypeSpec (`.tsp`) and sc
 ## Documentation
 - Update docs/architecture.md when behavior changes.
 - If you add new CLI flags/commands, document them.
+- Maintain CHANGELOG.md for consumer-facing changes (features, fixes, changes, breaking changes).
+- Do not log release notes in AGENT-TASKS.md.
 
 ## Agent task tracking
 - Maintain **AGENT-TASKS.md** as a continuously updated task log (add/complete/reshuffle as work progresses).
