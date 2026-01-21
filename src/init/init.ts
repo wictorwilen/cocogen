@@ -460,7 +460,13 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       if (odataType) {
         lines.push(`      ${JSON.stringify(`${p.name}@odata.type`)}: ${JSON.stringify(odataType)},`);
       }
-      lines.push(`      ${JSON.stringify(p.name)}: item.${p.name},`);
+      const valueExpression =
+        p.type === "principal"
+          ? `cleanPrincipal(item.${p.name} as Record<string, unknown> | null | undefined)`
+          : p.type === "principalCollection"
+          ? `cleanPrincipalCollection(item.${p.name} as Array<Record<string, unknown>> | null | undefined)`
+          : `item.${p.name}`;
+      lines.push(`      ${JSON.stringify(p.name)}: ${valueExpression},`);
       return lines;
     })
     .join("\n");
@@ -476,6 +482,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       contentBlock,
       itemTypeName: ir.item.typeName,
       idEncoding: ir.item.idEncoding,
+      usesPrincipal,
     }),
     "utf8"
   );
@@ -555,6 +562,8 @@ function toOdataCollectionType(type: PropertyType): string | null {
       return "Collection(Double)";
     case "dateTimeCollection":
       return "Collection(DateTimeOffset)";
+    case "principalCollection":
+      return "Collection(microsoft.graph.externalConnectors.principal)";
     default:
       return null;
   }
@@ -1236,7 +1245,12 @@ function buildSampleCsv(ir: ConnectorIr): string {
       }
       for (const field of prop.personEntity.fields) {
         for (const header of field.source.csvHeaders) {
-          if (!valueByHeader.has(header)) valueByHeader.set(header, sampleValueForHeader(header));
+          if (valueByHeader.has(header)) continue;
+          if ((prop.type === "principal" || prop.type === "principalCollection") && field.path === "userPrincipalName") {
+            valueByHeader.set(header, sampleValueForType(prop.type));
+            continue;
+          }
+          valueByHeader.set(header, sampleValueForHeader(header));
         }
       }
       continue;

@@ -475,6 +475,121 @@ model Item {
     expect(csv).toContain("alice@contoso.com");
   });
 
+  test("init projects use email samples for principal userPrincipalName headers", async () => {
+    const tspPath = await writeTempTspFile(`
+      @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.search({ retrievable: true })
+        @coco.source("owner", "userPrincipalName")
+        @doc("The owner of the product.")
+        productOwner: coco.Principal;
+
+        @coco.search({ retrievable: true })
+        @coco.source("marketingContacts", "userPrincipalName")
+        @doc("The marketing contacts for the product.")
+        marketingContacts: coco.Principal[];
+      }
+    `);
+
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "principal-sample");
+
+    await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const csv = await readFile(path.join(outDir, "data.csv"), "utf8");
+    const lines = csv.trim().split("\n");
+    expect(lines).toHaveLength(2);
+    const headers = lines[0]?.split(",") ?? [];
+    const values = lines[1]?.split(",") ?? [];
+    const ownerIndex = headers.indexOf("owner");
+    const contactsIndex = headers.indexOf("marketingContacts");
+    expect(ownerIndex).toBeGreaterThanOrEqual(0);
+    expect(contactsIndex).toBeGreaterThanOrEqual(0);
+    expect(values[ownerIndex]).toContain("@contoso.com");
+    expect(values[contactsIndex]).toContain("@contoso.com");
+  });
+
+  test("initDotnetProject omits null principal fields in JSON", async () => {
+    const tspPath = await writeTempTspFile(`
+      @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("owner", "userPrincipalName")
+        productOwner: coco.Principal;
+      }
+    `);
+
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "principal-null-dotnet");
+
+    await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const principal = await readFile(path.join(outDir, "Core", "Principal.cs"), "utf8");
+    expect(principal).toContain("JsonIgnoreCondition.WhenWritingNull");
+  });
+
+  test("initTsProject strips null principal fields in payload", async () => {
+    const tspPath = await writeTempTspFile(`
+      @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("owner", "userPrincipalName")
+        productOwner: coco.Principal;
+
+        @coco.source("marketingContacts", "userPrincipalName")
+        marketingContacts: coco.Principal[];
+      }
+    `);
+
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "principal-null-ts");
+
+    await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const payload = await readFile(path.join(outDir, "src", "TestConnector", "itemPayload.ts"), "utf8");
+    expect(payload).toContain("cleanPrincipal(");
+    expect(payload).toContain("cleanPrincipalCollection(");
+  });
+
+  test("init projects emit principalCollection odata type", async () => {
+    const tspPath = await writeTempTspFile(`
+      @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("marketingContacts", "userPrincipalName")
+        marketingContacts: coco.Principal[];
+      }
+    `);
+
+    const outRoot = await writeTempDir();
+    const outTs = path.join(outRoot, "principal-odata-ts");
+    const outDotnet = path.join(outRoot, "principal-odata-dotnet");
+
+    await initTsProject({ tspPath, outDir: outTs, force: false, usePreviewFeatures: true });
+    await initDotnetProject({ tspPath, outDir: outDotnet, force: false, usePreviewFeatures: true });
+
+    const tsPayload = await readFile(path.join(outTs, "src", "TestConnector", "itemPayload.ts"), "utf8");
+    expect(tsPayload).toContain("marketingContacts@odata.type");
+    expect(tsPayload).toContain("Collection(microsoft.graph.externalConnectors.principal)");
+
+    const csPayload = await readFile(path.join(outDotnet, "TestConnector", "ItemPayload.cs"), "utf8");
+    expect(csPayload).toContain("marketingContacts@odata.type");
+    expect(csPayload).toContain("Collection(microsoft.graph.externalConnectors.principal)");
+  });
+
   test("init projects use @example in CSV and emit validation", async () => {
     const tspPath = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })

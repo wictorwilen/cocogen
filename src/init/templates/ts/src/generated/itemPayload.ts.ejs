@@ -7,6 +7,22 @@ import { getItemId as getItemIdFromCore, type IdEncoding } from "../core/itemId.
 
 const idEncoding: IdEncoding = <%= JSON.stringify(idEncoding ?? "slug") %>;
 
+<% if (usesPrincipal) { -%>
+const cleanPrincipal = (
+  value: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null | undefined => {
+  if (!value) return value;
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null && v !== undefined));
+};
+
+const cleanPrincipalCollection = (
+  values: Array<Record<string, unknown>> | null | undefined
+): Array<Record<string, unknown>> | null | undefined => {
+  if (!values) return values;
+  return values.map((value) => cleanPrincipal(value));
+};
+<% } -%>
+
 /**
  * Resolve the external item ID from the schema model.
  */

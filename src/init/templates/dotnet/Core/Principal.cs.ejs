@@ -10,18 +10,23 @@ public sealed class Principal
     public string? OdataType { get; set; } = "#microsoft.graph.externalConnectors.principal";
 
     [JsonPropertyName("id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Id { get; set; }
 
     [JsonPropertyName("type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Type { get; set; }
 
     [JsonPropertyName("displayName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DisplayName { get; set; }
 
     [JsonPropertyName("userPrincipalName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? UserPrincipalName { get; set; }
 
     [JsonPropertyName("tenantId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TenantId { get; set; }
 
     [JsonExtensionData]
