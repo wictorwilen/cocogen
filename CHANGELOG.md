@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.24] - 2026-01-21
+
 ### Changed
 - .NET core ingestion now uses generic payload adapters to avoid coupling core helpers to concrete schema models.
 - TS datasource contracts now use generics to avoid coupling shared helpers to concrete schema models.
@@ -78,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.24]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.24
 [1.0.22]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.22
 [1.0.21]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.21
 [1.0.20]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.20
