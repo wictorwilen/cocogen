@@ -7,13 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.18] - 2026-01-21
-
 ### Breaking Changes
 - Removed legacy CSV-row helpers (`fromCsvRow`, `CsvParser`, `csv.ts`) in favor of row-based helpers.
 - Renamed CLI commands: `init-tsp` → `init`, `init` → `generate`.
 
 ### Added
+- Added agent-facing schema guidance document (docs/schema-assistant.md).
 - Managed identity authentication as the preferred credential for generated TS and .NET projects (client secret fallback).
 - .NET user-secrets support for configuration.
 - TypeSpec metadata support for `@doc`, `@example`, `@minLength`, `@maxLength`, `@minValue`, `@maxValue`, `@pattern`, `@format`, and `#deprecated`.

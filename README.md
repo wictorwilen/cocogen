@@ -31,6 +31,8 @@
 
 End-user guide:
 - [docs/end-user.md](https://github.com/wictorwilen/cocogen/blob/main/docs/end-user.md)
+Agent schema guidance:
+- [docs/schema-assistant.md](https://github.com/wictorwilen/cocogen/blob/main/docs/schema-assistant.md)
 
 ## TypeSpec format
 `cocogen` expects a single “item model” decorated with `@coco.item()` and a single ID property decorated with `@coco.id`.

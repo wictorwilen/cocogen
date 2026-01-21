@@ -2,6 +2,8 @@
 
 This guide walks you through writing TypeSpec (`.tsp`) files, running `cocogen`, and working safely with the generated projects.
 
+For agents helping others craft schemas, see docs/schema-assistant.md.
+
 ## Prerequisites
 - Node.js 22+ (the generator targets Node 22 LTS)
 - A TypeSpec schema file (`.tsp`)
