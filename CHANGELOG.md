@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.20] - 2026-01-21
+
 ### Changed
 - Principal properties now emit a typed principal object with `@odata.type`, `userPrincipalName`, and `tenantId` mappings.
 - Added support for `coco.Principal[]` mapping to Graph `principalCollection` (preview).
@@ -56,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.20]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.20
 [1.0.19]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.19
 [1.0.18]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.18
 [1.0.17]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.17
