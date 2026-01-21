@@ -328,4 +328,81 @@ describe("loadIrFromTypeSpec", () => {
 
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/TypeSpec compilation failed/i);
   });
+
+  test("defaults graph API version to v1.0 when no category or principal", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        title: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.connection.graphApiVersion).toBe("v1.0");
+  });
+
+  test("uses beta graph API version when contentCategory is set", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.connection({
+        contentCategory: "crm",
+        name: "CRM Connector",
+        connectionId: "crm-connector",
+        connectionDescription: "CRM data"
+      })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        title: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.connection.graphApiVersion).toBe("beta");
+  });
+
+  test("uses beta graph API version when principal properties are present", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        owner: coco.Principal;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.connection.graphApiVersion).toBe("beta");
+  });
+
+  test("falls back to property name for blank @coco.source", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        @coco.source("   ")
+        title: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    const titleProp = ir.properties.find((p) => p.name === "title");
+    expect(titleProp?.source.csvHeaders).toEqual(["title"]);
+  });
+
+  test("supports hash id encoding", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id({ encoding: "hash" })
+        id: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.item.idEncoding).toBe("hash");
+  });
 });

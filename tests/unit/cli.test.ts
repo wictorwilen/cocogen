@@ -173,6 +173,18 @@ describe("cli", () => {
     expect(process.exitCode).toBe(1);
   });
 
+  test("init prints non-error rejections", async () => {
+    initStarterMock.mockRejectedValue("boom");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "init", "--out", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).toContain("boom");
+    expect(process.exitCode).toBe(1);
+  });
+
   test("generate prints a project summary", async () => {
     initTsMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
 
@@ -216,6 +228,18 @@ describe("cli", () => {
     });
 
     expect(stderr).toContain("init failed");
+    expect(process.exitCode).toBe(1);
+  });
+
+  test("generate prints non-error rejections", async () => {
+    initTsMock.mockRejectedValue("boom");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
+    });
+
+    expect(stderr).toContain("boom");
     expect(process.exitCode).toBe(1);
   });
 
@@ -270,6 +294,18 @@ describe("cli", () => {
     expect(process.exitCode).toBe(1);
   });
 
+  test("update prints non-error rejections", async () => {
+    updateProjectMock.mockRejectedValue("boom");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "update", "--out", "/tmp/out"]);
+    });
+
+    expect(stderr).toContain("boom");
+    expect(process.exitCode).toBe(1);
+  });
+
   test("emit writes when --out is provided", async () => {
     loadIrMock.mockResolvedValue(minimalIr);
     validateIrMock.mockReturnValue([]);
@@ -309,6 +345,19 @@ describe("cli", () => {
     expect(process.exitCode).toBe(0);
   });
 
+  test("validate writes JSON output with errors", async () => {
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([{ severity: "error", message: "bad" }]);
+
+    const { main } = await import("../../src/cli.js");
+    const stdout = await captureStdout(async () => {
+      await main(["node", "cli", "validate", "--tsp", "/tmp/schema.tsp", "--json"]);
+    });
+
+    expect(stdout).toContain("\"errors\"");
+    expect(process.exitCode).toBe(1);
+  });
+
   test("validate prints success when no issues", async () => {
     loadIrMock.mockResolvedValue(minimalIr);
     validateIrMock.mockReturnValue([]);
@@ -332,6 +381,48 @@ describe("cli", () => {
 
     const { main } = await import("../../src/cli.js");
     await main(["node", "cli", "validate", "--tsp", "/tmp/schema.tsp"]);
+
+    Object.defineProperty(process.stdout, "isTTY", { value: originalTty, configurable: true });
+    process.env.NO_COLOR = "1";
+  });
+
+  test("init uses spinner when TTY and color enabled", async () => {
+    const originalTty = process.stdout.isTTY;
+    delete process.env.NO_COLOR;
+    Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+
+    initStarterMock.mockResolvedValue({ outPath: "/tmp/schema.tsp", kind: "content" });
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "init", "--out", "/tmp/schema.tsp"]);
+
+    Object.defineProperty(process.stdout, "isTTY", { value: originalTty, configurable: true });
+    process.env.NO_COLOR = "1";
+  });
+
+  test("generate uses spinner when TTY and color enabled", async () => {
+    const originalTty = process.stdout.isTTY;
+    delete process.env.NO_COLOR;
+    Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+
+    initTsMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
+
+    Object.defineProperty(process.stdout, "isTTY", { value: originalTty, configurable: true });
+    process.env.NO_COLOR = "1";
+  });
+
+  test("update uses spinner when TTY and color enabled", async () => {
+    const originalTty = process.stdout.isTTY;
+    delete process.env.NO_COLOR;
+    Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+
+    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "update", "--out", "/tmp/out"]);
 
     Object.defineProperty(process.stdout, "isTTY", { value: originalTty, configurable: true });
     process.env.NO_COLOR = "1";
@@ -491,6 +582,232 @@ describe("cli", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
 
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("ignores update check when registry responds non-ok", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: false,
+        json: async () => ({}),
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(stderr).not.toContain("update available");
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("continues when update check fails", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(process.exitCode).toBe(0);
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("skips banner output in CI", async () => {
+    vi.resetModules();
+    process.env.CI = "1";
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).not.toContain("Welcome to cocogen");
+
+    delete process.env.CI;
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("falls back to v0.0.0 when package info is unavailable", async () => {
+    vi.resetModules();
+    vi.doMock("node:fs", async (importActual) => {
+      const actual = await importActual<typeof import("node:fs")>();
+      return {
+        ...actual,
+        readFileSync: () => {
+          throw new Error("no package");
+        },
+      };
+    });
+
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).toContain("v0.0.0");
+
+    vi.doUnmock("node:fs");
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("treats prerelease current versions as older", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    vi.doMock("node:fs", async (importActual) => {
+      const actual = await importActual<typeof import("node:fs")>();
+      return {
+        ...actual,
+        readFileSync: () => JSON.stringify({ name: "cocogen", version: "1.0.0-beta" }),
+      };
+    });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ version: "1.0.0" }),
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).toContain("update available");
+
+    vi.doUnmock("node:fs");
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("does not offer updates when only prerelease is newer", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    vi.doMock("node:fs", async (importActual) => {
+      const actual = await importActual<typeof import("node:fs")>();
+      return {
+        ...actual,
+        readFileSync: () => JSON.stringify({ name: "cocogen", version: "1.0.0" }),
+      };
+    });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ version: "1.0.0-beta" }),
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).not.toContain("update available");
+
+    vi.doUnmock("node:fs");
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+  });
+
+  test("orders prerelease tags when comparing versions", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    vi.doMock("node:fs", async (importActual) => {
+      const actual = await importActual<typeof import("node:fs")>();
+      return {
+        ...actual,
+        readFileSync: () => JSON.stringify({ name: "cocogen", version: "1.0.0-alpha" }),
+      };
+    });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ version: "1.0.0-beta" }),
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).toContain("update available");
+
+    vi.doUnmock("node:fs");
     vi.unstubAllGlobals();
     Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
   });

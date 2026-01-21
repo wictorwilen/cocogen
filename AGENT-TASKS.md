@@ -34,6 +34,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
 
 ## Recently done
+- Added coverage-driven tests for CLI, loader, decorators, and init generation branches ✅
 - Removed CSV naming from generic helpers and moved validation to core ✅
 - Aligned deprecated handling to `#deprecated` and fixed example serialization/people entity validation ✅
 - Plan and implement TypeSpec metadata support (@doc, @example, @min/@max/@pattern/@format, @deprecated) ✅

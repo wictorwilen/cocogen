@@ -2,7 +2,13 @@ import { describe, expect, test } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { initDotnetProject, initTsProject, updateDotnetProject, updateTsProject } from "../../src/init/init.js";
+import {
+  initDotnetProject,
+  initTsProject,
+  updateDotnetProject,
+  updateProject,
+  updateTsProject,
+} from "../../src/init/init.js";
 import { writeTempDir, writeTempTspFile } from "../test-utils.js";
 
 const peopleSchema = `using coco;
@@ -72,6 +78,16 @@ describe("init errors", () => {
     );
   });
 
+  test("dotnet init fails when schema validation fails", async () => {
+    const tspPath = await writeTempTspFile(
+      `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: int64; }`
+    );
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "dotnet-invalid-schema");
+
+    await expect(initDotnetProject({ tspPath, outDir, force: false })).rejects.toThrow(/Schema validation failed/i);
+  });
+
   test("updateDotnetProject rejects non-dotnet project", async () => {
     const tspPath = await writeTempTspFile(
       `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: string; }`
@@ -124,6 +140,24 @@ describe("init errors", () => {
     await expect(updateDotnetProject({ outDir })).rejects.toThrow(/Schema validation failed/i);
   });
 
+  test("updateTsProject fails when schema validation fails", async () => {
+    const tspPath = await writeTempTspFile(
+      `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: string; }`
+    );
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "ts-invalid-update");
+
+    await initTsProject({ tspPath, outDir, force: false });
+
+    await writeFile(
+      path.join(outDir, "schema.tsp"),
+      `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: int64; }`,
+      "utf8"
+    );
+
+    await expect(updateTsProject({ outDir })).rejects.toThrow(/Schema validation failed/i);
+  });
+
   test("fails when schema validation fails", async () => {
     const tspPath = await writeTempTspFile(
       `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: int64; }`
@@ -132,5 +166,22 @@ describe("init errors", () => {
     const outDir = path.join(outRoot, "invalid-schema");
 
     await expect(initTsProject({ tspPath, outDir, force: false })).rejects.toThrow(/Schema validation failed/i);
+  });
+
+  test("updateProject fails when cocogen.json is missing", async () => {
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "missing-config");
+    await mkdir(outDir, { recursive: true });
+
+    await expect(updateProject({ outDir })).rejects.toThrow(/Missing cocogen.json/i);
+  });
+
+  test("updateProject fails on invalid cocogen.json", async () => {
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "invalid-config");
+    await mkdir(outDir, { recursive: true });
+    await writeFile(path.join(outDir, "cocogen.json"), JSON.stringify({ lang: "go" }, null, 2), "utf8");
+
+    await expect(updateProject({ outDir })).rejects.toThrow(/Invalid cocogen.json/i);
   });
 });

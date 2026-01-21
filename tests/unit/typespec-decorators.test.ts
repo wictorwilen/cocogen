@@ -167,6 +167,24 @@ describe("TypeSpec decorators", () => {
     });
   });
 
+  test("drops undefined model values when normalizing settings", () => {
+    const context = createContext();
+    const program = (context.program as unknown as ProgramMock);
+    const target = createModel();
+    const settings = createModel({
+      name: undefined,
+      connectionId: "connectorid",
+      connectionDescription: null,
+    });
+
+    $connection(context, target, settings as unknown as any);
+
+    expect(program.stateMap(COCOGEN_STATE_CONNECTION_SETTINGS).get(target)).toEqual({
+      connectionId: "connectorid",
+      connectionDescription: null,
+    });
+  });
+
   test("skips decorators when target is not a ModelProperty", () => {
     const context = createContext();
     const program = (context.program as unknown as ProgramMock);
@@ -201,6 +219,16 @@ describe("TypeSpec decorators", () => {
       displayName: "Directory",
       priority: "last",
     });
+  });
+
+  test("handles empty profile source settings", () => {
+    const context = createContext();
+    const program = (context.program as unknown as ProgramMock);
+    const target = createModel();
+
+    $profileSource(context, target, undefined as unknown as any);
+
+    expect(program.stateMap(COCOGEN_STATE_PROFILE_SOURCE_SETTINGS).get(target)).toEqual({});
   });
 
   test("handles source mappings for people entities and CSV overrides", () => {
