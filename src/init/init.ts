@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 
 import type { ConnectorIr, PropertyType } from "../ir.js";
 import { loadIrFromTypeSpec } from "../tsp/loader.js";
+import { PEOPLE_LABEL_DEFINITIONS, getPeopleLabelInfo, supportedPeopleLabels } from "../people/label-registry.js";
+import { graphProfileSchema, getProfileType, type GraphProfileProperty } from "../people/profile-schema.js";
 import { validateIr } from "../validate/validator.js";
-import { graphProfileSchema } from "../people/profile-schema.js";
-import { getPeopleLabelInfo, supportedPeopleLabels } from "../people/label-registry.js";
 import { renderTemplate } from "./template.js";
 
 export type InitOptions = {
@@ -384,6 +384,39 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
   const usesPrincipal = ir.properties.some(
     (p) => p.type === "principal" || p.type === "principalCollection"
   );
+  const hasPeopleSupport =
+    ir.connection.contentCategory === "people" ||
+    ir.properties.some((p) => p.labels.some((label) => label.startsWith("person")));
+  const peopleGraphTypes = hasPeopleSupport ? buildPeopleGraphTypes() : [];
+  const peopleLabelSerializers = hasPeopleSupport ? buildPeopleLabelSerializers() : [];
+  const serializerImports = new Set<string>();
+  const payloadProperties = ir.properties
+    .filter((p) => p.name !== ir.item.contentPropertyName)
+    .map((p) => {
+      const odataType = toOdataCollectionType(p.type);
+      const personLabel = p.labels.find((label) => label.startsWith("person"));
+      const serializerName =
+        personLabel && PEOPLE_LABEL_DEFINITIONS.has(personLabel)
+          ? `serialize${toTsIdentifier(personLabel)}`
+          : null;
+      if (serializerName) {
+        serializerImports.add(serializerName);
+      }
+      const baseValue =
+        p.type === "principal"
+          ? `cleanPrincipal(item.${p.name} as Record<string, unknown> | null | undefined)`
+          : p.type === "principalCollection"
+          ? `cleanPrincipalCollection(item.${p.name} as Array<Record<string, unknown>> | null | undefined)`
+          : `item.${p.name}`;
+      const valueExpression = serializerName
+        ? `${serializerName}(${baseValue}, ${JSON.stringify(p.name)})`
+        : baseValue;
+      return {
+        name: p.name,
+        odataType,
+        valueExpression,
+      };
+    });
 
   await writeFile(
     path.join(outDir, "src", schemaFolderName, "model.ts"),
@@ -428,6 +461,17 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     "utf8"
   );
 
+  if (hasPeopleSupport) {
+    await writeFile(
+      path.join(outDir, "src", "core", "people.ts"),
+      await renderTemplate("ts/src/core/people.ts.ejs", {
+        graphTypes: peopleGraphTypes,
+        labels: peopleLabelSerializers,
+      }),
+      "utf8"
+    );
+  }
+
   await writeFile(
     path.join(outDir, "src", schemaFolderName, "propertyTransformBase.ts"),
     await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
@@ -459,34 +503,15 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     "utf8"
   );
 
-  const propertiesObjectLines = ir.properties
-    .filter((p) => p.name !== ir.item.contentPropertyName)
-    .flatMap((p) => {
-      const lines: string[] = [];
-      const odataType = toOdataCollectionType(p.type);
-      if (odataType) {
-        lines.push(`      ${JSON.stringify(`${p.name}@odata.type`)}: ${JSON.stringify(odataType)},`);
-      }
-      const valueExpression =
-        p.type === "principal"
-          ? `cleanPrincipal(item.${p.name} as Record<string, unknown> | null | undefined)`
-          : p.type === "principalCollection"
-          ? `cleanPrincipalCollection(item.${p.name} as Array<Record<string, unknown>> | null | undefined)`
-          : `item.${p.name}`;
-      lines.push(`      ${JSON.stringify(p.name)}: ${valueExpression},`);
-      return lines;
-    })
-    .join("\n");
   const contentValueExpression = ir.item.contentPropertyName
     ? "String((item as any)[contentPropertyName ?? \"\"] ?? \"\")"
     : "\"\"";
-  const contentBlock = `,\n    content: {\n      type: \"text\",\n      value: ${contentValueExpression},\n    }`;
-
   await writeFile(
     path.join(outDir, "src", schemaFolderName, "itemPayload.ts"),
     await renderTemplate("ts/src/generated/itemPayload.ts.ejs", {
-      propertiesObjectLines,
-      contentBlock,
+      properties: payloadProperties,
+      peopleSerializers: Array.from(serializerImports),
+      contentValueExpression,
       itemTypeName: ir.item.typeName,
       idEncoding: ir.item.idEncoding,
       usesPrincipal,
@@ -1474,6 +1499,164 @@ function buildSampleCsv(ir: ConnectorIr): string {
   const headerLine = headers.map(csvEscape).join(",");
   const valueLine = headers.map((h) => csvEscape(valueByHeader.get(h) ?? "sample")).join(",");
   return `${headerLine}\n${valueLine}\n`;
+}
+
+type PeopleGraphFieldTemplate = {
+  name: string;
+  varName: string;
+  tsType: string;
+  optional: boolean;
+  isCollection: boolean;
+  typeCheck: string;
+  expected: string;
+  elementTypeCheck?: string | undefined;
+  elementExpected?: string | undefined;
+};
+
+type PeopleGraphTypeTemplate = {
+  alias: string;
+  fields: PeopleGraphFieldTemplate[];
+};
+
+type PeopleLabelSerializerTemplate = {
+  label: string;
+  serializerName: string;
+  graphTypeAlias: string;
+  isCollection: boolean;
+  collectionLimit: number | null;
+};
+
+function buildPeopleGraphTypes(): PeopleGraphTypeTemplate[] {
+  const graphTypeNames = new Set<string>();
+  for (const def of PEOPLE_LABEL_DEFINITIONS.values()) {
+    graphTypeNames.add(def.graphTypeName);
+  }
+
+  return [...graphTypeNames].map((typeName) => {
+    const schemaType = getProfileType(typeName);
+    if (!schemaType) {
+      throw new Error(`Graph profile schema is missing type '${typeName}'. Run npm run update-graph-profile-schema.`);
+    }
+    const usedVarNames = new Set<string>();
+    const fields = (schemaType.properties ?? []).map((prop) => convertGraphProperty(prop, usedVarNames));
+    return {
+      alias: toTsIdentifier(typeName),
+      fields,
+    };
+  });
+}
+
+function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
+  return [...PEOPLE_LABEL_DEFINITIONS.entries()].map(([label, def]) => ({
+    label,
+    serializerName: `serialize${toTsIdentifier(label)}`,
+    graphTypeAlias: toTsIdentifier(def.graphTypeName),
+    isCollection: def.payloadTypes.includes("stringCollection"),
+    collectionLimit: def.constraints.collectionLimit ?? null,
+  }));
+}
+
+function convertGraphProperty(
+  prop: GraphProfileProperty,
+  usedVarNames: Set<string>
+): PeopleGraphFieldTemplate {
+  const descriptor = parseGraphTypeDescriptor(prop.type);
+  const varName = toPeopleFieldVarName(prop.name, usedVarNames);
+  return {
+    name: prop.name,
+    varName,
+    tsType: descriptor.tsType,
+    optional: prop.nullable !== false,
+    isCollection: descriptor.isCollection,
+    typeCheck: descriptor.typeCheck,
+    expected: descriptor.expected,
+    elementTypeCheck: descriptor.elementTypeCheck,
+    elementExpected: descriptor.elementExpected,
+  };
+}
+
+type GraphTypeDescriptor = {
+  tsType: string;
+  isCollection: boolean;
+  typeCheck: string;
+  expected: string;
+  elementTypeCheck?: string;
+  elementExpected?: string;
+};
+
+type ScalarTypeDescriptor = {
+  tsType: string;
+  expected: string;
+  check: (varName: string) => string;
+};
+
+function parseGraphTypeDescriptor(typeName: string): GraphTypeDescriptor {
+  const collectionMatch = /^Collection\((.+)\)$/.exec(typeName);
+  if (collectionMatch) {
+    const element = getScalarDescriptor(collectionMatch[1]!);
+    return {
+      tsType: `${element.tsType}[]`,
+      isCollection: true,
+      typeCheck: "Array.isArray(value)",
+      expected: "an array",
+      elementTypeCheck: element.check("entry"),
+      elementExpected: element.expected,
+    };
+  }
+  const scalar = getScalarDescriptor(typeName);
+  return {
+    tsType: scalar.tsType,
+    isCollection: false,
+    typeCheck: scalar.check("value"),
+    expected: scalar.expected,
+  };
+}
+
+function getScalarDescriptor(typeName: string): ScalarTypeDescriptor {
+  switch (typeName) {
+    case "Edm.String":
+    case "Edm.Date":
+    case "Edm.DateTimeOffset":
+    case "Edm.TimeOfDay":
+      return {
+        tsType: "string",
+        expected: "a string",
+        check: (varName) => `typeof ${varName} === "string"`,
+      };
+    case "Edm.Boolean":
+      return {
+        tsType: "boolean",
+        expected: "a boolean",
+        check: (varName) => `typeof ${varName} === "boolean"`,
+      };
+    case "Edm.Int32":
+    case "Edm.Int64":
+    case "Edm.Double":
+      return {
+        tsType: "number",
+        expected: "a number",
+        check: (varName) => `typeof ${varName} === "number" && Number.isFinite(${varName})`,
+      };
+    default:
+      return {
+        tsType: "Record<string, unknown>",
+        expected: "an object",
+        check: (varName) => `isRecord(${varName})`,
+      };
+  }
+}
+
+function toPeopleFieldVarName(name: string, used: Set<string>): string {
+  const identifier = toTsIdentifier(name);
+  const base = identifier.length > 0 ? identifier[0]!.toLowerCase() + identifier.slice(1) : "value";
+  let candidate = base || "value";
+  let suffix = 1;
+  while (used.has(candidate)) {
+    candidate = `${base}${suffix}`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
 }
 
 async function writeGeneratedDotnet(

@@ -37,7 +37,12 @@ public static class PeoplePayload
 
     public static string? SerializeStringLabel(string label, string? value, string propertyName)
     {
-        if (string.IsNullOrWhiteSpace(value)) return value;
+        if (value is null) return value;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException(
+                $"People label '{label}' on property '{propertyName}' must be a non-empty JSON string.");
+        }
         var definition = GetDefinition(label, PeoplePayloadKind.String, propertyName);
         var element = ParseJsonObject(label, value, propertyName);
         ValidateRequiredFields(definition, element, propertyName);

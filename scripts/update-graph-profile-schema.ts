@@ -127,10 +127,6 @@ const collectProperties = (
   return ordered;
 };
 
-const normalizeType = (typeName: string): string => {
-  return graphAliases[typeName] ?? typeName;
-};
-
 const main = async (): Promise<void> => {
   const res = await fetch(METADATA_URL, {
     headers: {

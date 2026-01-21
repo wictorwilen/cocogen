@@ -1,6 +1,7 @@
 import type { ConnectorIr, PropertyType } from "../ir.js";
 import {
   getBlockedPeopleLabel,
+  getPeopleLabelDefinition,
   getPeopleLabelInfo,
   isSupportedPeopleLabel
 } from "../people/label-registry.js";
@@ -25,6 +26,10 @@ function hasSearchFlags(flags: { [key: string]: unknown }): boolean {
   return Object.values(flags).some((value) => Boolean(value));
 }
 
+function matchesRequiredField(path: string, fieldName: string): boolean {
+  if (!path) return false;
+  return path === fieldName || path.startsWith(`${fieldName}.`);
+}
 const SEMANTIC_LABEL_TYPE_RULES = new Map<string, PropertyType[]>([
   ["title", ["string"]],
   ["url", ["string"]],
@@ -290,6 +295,8 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         });
       }
 
+      let shouldWarnMissingMapping = false;
+
       for (const label of prop.labels) {
         if (!label.startsWith("person")) continue;
 
@@ -297,7 +304,7 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         if (blocked) {
           issues.push({
             severity: "error",
-            message: blocked.message,
+            message: `${blocked.message} (property '${prop.name}')`,
             hint: blocked.hint,
           });
           continue;
@@ -306,7 +313,17 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         if (!isSupportedPeopleLabel(label)) {
           issues.push({
             severity: "error",
-            message: `People connector label '${label}' is not supported.`,
+            message: `People connector label '${label}' on property '${prop.name}' is not supported.`,
+            hint: "Use a supported people label like personCurrentPosition or personEmails.",
+          });
+          continue;
+        }
+
+        const labelDefinition = getPeopleLabelDefinition(label);
+        if (!labelDefinition) {
+          issues.push({
+            severity: "error",
+            message: `People connector label '${label}' on property '${prop.name}' is not supported.`,
             hint: "Use a supported people label like personCurrentPosition or personEmails.",
           });
           continue;
@@ -320,9 +337,52 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
             hint: "Change the property type to match the people label requirements.",
           });
         }
+
+        const requiredFields = labelDefinition.requiredFields ?? [];
+
+        if (!prop.personEntity) {
+          if (requiredFields.length > 0) {
+            issues.push({
+              severity: "error",
+              message: `People label '${label}' on property '${prop.name}' must map required Graph field(s) ${requiredFields.join(
+                ", "
+              )}, but no @coco.source(..., to) entries were found.`,
+              hint: "Add @coco.source({ from: ..., to: \"field\" }) for each required Graph field.",
+            });
+          } else {
+            shouldWarnMissingMapping = true;
+          }
+          continue;
+        }
+
+        if (labelDefinition && prop.personEntity.entity !== labelDefinition.graphTypeName) {
+          issues.push({
+            severity: "error",
+            message: `People label '${label}' expects entity '${labelDefinition.graphTypeName}', but property '${prop.name}' maps '${prop.personEntity.entity}'.`,
+            hint: "Remove conflicting labels or adjust @coco.source(..., to) mappings to the correct Graph entity.",
+          });
+          continue;
+        }
+
+        if (requiredFields.length > 0) {
+          const providedPaths =
+            prop.personEntity.fields?.map((field) => field.path).filter((path): path is string => Boolean(path)) ?? [];
+          const missingFields = requiredFields.filter(
+            (required) => !providedPaths.some((path) => matchesRequiredField(path, required))
+          );
+          if (missingFields.length > 0) {
+            issues.push({
+              severity: "error",
+              message: `People label '${label}' on property '${prop.name}' must provide Graph field(s) ${missingFields.join(
+                ", "
+              )}.`,
+              hint: "Add @coco.source({ from, to }) entries for each required field.",
+            });
+          }
+        }
       }
 
-      if (!prop.personEntity) {
+      if (!prop.personEntity && shouldWarnMissingMapping) {
         issues.push({
           severity: "warning",
           message: `People-labeled property '${prop.name}' is missing @coco.source(..., to) mappings.`,

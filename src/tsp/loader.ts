@@ -24,6 +24,7 @@ import {
 } from "@typespec/compiler";
 
 import type { ConnectorIr, GraphApiVersion, PropertyType, SearchFlags } from "../ir.js";
+import { getPeopleLabelDefinition, type PersonEntityName } from "../people/label-registry.js";
 import {
   COCOGEN_STATE_CONNECTION_SETTINGS,
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
@@ -45,7 +46,6 @@ import {
   type CocogenSourceSettings,
   type CocogenPersonEntityField,
 } from "../typespec/state.js";
-import { getPeopleLabelInfo, isSupportedPeopleLabel } from "../people/label-registry.js";
 
 export class CocogenError extends Error {
   constructor(message: string) {
@@ -156,40 +156,13 @@ function getPersonEntityMapping(
   prop: ModelProperty,
   propertyType: PropertyType
 ): {
-  entity:
-    | "userAccountInformation"
-    | "personName"
-    | "workPosition"
-    | "itemAddress"
-    | "itemEmail"
-    | "itemPhone"
-    | "personAward"
-    | "personCertification"
-    | "projectParticipation"
-    | "skillProficiency"
-    | "webAccount"
-    | "personWebsite"
-    | "personAnniversary"
-    | "personAnnotation";
+  entity: PersonEntityName;
   fields: Array<{ path: string; source: { csvHeaders: string[] } }>;
 } | undefined {
   const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
-  const label = labels.find((value) => isSupportedPeopleLabel(value));
-  const entity = label ? (getPeopleLabelInfo(label).planTypeName as
-    | "userAccountInformation"
-    | "personName"
-    | "workPosition"
-    | "itemAddress"
-    | "itemEmail"
-    | "itemPhone"
-    | "personAward"
-    | "personCertification"
-    | "projectParticipation"
-    | "skillProficiency"
-    | "webAccount"
-    | "personWebsite"
-    | "personAnniversary"
-    | "personAnnotation") : undefined;
+  const entity = labels
+    .map((label) => getPeopleLabelDefinition(label)?.graphTypeName)
+    .find((value): value is PersonEntityName => typeof value === "string");
 
   const rawFields =
     (program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS).get(prop) as CocogenPersonEntityField[]) ?? [];

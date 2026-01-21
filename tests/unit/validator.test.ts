@@ -511,7 +511,7 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "error" && i.message.includes("requires type"))).toBe(true);
   });
 
-  test("people connectors reject unsupported people labels", () => {
+  test("people connectors reject blocked people labels", () => {
     const ir = baseIr();
     ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
     ir.properties.push({
@@ -524,7 +524,189 @@ describe("validateIr", () => {
     });
 
     const issues = validateIr(ir);
-    expect(issues.some((i) => i.severity === "error" && i.message.includes("not supported"))).toBe(true);
+    expect(
+      issues.some(
+        (i) =>
+          i.severity === "error" &&
+          i.message.includes("personManager") &&
+          i.message.includes("reserved for Microsoft Graph")
+      )
+    ).toBe(true);
+  });
+
+  test("people connectors reject unsupported people labels", () => {
+    const ir = baseIr();
+    ir.connection = { graphApiVersion: "beta", contentCategory: "people" };
+    ir.properties.push({
+      name: "random",
+      type: "string",
+      labels: ["personUnicorn"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["random"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some(
+        (i) =>
+          i.severity === "error" && i.message.includes("personUnicorn") && i.message.includes("not supported")
+      )
+    ).toBe(true);
+  });
+
+  test("people labels with required fields error without mappings", () => {
+    const ir = baseIr();
+    ir.connection = {
+      graphApiVersion: "beta",
+      contentCategory: "people",
+      profileSource: { webUrl: "https://contoso.com", displayName: "Directory" },
+    };
+    ir.properties.push({
+      name: "account",
+      type: "string",
+      labels: ["personAccount"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["account"] },
+      personEntity: {
+        entity: "userAccountInformation",
+        fields: [
+          {
+            path: "userPrincipalName",
+            source: { csvHeaders: ["account"] },
+          },
+        ],
+      },
+    });
+    ir.properties.push({
+      name: "emails",
+      type: "stringCollection",
+      labels: ["personEmails"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["emails"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some(
+        (i) =>
+          i.severity === "error" &&
+          i.message.includes("personEmails") &&
+          i.message.includes("required Graph field")
+      )
+    ).toBe(true);
+  });
+
+  test("people label mappings must include all required Graph fields", () => {
+    const ir = baseIr();
+    ir.connection = {
+      graphApiVersion: "beta",
+      contentCategory: "people",
+      profileSource: { webUrl: "https://contoso.com", displayName: "Directory" },
+    };
+    ir.properties.push({
+      name: "account",
+      type: "string",
+      labels: ["personAccount"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["account"] },
+      personEntity: {
+        entity: "userAccountInformation",
+        fields: [
+          {
+            path: "userPrincipalName",
+            source: { csvHeaders: ["account"] },
+          },
+        ],
+      },
+    });
+    ir.properties.push({
+      name: "emails",
+      type: "stringCollection",
+      labels: ["personEmails"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["emails"] },
+      personEntity: {
+        entity: "itemEmail",
+        fields: [
+          {
+            path: "address",
+            source: { csvHeaders: ["emails"] },
+          },
+        ],
+      },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some(
+        (i) =>
+          i.severity === "error" &&
+          i.message.includes("personEmails") &&
+          i.message.includes("must provide Graph field")
+      )
+    ).toBe(true);
+  });
+
+  test("people label mappings that cover required fields pass validation", () => {
+    const ir = baseIr();
+    ir.connection = {
+      graphApiVersion: "beta",
+      contentCategory: "people",
+      profileSource: { webUrl: "https://contoso.com", displayName: "Directory" },
+    };
+    ir.properties.push({
+      name: "account",
+      type: "string",
+      labels: ["personAccount"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["account"] },
+      personEntity: {
+        entity: "userAccountInformation",
+        fields: [
+          {
+            path: "userPrincipalName",
+            source: { csvHeaders: ["account"] },
+          },
+        ],
+      },
+    });
+    ir.properties.push({
+      name: "emails",
+      type: "stringCollection",
+      labels: ["personEmails"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["emails"] },
+      personEntity: {
+        entity: "itemEmail",
+        fields: [
+          {
+            path: "address",
+            source: { csvHeaders: ["emails"] },
+          },
+          {
+            path: "type",
+            source: { csvHeaders: ["emails"] },
+          },
+        ],
+      },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some(
+        (i) =>
+          i.severity === "error" &&
+          i.message.includes("personEmails") &&
+          i.message.includes("required Graph field")
+      )
+    ).toBe(false);
   });
 
   test("profileSource is invalid for non-people connectors", () => {

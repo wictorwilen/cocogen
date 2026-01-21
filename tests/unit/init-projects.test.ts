@@ -474,6 +474,22 @@ model Item {
     expect(transforms).toContain("userPrincipalName");
   });
 
+  test("initTsProject emits people validators and serialization helpers", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "people-validators");
+    const schemaFolder = "PeopleConnector";
+
+    await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const helpers = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
+    expect(helpers).toContain("export function serializePersonSkills");
+    expect(helpers).toContain("validateSkillProficiency");
+
+    const payload = await readFile(path.join(outDir, "src", schemaFolder, "itemPayload.ts"), "utf8");
+    expect(payload).toContain("serializePersonSkills(");
+  });
+
   test("initDotnetProject generates property transform base and preserves overrides", async () => {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();

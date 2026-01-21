@@ -1,135 +1,163 @@
-import { getProfilePlanTypeNameByLabel, getProfileTypeByLabel, getProfileTypeNameByLabel } from "./profile-schema.js";
+import type { ConnectorIr, PropertyType } from "../ir.js";
+import {
+  getProfilePlanTypeNameByLabel,
+  getProfileType,
+  resolveProfileTypeName
+} from "./profile-schema.js";
+import type { GraphProfileType } from "./profile-schema.js";
 
-export type PeopleLabel =
-  | "personAccount"
-  | "personName"
-  | "personCurrentPosition"
-  | "personAddresses"
-  | "personEmails"
-  | "personPhones"
-  | "personAwards"
-  | "personCertifications"
-  | "personProjects"
-  | "personSkills"
-  | "personWebAccounts"
-  | "personWebSite"
-  | "personAnniversaries"
-  | "personNote";
+export type PersonEntityName = NonNullable<ConnectorIr["properties"][number]["personEntity"]>["entity"];
 
-export type PeoplePayloadType = "string" | "stringCollection";
+type PeopleLabelPayloadType = Extract<PropertyType, "string" | "stringCollection">;
+
+export type PeopleLabelConstraint = {
+  collectionLimit?: number;
+};
+
+export type PeopleLabelDefinition = {
+  label: string;
+  payloadTypes: PeopleLabelPayloadType[];
+  graphTypeName: PersonEntityName;
+  planTypeName: string;
+  schemaTypeName: string;
+  schema: GraphProfileType;
+  requiredFields: string[];
+  constraints: PeopleLabelConstraint;
+};
 
 export type PeopleLabelInfo = {
-  label: PeopleLabel;
-  payloadType: PeoplePayloadType;
+  label: string;
+  payloadType: PeopleLabelPayloadType;
   planTypeName: string;
-  graphTypeName: string;
+  graphTypeName: PersonEntityName;
   requiredFields: string[];
   collectionLimit?: number;
 };
 
-const SUPPORTED_LABELS: PeopleLabel[] = [
-  "personAccount",
-  "personName",
-  "personCurrentPosition",
-  "personAddresses",
-  "personEmails",
-  "personPhones",
-  "personAwards",
-  "personCertifications",
-  "personProjects",
-  "personSkills",
-  "personWebAccounts",
-  "personWebSite",
-  "personAnniversaries",
-  "personNote"
+type RawPeopleLabel = {
+  label: string;
+  payloadTypes: PeopleLabelPayloadType[];
+  graphType: PersonEntityName;
+  constraints?: PeopleLabelConstraint;
+};
+
+const RAW_LABELS: RawPeopleLabel[] = [
+  { label: "personAccount", payloadTypes: ["string"], graphType: "userAccountInformation" },
+  { label: "personName", payloadTypes: ["string"], graphType: "personName" },
+  { label: "personCurrentPosition", payloadTypes: ["string"], graphType: "workPosition" },
+  { label: "personAddresses", payloadTypes: ["stringCollection"], graphType: "itemAddress", constraints: { collectionLimit: 3 } },
+  { label: "personEmails", payloadTypes: ["stringCollection"], graphType: "itemEmail", constraints: { collectionLimit: 3 } },
+  { label: "personPhones", payloadTypes: ["stringCollection"], graphType: "itemPhone" },
+  { label: "personAwards", payloadTypes: ["stringCollection"], graphType: "personAward" },
+  { label: "personCertifications", payloadTypes: ["stringCollection"], graphType: "personCertification" },
+  { label: "personProjects", payloadTypes: ["stringCollection"], graphType: "projectParticipation" },
+  { label: "personSkills", payloadTypes: ["stringCollection"], graphType: "skillProficiency" },
+  { label: "personWebAccounts", payloadTypes: ["stringCollection"], graphType: "webAccount" },
+  { label: "personWebSite", payloadTypes: ["string"], graphType: "personWebsite" },
+  { label: "personAnniversaries", payloadTypes: ["stringCollection"], graphType: "personAnnualEvent" },
+  { label: "personNote", payloadTypes: ["string"], graphType: "personAnnotation" },
 ];
 
-const LABEL_PAYLOAD_TYPES: Record<PeopleLabel, PeoplePayloadType> = {
-  personAccount: "string",
-  personName: "string",
-  personCurrentPosition: "string",
-  personAddresses: "stringCollection",
-  personEmails: "stringCollection",
-  personPhones: "stringCollection",
-  personAwards: "stringCollection",
-  personCertifications: "stringCollection",
-  personProjects: "stringCollection",
-  personSkills: "stringCollection",
-  personWebAccounts: "stringCollection",
-  personWebSite: "string",
-  personAnniversaries: "stringCollection",
-  personNote: "string"
+const labelDefinitions = new Map<string, PeopleLabelDefinition>();
+
+for (const entry of RAW_LABELS) {
+  const planTypeName = getProfilePlanTypeNameByLabel(entry.label) ?? entry.graphType;
+  const schemaTypeName = resolveProfileTypeName(planTypeName);
+  const schema = schemaTypeName ? getProfileType(schemaTypeName) : undefined;
+
+  if (!schema || !schemaTypeName) {
+    throw new Error(`Graph profile schema is missing type '${entry.graphType}'. Run npm run update-graph-profile-schema.`);
+  }
+
+  labelDefinitions.set(entry.label, {
+    label: entry.label,
+    payloadTypes: entry.payloadTypes,
+    graphTypeName: entry.graphType,
+    planTypeName,
+    schemaTypeName,
+    schema,
+    requiredFields: schema.required ?? [],
+    constraints: entry.constraints ?? {},
+  });
+}
+
+export const PEOPLE_LABEL_DEFINITIONS = labelDefinitions;
+
+export const SUPPORTED_PEOPLE_LABELS = new Set(labelDefinitions.keys());
+
+export function supportedPeopleLabels(): string[] {
+  return RAW_LABELS.map((label) => label.label);
+}
+
+export function isSupportedPeopleLabel(label: string): boolean {
+  return SUPPORTED_PEOPLE_LABELS.has(label);
+}
+
+export function getPeopleLabelDefinition(label: string): PeopleLabelDefinition | undefined {
+  return labelDefinitions.get(label);
+}
+
+export type BlockedPeopleLabel = {
+  message: string;
+  hint: string;
 };
 
-const COLLECTION_LIMITS: Partial<Record<PeopleLabel, number>> = {
-  personAddresses: 3,
-  personEmails: 3
-};
-
-const BLOCKED_LABELS = new Map<string, { message: string; hint: string }>([
+export const BLOCKED_PEOPLE_LABELS = new Map<string, BlockedPeopleLabel>([
   [
     "personManager",
     {
-      message: "People label 'personManager' is not supported by cocogen.",
-      hint: "Remove the label or choose a supported people label from https://aka.ms/peopleconnectors/build."
-    }
+      message: "People connector label 'personManager' is blocked for custom connectors.",
+      hint: "Remove this label. If you need to describe reporting structure, include manager details inside personCurrentPosition.detail.manager.",
+    },
   ],
   [
     "personAssistants",
     {
-      message: "People label 'personAssistants' is not supported by cocogen.",
-      hint: "Remove the label or choose a supported people label from https://aka.ms/peopleconnectors/build."
-    }
+      message: "People connector label 'personAssistants' is blocked for custom connectors.",
+      hint: "Remove the label and surface assistant information inside personPhones or personEmails metadata instead.",
+    },
   ],
   [
     "personColleagues",
     {
-      message: "People label 'personColleagues' is not supported by cocogen.",
-      hint: "Remove the label or choose a supported people label from https://aka.ms/peopleconnectors/build."
-    }
+      message: "People connector label 'personColleagues' is blocked for custom connectors.",
+      hint: "Consider using personProjects or personSkills to describe collaboration context rather than emitting colleagues directly.",
+    },
   ],
   [
     "personAlternateContacts",
     {
-      message: "People label 'personAlternateContacts' is not supported by cocogen.",
-      hint: "Remove the label or choose a supported people label from https://aka.ms/peopleconnectors/build."
-    }
+      message: "People connector label 'personAlternateContacts' is blocked for custom connectors.",
+      hint: "Provide alternate contact details by enriching personPhones or personEmails instead of using this label.",
+    },
   ],
   [
     "personEmergencyContacts",
     {
-      message: "People label 'personEmergencyContacts' is not supported by cocogen.",
-      hint: "Remove the label or choose a supported people label from https://aka.ms/peopleconnectors/build."
-    }
-  ]
+      message: "People connector label 'personEmergencyContacts' is blocked for custom connectors.",
+      hint: "Provide emergency contact details inside personPhones or personEmails instead of using this label.",
+    },
+  ],
 ]);
 
-export const supportedPeopleLabels = (): PeopleLabel[] => [...SUPPORTED_LABELS];
+export const getBlockedPeopleLabel = (label: string): BlockedPeopleLabel | undefined =>
+  BLOCKED_PEOPLE_LABELS.get(label);
 
-export const isSupportedPeopleLabel = (label: string): label is PeopleLabel =>
-  SUPPORTED_LABELS.includes(label as PeopleLabel);
-
-export const getBlockedPeopleLabel = (label: string): { message: string; hint: string } | undefined =>
-  BLOCKED_LABELS.get(label);
-
-export const getPeopleLabelInfo = (label: PeopleLabel): PeopleLabelInfo => {
-  const payloadType = LABEL_PAYLOAD_TYPES[label];
-  const planTypeName = getProfilePlanTypeNameByLabel(label);
-  const graphTypeName = getProfileTypeNameByLabel(label);
-  if (!planTypeName || !graphTypeName) {
+export const getPeopleLabelInfo = (label: string): PeopleLabelInfo => {
+  const definition = getPeopleLabelDefinition(label);
+  if (!definition) {
     throw new Error(`Missing Graph type mapping for people label '${label}'.`);
   }
-  const type = getProfileTypeByLabel(label);
+  const payloadType = definition.payloadTypes[0] ?? "string";
   const info: PeopleLabelInfo = {
-    label,
+    label: definition.label,
     payloadType,
-    planTypeName,
-    graphTypeName,
-    requiredFields: type?.required ?? []
+    planTypeName: definition.planTypeName,
+    graphTypeName: definition.graphTypeName,
+    requiredFields: definition.requiredFields,
   };
-  const limit = COLLECTION_LIMITS[label];
-  if (limit !== undefined) {
-    info.collectionLimit = limit;
+  if (definition.constraints.collectionLimit !== undefined) {
+    info.collectionLimit = definition.constraints.collectionLimit;
   }
   return info;
 };

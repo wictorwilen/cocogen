@@ -1,0 +1,129 @@
+/**
+ * Graph people entity helpers (generated).
+ */
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseJsonValue = (raw: string, fieldPath: string): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${fieldPath} must be valid JSON (${message}).`);
+  }
+};
+
+const normalizeSingleValue = (
+  value: unknown,
+  fieldName: string
+): Record<string, unknown> | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") {
+    throw new Error(`${fieldName} must be a JSON-encoded string.`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${fieldName} must be a non-empty JSON string.`);
+  }
+  const parsed = parseJsonValue(trimmed, fieldName);
+  if (!isRecord(parsed)) {
+    throw new Error(`${fieldName} must be a JSON object.`);
+  }
+  return parsed;
+};
+
+const normalizeCollectionValue = (
+  value: unknown,
+  fieldName: string
+): Array<Record<string, unknown>> | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an array of JSON strings.`);
+  }
+
+  const results: Array<Record<string, unknown>> = [];
+  value.forEach((entry, index) => {
+    if (typeof entry !== "string") {
+      throw new Error(`${fieldName}[${index}] must be a JSON-encoded string.`);
+    }
+    const trimmed = entry.trim();
+    if (!trimmed) {
+      throw new Error(`${fieldName}[${index}] must be a non-empty JSON string.`);
+    }
+    const parsed = parseJsonValue(trimmed, `${fieldName}[${index}]`);
+    if (!isRecord(parsed)) {
+      throw new Error(`${fieldName}[${index}] must be a JSON object.`);
+    }
+    results.push(parsed);
+  });
+
+  return results;
+};
+
+<% for (const type of graphTypes) { -%>
+export type <%= type.alias %> = {
+<% for (const field of type.fields) { -%>
+  <%= field.name %><%= field.optional ? "?" : "" %>: <%= field.optional ? `${field.tsType} | null` : field.tsType %>;
+<% } -%>
+};
+
+export function validate<%= type.alias %>(value: unknown, fieldPath: string): <%= type.alias %> {
+  if (!isRecord(value)) {
+    throw new Error(`${fieldPath} must be an object.`);
+  }
+<% for (const field of type.fields) { -%>
+  const <%= field.varName %> = (value as Record<string, unknown>)[<%= JSON.stringify(field.name) %>];
+  if (<%= field.varName %> === undefined || <%= field.varName %> === null) {
+<% if (!field.optional) { -%>
+    throw new Error(`${fieldPath}.${<%= JSON.stringify(field.name) %>} is required.`);
+<% } -%>
+  } else {
+<% if (field.isCollection) { -%>
+    if (!Array.isArray(<%= field.varName %>)) {
+      throw new Error(`${fieldPath}.${<%= field.name %>} must be an array.`);
+    }
+    (<%= field.varName %> as unknown[]).forEach((entry, entryIndex) => {
+      if (!(<%= field.elementTypeCheck %>)) {
+        throw new Error(`${fieldPath}.${<%= field.name %>}[${"${entryIndex}"}] must be <%= field.elementExpected %>.`);
+      }
+    });
+<% } else { -%>
+    if (!(<%= field.typeCheck %>)) {
+      throw new Error(`${fieldPath}.${<%= field.name %>} must be <%= field.expected %>.`);
+    }
+<% } -%>
+  }
+<% } -%>
+  return value as <%= type.alias %>;
+}
+
+<% } -%>
+<% for (const label of labels) { -%>
+export function <%= label.serializerName %>(
+  value: unknown,
+  fieldName = <%= JSON.stringify(label.label) %>
+): <%= label.isCollection ? "string[] | undefined" : "string | undefined" %> {
+<% if (label.isCollection) { -%>
+  const payloads = normalizeCollectionValue(value, fieldName);
+  if (!payloads) return undefined;
+  if (payloads.length === 0) return [];
+<% if (label.collectionLimit) { -%>
+  if (payloads.length > <%= label.collectionLimit %>) {
+    throw new Error(
+      `${fieldName} supports at most <%= label.collectionLimit %> entries (received ${"${payloads.length}"}).`
+    );
+  }
+<% } -%>
+  return payloads.map((payload, index) =>
+    JSON.stringify(validate<%= label.graphTypeAlias %>(payload, `${fieldName}[${"${index}"}]`))
+  );
+<% } else { -%>
+  const payload = normalizeSingleValue(value, fieldName);
+  if (!payload) return undefined;
+  const validated = validate<%= label.graphTypeAlias %>(payload, fieldName);
+  return JSON.stringify(validated);
+<% } -%>
+}
+
+<% } -%>

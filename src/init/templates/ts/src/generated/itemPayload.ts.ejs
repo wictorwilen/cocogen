@@ -4,6 +4,9 @@
 import type { <%= itemTypeName %> } from "./model.js";
 import { contentPropertyName, idPropertyName } from "./constants.js";
 import { getItemId as getItemIdFromCore, type IdEncoding } from "../core/itemId.js";
+<% if (peopleSerializers.length > 0) { -%>
+import { <%= peopleSerializers.join(", ") %> } from "../core/people.js";
+<% } -%>
 
 const idEncoding: IdEncoding = <%= JSON.stringify(idEncoding ?? "slug") %>;
 
@@ -42,12 +45,21 @@ export function toExternalItem(item: <%= itemTypeName %>): {
   content: { type: string; value: string };
 } {
   const properties = {
-<%- propertiesObjectLines %>
+<% for (const prop of properties) { -%>
+<% if (prop.odataType) { -%>
+    <%= JSON.stringify(`${prop.name}@odata.type`) %>: <%= JSON.stringify(prop.odataType) %>,
+<% } -%>
+    <%= JSON.stringify(prop.name) %>: <%- prop.valueExpression %>,
+<% } -%>
   };
 
   return {
     id: getItemId(item),
     acl: [{ type: "everyone", value: "everyone", accessType: "grant" }],
-    properties<%- contentBlock %>
+    properties,
+    content: {
+      type: "text",
+      value: <%- contentValueExpression %>,
+    },
   };
 }

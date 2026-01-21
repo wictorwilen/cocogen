@@ -72,9 +72,9 @@ export type ConnectorIr = {
         | "projectParticipation"
         | "skillProficiency"
         | "webAccount"
-        | "personWebsite"
-        | "personAnniversary"
-        | "personAnnotation";
+         | "personWebsite"
+         | "personAnnualEvent"
+         | "personAnnotation";
       fields: Array<{
         path: string;
         source: {

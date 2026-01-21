@@ -27,13 +27,13 @@ const snapshot = require("../../data/graph-profile-schema.json") as GraphProfile
 
 export const graphProfileSchema = snapshot;
 
-export const resolveProfileTypeName = (typeName: string): string => {
-  return snapshot.aliases[typeName] ?? typeName;
-};
+const typeMap = new Map(snapshot.types.map((type) => [type.name, type]));
+
+export const resolveProfileTypeName = (typeName: string): string => snapshot.aliases[typeName] ?? typeName;
 
 export const getProfileType = (typeName: string): GraphProfileType | undefined => {
   const resolved = resolveProfileTypeName(typeName);
-  return snapshot.types.find((type) => type.name === resolved);
+  return typeMap.get(resolved);
 };
 
 export const getProfileTypeByLabel = (label: string): GraphProfileType | undefined => {
