@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.25] - 2026-01-21
+
 ### Fixed
 - .NET CSV datasource/CLI now alias schema model types to avoid namespace/type name collisions (e.g., `Skills` as namespace).
 
@@ -83,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.25]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.25
 [1.0.24]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.24
 [1.0.22]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.22
 [1.0.21]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.21
