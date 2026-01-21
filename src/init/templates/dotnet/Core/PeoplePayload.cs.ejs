@@ -1,0 +1,131 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace <%= namespaceName %>.Core;
+
+public enum PeoplePayloadKind
+{
+    String,
+    StringCollection
+}
+
+public sealed record PeopleLabelDefinition(
+    string Label,
+    string GraphTypeName,
+    PeoplePayloadKind PayloadKind,
+    IReadOnlyList<string> RequiredFields,
+    int? CollectionLimit
+);
+
+public static class PeoplePayload
+{
+    private static readonly Dictionary<string, PeopleLabelDefinition> Definitions = new(StringComparer.OrdinalIgnoreCase)
+    {
+<% for (const def of peopleLabelDefinitions) { -%>
+<% const requiredFields = def.requiredFields.length ? `new[] { ${def.requiredFields.map((field) => JSON.stringify(field)).join(", ")} }` : "Array.Empty<string>()"; -%>
+        [<%= JSON.stringify(def.label) %>] = new PeopleLabelDefinition(
+            <%= JSON.stringify(def.label) %>,
+            <%= JSON.stringify(def.graphTypeName) %>,
+            PeoplePayloadKind.<%= def.payloadType === "string" ? "String" : "StringCollection" %>,
+            <%- requiredFields %>,
+            <%= def.collectionLimit ?? "null" %>
+        ),
+<% } -%>
+    };
+
+    public static string? SerializeStringLabel(string label, string? value, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value;
+        var definition = GetDefinition(label, PeoplePayloadKind.String, propertyName);
+        var element = ParseJsonObject(label, value, propertyName);
+        ValidateRequiredFields(definition, element, propertyName);
+        return value;
+    }
+
+    public static List<string>? SerializeCollectionLabel(string label, List<string>? values, string propertyName)
+    {
+        if (values is null) return values;
+        var definition = GetDefinition(label, PeoplePayloadKind.StringCollection, propertyName);
+        if (definition.CollectionLimit.HasValue && values.Count > definition.CollectionLimit.Value)
+        {
+            throw new InvalidOperationException(
+                $"People label '{label}' on property '{propertyName}' exceeds collection limit of {definition.CollectionLimit.Value}.");
+        }
+
+        for (var index = 0; index < values.Count; index++)
+        {
+            var value = values[index];
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new InvalidOperationException(
+                    $"People label '{label}' on property '{propertyName}' contains an empty payload at index {index}.");
+            }
+
+            var element = ParseJsonObject(label, value, propertyName);
+            ValidateRequiredFields(definition, element, propertyName);
+        }
+
+        return values;
+    }
+
+    private static PeopleLabelDefinition GetDefinition(string label, PeoplePayloadKind expected, string propertyName)
+    {
+        if (!Definitions.TryGetValue(label, out var definition))
+        {
+            throw new InvalidOperationException($"Unknown people label '{label}' on property '{propertyName}'.");
+        }
+
+        if (definition.PayloadKind != expected)
+        {
+            throw new InvalidOperationException(
+                $"People label '{label}' on property '{propertyName}' expects {definition.PayloadKind} payloads.");
+        }
+
+        return definition;
+    }
+
+    private static JsonElement ParseJsonObject(string label, string value, string propertyName)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(value);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidOperationException(
+                    $"People label '{label}' on property '{propertyName}' must be a JSON object.");
+            }
+            return document.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException(
+                $"People label '{label}' on property '{propertyName}' must be valid JSON.");
+        }
+    }
+
+    private static void ValidateRequiredFields(PeopleLabelDefinition definition, JsonElement element, string propertyName)
+    {
+        foreach (var required in definition.RequiredFields)
+        {
+            if (!element.TryGetProperty(required, out var property) || property.ValueKind == JsonValueKind.Null)
+            {
+                throw new InvalidOperationException(
+                    $"People label '{definition.Label}' on property '{propertyName}' is missing required field '{required}'.");
+            }
+        }
+    }
+}
+
+<% for (const type of peopleProfileTypes) { -%>
+public sealed class <%= type.csName %>
+{
+<% for (const prop of type.properties) { -%>
+    [JsonPropertyName(<%= JSON.stringify(prop.name) %>)]
+    public <%= prop.csType %> <%= prop.csName %> { get; init; }
+
+<% } -%>
+}
+
+<% } -%>

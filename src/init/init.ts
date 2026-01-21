@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import type { ConnectorIr, PropertyType } from "../ir.js";
 import { loadIrFromTypeSpec } from "../tsp/loader.js";
 import { validateIr } from "../validate/validator.js";
+import { graphProfileSchema } from "../people/profile-schema.js";
+import { getPeopleLabelInfo, supportedPeopleLabels } from "../people/label-registry.js";
 import { renderTemplate } from "./template.js";
 
 export type InitOptions = {
@@ -100,6 +102,11 @@ function toCsIdentifier(name: string): string {
   const parts = name.split(/[_\-\s]+/g).filter(Boolean);
   const pascal = parts.map((p) => p.slice(0, 1).toUpperCase() + p.slice(1)).join("");
   return pascal || "Item";
+}
+
+function toCsPascal(name: string): string {
+  if (!name) return "Value";
+  return name.slice(0, 1).toUpperCase() + name.slice(1);
 }
 
 function toCsPropertyName(name: string, itemTypeName: string, used: Set<string>): string {
@@ -1484,6 +1491,57 @@ async function writeGeneratedDotnet(
   await removeIfExists(path.join(outDir, "Datasource", "CsvParser.cs"));
 
   const usedPropertyNames = new Set<string>();
+  const peopleLabelDefinitions = supportedPeopleLabels().map((label) => {
+    const info = getPeopleLabelInfo(label);
+    return {
+      label: info.label,
+      payloadType: info.payloadType,
+      graphTypeName: info.graphTypeName,
+      requiredFields: info.requiredFields,
+      collectionLimit: info.collectionLimit ?? null,
+    };
+  });
+  const peopleProfileTypes = graphProfileSchema.types.map((type) => {
+    const properties = type.properties.map((prop) => {
+      const match = /^Collection\((.+)\)$/.exec(prop.type);
+      const rawType = match ? match[1] : prop.type;
+      const isCollection = Boolean(match);
+      let csType: string;
+      switch (rawType) {
+        case "Edm.String":
+          csType = "string";
+          break;
+        case "Edm.Int64":
+          csType = "long";
+          break;
+        case "Edm.Double":
+          csType = "double";
+          break;
+        case "Edm.Boolean":
+          csType = "bool";
+          break;
+        case "Edm.DateTimeOffset":
+          csType = "DateTimeOffset";
+          break;
+        default:
+          csType = "JsonElement";
+          break;
+      }
+      const resolvedType = isCollection ? `List<${csType}>` : csType;
+      const nullableSuffix = prop.nullable ? "?" : "";
+      return {
+        name: prop.name,
+        csName: toCsPascal(prop.name),
+        csType: `${resolvedType}${nullableSuffix}`,
+        nullable: prop.nullable,
+      };
+    });
+    return {
+      name: type.name,
+      csName: toCsPascal(type.name),
+      properties,
+    };
+  });
   const itemTypeName = toCsIdentifier(ir.item.typeName);
   const properties = ir.properties.map((p) => {
     const parseFn = toCsParseFunction(p.type);
@@ -1561,6 +1619,7 @@ async function writeGeneratedDotnet(
       description: p.description,
       doc: p.doc,
       labels: p.labels,
+      peopleLabel: p.labels.find((label) => label.startsWith("person")) ?? null,
       aliases: p.aliases,
       search: p.search,
       type: p.type,
@@ -1660,7 +1719,17 @@ async function writeGeneratedDotnet(
       if (odataType) {
         lines.push(`                { ${JSON.stringify(`${p.name}@odata.type`)}, ${JSON.stringify(odataType)} },`);
       }
-      lines.push(`                { ${JSON.stringify(p.name)}, ${toCsPropertyValueExpression(p.type, p.csName)} },`);
+      let valueExpression = toCsPropertyValueExpression(p.type, p.csName);
+      if (p.peopleLabel) {
+        const labelLiteral = JSON.stringify(p.peopleLabel);
+        const propertyLiteral = JSON.stringify(p.name);
+        if (p.type === "string") {
+          valueExpression = `PeoplePayload.SerializeStringLabel(${labelLiteral}, item.${p.csName}, ${propertyLiteral})`;
+        } else if (p.type === "stringCollection") {
+          valueExpression = `PeoplePayload.SerializeCollectionLabel(${labelLiteral}, item.${p.csName}, ${propertyLiteral})`;
+        }
+      }
+      lines.push(`                { ${JSON.stringify(p.name)}, ${valueExpression} },`);
       return lines;
     })
     .join("\n");
@@ -1683,6 +1752,7 @@ async function writeGeneratedDotnet(
   const usesPrincipal = properties.some(
     (p) => p.type === "principal" || p.type === "principalCollection"
   );
+  const usesPeopleLabels = properties.some((p) => p.peopleLabel);
 
   await writeFile(
     path.join(outDir, schemaFolderName, "Model.cs"),
@@ -1824,6 +1894,18 @@ async function writeGeneratedDotnet(
     }),
     "utf8"
   );
+
+  if (usesPeopleLabels) {
+    await writeFile(
+      path.join(outDir, "Core", "PeoplePayload.cs"),
+      await renderTemplate("dotnet/Core/PeoplePayload.cs.ejs", {
+        namespaceName,
+        peopleLabelDefinitions,
+        peopleProfileTypes,
+      }),
+      "utf8"
+    );
+  }
 
   await writeFile(
     path.join(outDir, "Core", "ItemId.cs"),

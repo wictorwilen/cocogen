@@ -19,6 +19,7 @@
   },
   "files": [
     "dist",
+    "data",
     "typespec",
     "CHANGELOG.md",
     "README.md",
@@ -38,6 +39,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node ./scripts/copy-init-templates.mjs",
     "prepublishOnly": "npm run build && node ./scripts/update-changelog.mjs",
+    "update-graph-profile-schema": "tsx scripts/update-graph-profile-schema.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "npm run typecheck && npm run build",
     "test": "vitest run",
@@ -62,6 +64,8 @@
     "@types/node": "^25.0.9",
     "@types/ejs": "^3.1.5",
     "@vitest/coverage-v8": "^4.0.17",
+    "fast-xml-parser": "^5.2.0",
+    "tsx": "^4.20.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
   }

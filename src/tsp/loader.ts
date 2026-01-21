@@ -45,6 +45,7 @@ import {
   type CocogenSourceSettings,
   type CocogenPersonEntityField,
 } from "../typespec/state.js";
+import { getPeopleLabelInfo, isSupportedPeopleLabel } from "../people/label-registry.js";
 
 export class CocogenError extends Error {
   constructor(message: string) {
@@ -172,8 +173,9 @@ function getPersonEntityMapping(
     | "personAnnotation";
   fields: Array<{ path: string; source: { csvHeaders: string[] } }>;
 } | undefined {
-  const labelToEntity = new Map<
-    string,
+  const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
+  const label = labels.find((value) => isSupportedPeopleLabel(value));
+  const entity = label ? (getPeopleLabelInfo(label).planTypeName as
     | "userAccountInformation"
     | "personName"
     | "workPosition"
@@ -187,26 +189,7 @@ function getPersonEntityMapping(
     | "webAccount"
     | "personWebsite"
     | "personAnniversary"
-    | "personAnnotation"
-  >([
-    ["personAccount", "userAccountInformation"],
-    ["personName", "personName"],
-    ["personCurrentPosition", "workPosition"],
-    ["personAddresses", "itemAddress"],
-    ["personEmails", "itemEmail"],
-    ["personPhones", "itemPhone"],
-    ["personAwards", "personAward"],
-    ["personCertifications", "personCertification"],
-    ["personProjects", "projectParticipation"],
-    ["personSkills", "skillProficiency"],
-    ["personWebAccounts", "webAccount"],
-    ["personWebSite", "personWebsite"],
-    ["personAnniversaries", "personAnniversary"],
-    ["personNote", "personAnnotation"],
-  ]);
-
-  const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
-  const entity = labels.map((label) => labelToEntity.get(label)).find(Boolean);
+    | "personAnnotation") : undefined;
 
   const rawFields =
     (program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS).get(prop) as CocogenPersonEntityField[]) ?? [];

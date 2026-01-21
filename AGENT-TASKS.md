@@ -39,3 +39,4 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Added REST output (.http files) for connection/schema/profile source/ingest ✅
 - Decoupled .NET core from concrete item models via generic payload adapter ✅
 - Decoupled TS datasource contracts from concrete item models via generics ✅
+- Added .NET people payload core types + validators ✅

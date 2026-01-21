@@ -1,0 +1,532 @@
+{
+  "generatedAt": "2026-01-21T17:10:08.578Z",
+  "graphVersion": "beta",
+  "types": [
+    {
+      "name": "userAccountInformation",
+      "fullName": "microsoft.graph.userAccountInformation",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "ageGroup",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "countryCode",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "originTenantInfo",
+          "type": "graph.originTenantInfo",
+          "nullable": true
+        },
+        {
+          "name": "preferredLanguageTag",
+          "type": "graph.localeInfo",
+          "nullable": true
+        },
+        {
+          "name": "userPersona",
+          "type": "graph.userPersona",
+          "nullable": true
+        },
+        {
+          "name": "userPrincipalName",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personName",
+      "fullName": "microsoft.graph.personName",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "first",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "initials",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "languageTag",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "last",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "maiden",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "middle",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "nickname",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "pronunciation",
+          "type": "graph.personNamePronounciation",
+          "nullable": true
+        },
+        {
+          "name": "suffix",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "title",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "workPosition",
+      "fullName": "microsoft.graph.workPosition",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "categories",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "colleagues",
+          "type": "Collection(graph.relatedPerson)",
+          "nullable": true
+        },
+        {
+          "name": "detail",
+          "type": "graph.positionDetail",
+          "nullable": true
+        },
+        {
+          "name": "isCurrent",
+          "type": "Edm.Boolean",
+          "nullable": true
+        },
+        {
+          "name": "manager",
+          "type": "graph.relatedPerson",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "itemAddress",
+      "fullName": "microsoft.graph.itemAddress",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "detail",
+          "type": "graph.physicalAddress",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "geoCoordinates",
+          "type": "graph.geoCoordinates",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "itemEmail",
+      "fullName": "microsoft.graph.itemEmail",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "address",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "type",
+          "type": "graph.emailType",
+          "nullable": false
+        }
+      ],
+      "required": [
+        "type"
+      ]
+    },
+    {
+      "name": "itemPhone",
+      "fullName": "microsoft.graph.itemPhone",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "number",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "type",
+          "type": "graph.phoneType",
+          "nullable": false
+        }
+      ],
+      "required": [
+        "type"
+      ]
+    },
+    {
+      "name": "personAward",
+      "fullName": "microsoft.graph.personAward",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "issuedDate",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "issuingAuthority",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personCertification",
+      "fullName": "microsoft.graph.personCertification",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "certificationId",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "endDate",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "issuedDate",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "issuingAuthority",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "issuingCompany",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "startDate",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "projectParticipation",
+      "fullName": "microsoft.graph.projectParticipation",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "categories",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "client",
+          "type": "graph.companyDetail",
+          "nullable": true
+        },
+        {
+          "name": "collaborationTags",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "colleagues",
+          "type": "Collection(graph.relatedPerson)",
+          "nullable": true
+        },
+        {
+          "name": "detail",
+          "type": "graph.positionDetail",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "sponsors",
+          "type": "Collection(graph.relatedPerson)",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "skillProficiency",
+      "fullName": "microsoft.graph.skillProficiency",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "categories",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "collaborationTags",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "proficiency",
+          "type": "graph.skillProficiencyLevel",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "webAccount",
+      "fullName": "microsoft.graph.webAccount",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "service",
+          "type": "graph.serviceInformation",
+          "nullable": true
+        },
+        {
+          "name": "statusMessage",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "userId",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personWebsite",
+      "fullName": "microsoft.graph.personWebsite",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "categories",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personAnnualEvent",
+      "fullName": "microsoft.graph.personAnnualEvent",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "date",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "type",
+          "type": "graph.personAnnualEventType",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personAnnotation",
+      "fullName": "microsoft.graph.personAnnotation",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "detail",
+          "type": "graph.itemBody",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    }
+  ],
+  "aliases": {
+    "personAnniversary": "personAnnualEvent",
+    "webSite": "personWebsite"
+  },
+  "labelTypeMap": {
+    "personAccount": "userAccountInformation",
+    "personName": "personName",
+    "personCurrentPosition": "workPosition",
+    "personAddresses": "itemAddress",
+    "personEmails": "itemEmail",
+    "personPhones": "itemPhone",
+    "personAwards": "personAward",
+    "personCertifications": "personCertification",
+    "personProjects": "projectParticipation",
+    "personSkills": "skillProficiency",
+    "personWebAccounts": "webAccount",
+    "personWebSite": "webSite",
+    "personAnniversaries": "personAnniversary",
+    "personNote": "personAnnotation"
+  }
+}

@@ -1,4 +1,9 @@
 import type { ConnectorIr, PropertyType } from "../ir.js";
+import {
+  getBlockedPeopleLabel,
+  getPeopleLabelInfo,
+  isSupportedPeopleLabel
+} from "../people/label-registry.js";
 
 export type ValidationSeverity = "error" | "warning";
 
@@ -19,57 +24,6 @@ function isPeopleLabeled(labels: string[]): boolean {
 function hasSearchFlags(flags: { [key: string]: unknown }): boolean {
   return Object.values(flags).some((value) => Boolean(value));
 }
-
-const PEOPLE_LABELS = new Set([
-  "personAccount",
-  "personName",
-  "personCurrentPosition",
-  "personAddresses",
-  "personEmails",
-  "personPhones",
-  "personAwards",
-  "personCertifications",
-  "personProjects",
-  "personSkills",
-  "personWebAccounts",
-  "personWebSite",
-  "personAnniversaries",
-  "personNote",
-]);
-
-const PEOPLE_LABEL_TYPES = new Map<string, PropertyType[]>([
-  ["personAccount", ["string"]],
-  ["personName", ["string"]],
-  ["personCurrentPosition", ["string"]],
-  ["personAddresses", ["stringCollection"]],
-  ["personEmails", ["stringCollection"]],
-  ["personPhones", ["stringCollection"]],
-  ["personAwards", ["stringCollection"]],
-  ["personCertifications", ["stringCollection"]],
-  ["personProjects", ["stringCollection"]],
-  ["personSkills", ["stringCollection"]],
-  ["personWebAccounts", ["stringCollection"]],
-  ["personWebSite", ["string"]],
-  ["personAnniversaries", ["stringCollection"]],
-  ["personNote", ["string"]],
-]);
-
-const PEOPLE_ENTITY_BY_LABEL = new Map<string, string>([
-  ["personAccount", "userAccountInformation"],
-  ["personName", "personName"],
-  ["personCurrentPosition", "workPosition"],
-  ["personAddresses", "itemAddress"],
-  ["personEmails", "itemEmail"],
-  ["personPhones", "itemPhone"],
-  ["personAwards", "personAward"],
-  ["personCertifications", "personCertification"],
-  ["personProjects", "projectParticipation"],
-  ["personSkills", "skillProficiency"],
-  ["personWebAccounts", "webAccount"],
-  ["personWebSite", "personWebsite"],
-  ["personAnniversaries", "personAnniversary"],
-  ["personNote", "personAnnotation"],
-]);
 
 const SEMANTIC_LABEL_TYPE_RULES = new Map<string, PropertyType[]>([
   ["title", ["string"]],
@@ -337,7 +291,19 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
       }
 
       for (const label of prop.labels) {
-        if (label.startsWith("person") && !PEOPLE_LABELS.has(label)) {
+        if (!label.startsWith("person")) continue;
+
+        const blocked = getBlockedPeopleLabel(label);
+        if (blocked) {
+          issues.push({
+            severity: "error",
+            message: blocked.message,
+            hint: blocked.hint,
+          });
+          continue;
+        }
+
+        if (!isSupportedPeopleLabel(label)) {
           issues.push({
             severity: "error",
             message: `People connector label '${label}' is not supported.`,
@@ -346,11 +312,11 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
           continue;
         }
 
-        const allowedTypes = PEOPLE_LABEL_TYPES.get(label);
-        if (allowedTypes && !allowedTypes.includes(prop.type)) {
+        const info = getPeopleLabelInfo(label);
+        if (info.payloadType !== prop.type) {
           issues.push({
             severity: "error",
-            message: `People label '${label}' requires type ${allowedTypes.join(" or ")}, but '${prop.name}' is '${prop.type}'.`,
+            message: `People label '${label}' requires type ${info.payloadType}, but '${prop.name}' is '${prop.type}'.`,
             hint: "Change the property type to match the people label requirements.",
           });
         }

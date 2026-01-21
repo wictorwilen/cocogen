@@ -41,15 +41,27 @@ Unsupported labels (must error):
 Mark tasks one-by-one in AGENT-TASKS.md using statuses: not-started, in-progress, completed. Only one task can be in-progress at a time.
 
 ### 1) Build-time schema snapshot pipeline
-- [ ] Create a script to download Graph $metadata and extract only /profile entity types needed for the supported labels.
-- [ ] Store a compact snapshot in repo (JSON/TS).
-- [ ] Add npm script to refresh snapshot (e.g., update-graph-profile-schema).
-- [ ] Document how to update snapshot.
+- [x] Create a script to download Graph $metadata and extract only /profile entity types needed for the supported labels.
+- [x] Store a compact snapshot in repo (JSON/TS).
+- [x] Add npm script to refresh snapshot (e.g., update-graph-profile-schema).
+- [x] Document how to update snapshot.
+
+**Snapshot refresh instructions**
+
+1. Run `npm run update-graph-profile-schema` to pull the latest beta metadata and regenerate `data/graph-profile-schema.json`.
+2. Review the diff (especially required/nullable fields) and commit the updated snapshot with any label validation changes.
+3. Graph currently names the anniversary and website types `personAnnualEvent` and `personWebsite`; the snapshot preserves aliases (`personAnniversary`, `webSite`) so downstream logic can keep using the plan terminology.
 
 ### 2) Label registry and schema model
-- [ ] Create a label registry mapping labels → Graph entity types, payload type, and constraints (collection limits).
-- [ ] Add explicit blocked labels with actionable error messages.
-- [ ] Expose a small schema model for validation and codegen.
+- [x] Create a label registry mapping labels → Graph entity types, payload type, and constraints (collection limits).
+- [x] Add explicit blocked labels with actionable error messages.
+- [x] Expose a small schema model for validation and codegen.
+
+**Registry usage notes**
+
+1. `src/people/profile-schema.ts` loads the snapshot once via `createRequire` and exposes helpers (`getProfileType`, `resolveProfileTypeName`) for future TS/.NET codegen work.
+2. `src/people/label-registry.ts` centralizes supported labels, payload expectations, collection limits, and blocked-label messaging; validators and the TypeSpec loader now import these definitions.
+3. `package.json` publishes the `data/` folder so downstream consumers (and the CLI) can access the schema snapshot at runtime.
 
 ### 3) Generator validation (compile-time)
 - [ ] Validate that people-labeled properties use supported labels only.
@@ -64,10 +76,16 @@ Mark tasks one-by-one in AGENT-TASKS.md using statuses: not-started, in-progress
 - [ ] Provide clear runtime error messages.
 
 ### 5) .NET generated types and validators
-- [ ] Emit C# types and validators for every supported entity.
-- [ ] Validate payloads before serialization in generated transforms.
-- [ ] Enforce collection limits (addresses/emails) and required fields.
-- [ ] Provide clear runtime exceptions with label/property context.
+- [x] Emit C# types and validators for every supported entity.
+- [x] Validate payloads before serialization in generated transforms.
+- [x] Enforce collection limits (addresses/emails) and required fields.
+- [x] Provide clear runtime exceptions with label/property context.
+
+**Runtime validation details**
+
+1. `Core/PeoplePayload.cs` now holds all Graph profile types plus label metadata (payload type, required fields, collection limits).
+2. `ItemPayload.cs` routes people-labeled properties through `PeoplePayload.Serialize*`, which parses JSON, validates required fields, and enforces collection limits.
+3. Errors include the label + property name for quick diagnosis.
 
 ### 6) Serialization rules
 - [ ] Enforce JSON-encoded string for string labels.

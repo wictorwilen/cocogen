@@ -488,6 +488,9 @@ model Item {
     const overrides = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overrides).toContain("PropertyTransform");
 
+    const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
+    expect(peoplePayload).toContain("PeoplePayload");
+
     await updateProject({ outDir, usePreviewFeatures: true });
     const overridesAfter = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overridesAfter).toBe(overrides);
