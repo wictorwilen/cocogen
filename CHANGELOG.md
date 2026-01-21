@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.18] - 2026-01-21
+
 ### Breaking Changes
 - Removed legacy CSV-row helpers (`fromCsvRow`, `CsvParser`, `csv.ts`) in favor of row-based helpers.
 - Renamed CLI commands: `init-tsp` → `init`, `init` → `generate`.
@@ -37,5 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.18]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.18
 [1.0.17]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.17
 [1.0.16]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.16
