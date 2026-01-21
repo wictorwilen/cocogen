@@ -5,13 +5,14 @@ using System.Runtime.CompilerServices;
 using CsvHelper;
 
 using <%= schemaNamespace %>;
+using ItemModel = <%= schemaNamespace %>.<%= itemTypeName %>;
 
 namespace <%= namespaceName %>.Datasource;
 
 /// <summary>
 /// CSV-based datasource (default). Replace with your own IItemSource as needed.
 /// </summary>
-public sealed class CsvItemSource : IItemSource<<%= itemTypeName %>>
+public sealed class CsvItemSource : IItemSource<ItemModel>
 {
     private readonly string _csvPath;
 
@@ -26,7 +27,7 @@ public sealed class CsvItemSource : IItemSource<<%= itemTypeName %>>
     /// <summary>
     /// Stream items from the CSV file and map each row to the schema model.
     /// </summary>
-    public async IAsyncEnumerable<<%= itemTypeName %>> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<ItemModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // CsvHelper is sync; we still expose async enumeration for consistency.
         using var reader = new StreamReader(_csvPath);

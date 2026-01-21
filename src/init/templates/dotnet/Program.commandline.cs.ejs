@@ -14,6 +14,7 @@ using System.Threading;
 using <%= namespaceName %>.Core;
 using <%= namespaceName %>.Datasource;
 using <%= schemaNamespace %>;
+using ItemModel = <%= schemaNamespace %>.<%= itemTypeName %>;
 
 var configuration = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
@@ -127,9 +128,9 @@ GraphServiceClient CreateGraphClient()
     return graph;
 }
 
-ConnectorCore<<%= itemTypeName %>> BuildConnectorCore(GraphServiceClient? graph, TokenCredential? credential, string connectionId)
+ConnectorCore<ItemModel> BuildConnectorCore(GraphServiceClient? graph, TokenCredential? credential, string connectionId)
 {
-    return new ConnectorCore<<%= itemTypeName %>>(
+    return new ConnectorCore<ItemModel>(
         graph,
         credential,
         new ItemPayloadAdapter(),
@@ -181,7 +182,7 @@ async Task IngestAsync(string? csvPath, bool dryRun, int? limit, bool verbose, b
     var path = string.IsNullOrWhiteSpace(csvPath) ? configuredCsv : csvPath;
 
     // Swap this for any IItemSource implementation (API, DB, queue, etc.).
-    IItemSource<<%= itemTypeName %>> source = new CsvItemSource(path);
+    IItemSource<ItemModel> source = new CsvItemSource(path);
     var core = BuildConnectorCore(graph, credential, connectionId);
 
     await core.IngestAsync(source, dryRun, limit, verbose, failFast);
