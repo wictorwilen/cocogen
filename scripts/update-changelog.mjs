@@ -24,6 +24,18 @@ function hasVersionSection(source, version) {
   return source.includes(`## [${version}]`);
 }
 
+async function isVersionPublished(packageName, version) {
+  if (!packageName) return false;
+  const registry = process.env.NPM_CONFIG_REGISTRY || "https://registry.npmjs.org";
+  const url = `${registry.replace(/\/$/, "")}/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}`;
+  try {
+    const response = await fetch(url, { headers: { accept: "application/json" } });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 function updateLinks(source, version) {
   const unreleasedRegex = /^\[Unreleased\]:\s*(.+)$/m;
   const unreleasedMatch = source.match(unreleasedRegex);
@@ -49,14 +61,23 @@ function updateLinks(source, version) {
 
 const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
 const version = packageJson.version;
+const packageName = packageJson.name;
 if (!version) {
   throw new Error("package.json must contain a version.");
+}
+if (!packageName) {
+  throw new Error("package.json must contain a name.");
 }
 
 const changelog = await readFile(changelogPath, "utf8");
 const { index, unreleasedHeader } = ensureUnreleasedSection(changelog);
 
 if (hasVersionSection(changelog, version)) {
+  const published = await isVersionPublished(packageName, version);
+  if (published) {
+    console.log(`CHANGELOG.md already contains ${version} and it is published. Skipping update.`);
+    process.exit(0);
+  }
   throw new Error(`CHANGELOG.md already contains a section for version ${version}.`);
 }
 
