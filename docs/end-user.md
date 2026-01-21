@@ -122,6 +122,12 @@ npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector
 npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --lang dotnet
 ```
 
+### REST (.http files)
+```bash
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --lang rest
+```
+This output creates `.http` files you can run with the VS Code REST client (or similar tools) to create the connection, patch the schema, optionally configure profile sources (people connectors), and ingest a sample item.
+
 Preview-only schemas require the flag:
 ```bash
 npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --use-preview-features

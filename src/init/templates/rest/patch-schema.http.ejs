@@ -1,0 +1,10 @@
+@graphBaseUrl = <%= graphBaseUrl %>
+@connectionId = <%= connectionId %>
+@token = {{token}}
+
+### Patch schema
+PATCH {{graphBaseUrl}}/external/connections/{{connectionId}}/schema
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+<%- schemaPayloadJson %>

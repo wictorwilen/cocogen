@@ -24,7 +24,7 @@ export type UpdateOptions = {
 };
 
 type CocogenProjectConfig = {
-  lang: "ts" | "dotnet";
+  lang: "ts" | "dotnet" | "rest";
   tsp: string;
   cocogenVersion?: string;
 };
@@ -242,7 +242,7 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
   }
 
   const parsed = JSON.parse(raw) as Partial<CocogenProjectConfig>;
-  if ((parsed.lang !== "ts" && parsed.lang !== "dotnet") || typeof parsed.tsp !== "string") {
+  if ((parsed.lang !== "ts" && parsed.lang !== "dotnet" && parsed.lang !== "rest") || typeof parsed.tsp !== "string") {
     throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
   }
   return {
@@ -1220,6 +1220,196 @@ function sampleValueForHeader(header: string, type?: PropertyType): string {
   return type ? sampleValueForType(type) : "sample";
 }
 
+function sampleValueForPrincipalKey(key: string, index = 0): string {
+  const suffix = index > 0 ? index.toString() : "";
+  const email = `user${suffix}@contoso.com`;
+  switch (key) {
+    case "upn":
+    case "email":
+    case "externalId":
+      return email;
+    case "tenantId":
+    case "entraId":
+      return "00000000-0000-0000-0000-000000000000";
+    case "externalName":
+    case "entraDisplayName":
+      return suffix ? `Ada Lovelace ${suffix}` : "Ada Lovelace";
+    default:
+      return `sample-${key}`;
+  }
+}
+
+function buildSamplePrincipalObject(
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[],
+  index = 0
+): Record<string, unknown> {
+  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  const keys = entries.length > 0 ? entries.map((entry) => entry.key) : ["upn"];
+  const principal: Record<string, unknown> = {
+    "@odata.type": "microsoft.graph.externalConnectors.principal",
+  };
+  for (const key of keys) {
+    principal[key] = sampleValueForPrincipalKey(key, index);
+  }
+  return principal;
+}
+
+function buildSamplePrincipalCollection(
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[]
+): Array<Record<string, unknown>> {
+  return [
+    buildSamplePrincipalObject(fields, fallbackHeaders, 0),
+    buildSamplePrincipalObject(fields, fallbackHeaders, 1),
+  ];
+}
+
+function buildSamplePersonEntityObject(
+  fields: PersonEntityField[],
+  index = 0
+): Record<string, unknown> {
+  const tree = buildObjectTree(fields);
+  const valueByPath = new Map<string, string>();
+
+  for (const field of fields) {
+    const header = field.source.csvHeaders[0] ?? field.path;
+    const raw = sampleValueForHeader(header);
+    const values = raw.split(/\s*;\s*/).map((value) => value.trim()).filter(Boolean);
+    const value = values.length > 0
+      ? (values[index] ?? values[0] ?? "")
+      : raw;
+    valueByPath.set(field.path, value);
+  }
+
+  const renderNode = (node: Record<string, unknown>): Record<string, unknown> => {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const field = value as PersonEntityField;
+        result[key] = valueByPath.get(field.path) ?? "";
+      } else {
+        result[key] = renderNode(value as Record<string, unknown>);
+      }
+    }
+    return result;
+  };
+
+  return renderNode(tree);
+}
+
+function buildSamplePersonEntityPayload(
+  fields: PersonEntityField[],
+  isCollection: boolean
+): string | string[] {
+  if (!isCollection) {
+    return JSON.stringify(buildSamplePersonEntityObject(fields, 0));
+  }
+
+  const objects = [
+    buildSamplePersonEntityObject(fields, 0),
+    buildSamplePersonEntityObject(fields, 1),
+  ];
+  return objects.map((value) => JSON.stringify(value));
+}
+
+function exampleValueForPayload(example: unknown, type: PropertyType): unknown {
+  if (example === undefined || example === null) return undefined;
+  if (type.endsWith("Collection")) {
+    if (Array.isArray(example)) return example;
+    if (typeof example === "string") {
+      return example.split(/\s*;\s*/).map((value) => value.trim()).filter(Boolean);
+    }
+    return [String(example)];
+  }
+  return example;
+}
+
+function samplePayloadValueForType(
+  type: PropertyType,
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[]
+): unknown {
+  switch (type) {
+    case "boolean":
+      return true;
+    case "int64":
+      return 123;
+    case "double":
+      return 1.23;
+    case "dateTime":
+      return "2024-01-01T00:00:00Z";
+    case "stringCollection":
+      return ["alpha", "beta"];
+    case "int64Collection":
+      return [1, 2];
+    case "doubleCollection":
+      return [1.1, 2.2];
+    case "dateTimeCollection":
+      return ["2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z"];
+    case "principal":
+      return buildSamplePrincipalObject(fields, fallbackHeaders, 0);
+    case "principalCollection":
+      return buildSamplePrincipalCollection(fields, fallbackHeaders);
+    case "string":
+    default:
+      return "sample";
+  }
+}
+
+function buildRestConnectionPayload(ir: ConnectorIr): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    id: ir.connection.connectionId ?? "connection-id",
+    name: ir.connection.connectionName ?? "Connector",
+    description: ir.connection.connectionDescription ?? "Connector generated by cocogen",
+  };
+  if (ir.connection.contentCategory) {
+    payload.contentCategory = ir.connection.contentCategory;
+  }
+  return payload;
+}
+
+function buildRestItemPayload(ir: ConnectorIr, itemId: string): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  for (const prop of ir.properties) {
+    if (prop.name === ir.item.contentPropertyName) continue;
+    const exampleValue = exampleValueForPayload(prop.example, prop.type);
+    if (prop.personEntity && prop.type !== "principal" && prop.type !== "principalCollection") {
+      const isCollection = prop.type.endsWith("Collection");
+      properties[prop.name] = buildSamplePersonEntityPayload(prop.personEntity.fields, isCollection);
+    } else {
+      const value =
+        exampleValue ??
+        samplePayloadValueForType(
+          prop.type,
+          prop.personEntity ? prop.personEntity.fields : null,
+          prop.source.csvHeaders
+        );
+      properties[prop.name] = value;
+    }
+
+    const odataType = toOdataCollectionType(prop.type);
+    if (odataType) {
+      properties[`${prop.name}@odata.type`] = odataType;
+    }
+  }
+
+  const payload: Record<string, unknown> = {
+    id: itemId,
+    acl: [{ type: "everyone", value: "everyone", accessType: "grant" }],
+    properties,
+  };
+
+  if (ir.item.contentPropertyName) {
+    const contentProp = ir.properties.find((p) => p.name === ir.item.contentPropertyName);
+    const exampleValue = contentProp ? exampleValueForPayload(contentProp.example, contentProp.type) : undefined;
+    const value = exampleValue ?? "Sample content";
+    payload.content = { type: "text", value: String(value) };
+  }
+
+  return payload;
+}
+
 function buildSampleCsv(ir: ConnectorIr): string {
   const headers: string[] = [];
   const seen = new Set<string>();
@@ -1646,6 +1836,75 @@ async function writeGeneratedDotnet(
   }
 }
 
+async function writeRestFiles(outDir: string, ir: ConnectorIr): Promise<void> {
+  const connectionId = ir.connection.connectionId ?? "connection-id";
+  const connectionPayloadJson = JSON.stringify(buildRestConnectionPayload(ir), null, 2);
+  const schemaPayloadJson = JSON.stringify(schemaPayload(ir), null, 2);
+
+  const idProp = ir.properties.find((p) => p.name === ir.item.idPropertyName);
+  const idExample = idProp ? exampleValueForPayload(idProp.example, idProp.type) : undefined;
+  const itemId =
+    typeof idExample === "string"
+      ? idExample
+      : Array.isArray(idExample)
+      ? String(idExample[0] ?? "sample-id")
+      : idExample !== undefined && idExample !== null
+      ? String(idExample)
+      : "sample-id";
+
+  const itemPayloadJson = JSON.stringify(buildRestItemPayload(ir, itemId), null, 2);
+
+  await writeFile(
+    path.join(outDir, "create-connection.http"),
+    await renderTemplate("rest/create-connection.http.ejs", {
+      graphBaseUrl: graphBaseUrl(ir),
+      connectionId,
+      connectionPayloadJson,
+    }),
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(outDir, "patch-schema.http"),
+    await renderTemplate("rest/patch-schema.http.ejs", {
+      graphBaseUrl: graphBaseUrl(ir),
+      connectionId,
+      schemaPayloadJson,
+    }),
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(outDir, "ingest-item.http"),
+    await renderTemplate("rest/ingest-item.http.ejs", {
+      graphBaseUrl: graphBaseUrl(ir),
+      connectionId,
+      itemId,
+      itemPayloadJson,
+    }),
+    "utf8"
+  );
+
+  if (ir.connection.contentCategory === "people") {
+    const profileSourceWebUrl = ir.connection.profileSource?.webUrl ?? "https://example.com/people";
+    const profileSourceDisplayName =
+      ir.connection.profileSource?.displayName ?? ir.connection.connectionName ?? ir.item.typeName;
+    const profileSourcePriority = ir.connection.profileSource?.priority ?? "first";
+
+    await writeFile(
+      path.join(outDir, "profile-source.http"),
+      await renderTemplate("rest/profile-source.http.ejs", {
+        graphBaseUrl: graphBaseUrl(ir),
+        connectionId,
+        profileSourceWebUrl,
+        profileSourceDisplayName,
+        profileSourcePriority,
+      }),
+      "utf8"
+    );
+  }
+}
+
 function formatValidationErrors(ir: ConnectorIr): string {
   const issues = validateIr(ir);
   const errors = issues.filter((i) => i.severity === "error");
@@ -1714,13 +1973,63 @@ export async function updateDotnetProject(
   return { outDir, ir };
 }
 
+export async function updateRestProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
+  const outDir = path.resolve(options.outDir);
+  const { config } = await loadProjectConfig(outDir);
+  const tspPath = options.tspPath ? path.resolve(options.tspPath) : path.resolve(outDir, config.tsp);
+
+  if (config.lang !== "rest") {
+    throw new Error(`This project is '${config.lang}'. Use cocogen generate/update for that language.`);
+  }
+
+  const ir = await loadIrFromTypeSpec(tspPath);
+  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
+    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
+  }
+  const validationMessage = formatValidationErrors(ir);
+  if (validationMessage) {
+    throw new Error(`Schema validation failed:\n${validationMessage}`);
+  }
+
+  await writeRestFiles(outDir, ir);
+  if (options.tspPath) {
+    await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, tspPath, "rest"), "utf8");
+  }
+
+  return { outDir, ir };
+}
+
 export async function updateProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
   if (config.lang === "dotnet") {
     return updateDotnetProject(options);
   }
+  if (config.lang === "rest") {
+    return updateRestProject(options);
+  }
   return updateTsProject(options);
+}
+
+export async function initRestProject(options: InitOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
+  const outDir = path.resolve(options.outDir);
+  await ensureEmptyDir(outDir, Boolean(options.force));
+
+  const ir = await loadIrFromTypeSpec(options.tspPath);
+  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
+    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
+  }
+  const validationMessage = formatValidationErrors(ir);
+  if (validationMessage) {
+    throw new Error(`Schema validation failed:\n${validationMessage}`);
+  }
+
+  const copiedTspPath = path.join(outDir, "schema.tsp");
+  await copyFile(path.resolve(options.tspPath), copiedTspPath);
+  await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, copiedTspPath, "rest"), "utf8");
+
+  await writeRestFiles(outDir, ir);
+  return { outDir, ir };
 }
 
 export async function initTsProject(options: InitOptions): Promise<{ outDir: string; ir: ConnectorIr }> {

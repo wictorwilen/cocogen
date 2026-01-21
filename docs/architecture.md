@@ -43,6 +43,7 @@ This spec defines the CLI UX, internal architecture, TypeSpec mapping rules, and
 User has `schema.tsp` and runs:
 - `npx cocogen generate --tsp ./schema.tsp --lang ts --out ./my-connector`
 - `npx cocogen generate --tsp ./schema.tsp --lang dotnet --out ./my-connector`
+- `npx cocogen generate --tsp ./schema.tsp --lang rest --out ./my-connector`
 
 If they need a starter schema, they can scaffold one first:
 - `npx cocogen init --prompt`
@@ -78,14 +79,14 @@ Generated project runs:
 
 
 Notes (current implementation):
-- `cocogen generate` supports `--lang ts|dotnet`.
+- `cocogen generate` supports `--lang ts|dotnet|rest`.
 - `cocogen update` takes `--out` and optional `--tsp`.
 - `cocogen validate`
   - validates TypeSpec vs Graph connector constraints (names, types, labels)
 Common:
 - `--tsp <path>`: entry TypeSpec file.
 - `--out <dir>`: output directory.
-- `--lang <ts|dotnet>`: target project.
+- `--lang <ts|dotnet|rest>`: target project.
 - `--item-type <ModelName>`: which TypeSpec model represents an `externalItem`.
 - `--csv <path>`: (optional) seed CSV path copied into project.
 

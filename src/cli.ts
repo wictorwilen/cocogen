@@ -9,7 +9,7 @@ import pc from "picocolors";
 import ora from "ora";
 
 import { writeIrJson } from "./emit/emit.js";
-import { initDotnetProject, initTsProject, updateProject } from "./init/init.js";
+import { initDotnetProject, initRestProject, initTsProject, updateProject } from "./init/init.js";
 import { initStarterTsp } from "./tsp/init-tsp.js";
 import { loadIrFromTypeSpec } from "./tsp/loader.js";
 import { validateIr, type ValidationIssue } from "./validate/validator.js";
@@ -294,14 +294,14 @@ export async function main(argv: string[]): Promise<void> {
     .description("Generate a runnable connector project")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
     .requiredOption("--out <dir>", "Output directory")
-    .option("--lang <lang>", "Target language (ts|dotnet)", "ts")
+    .option("--lang <lang>", "Target language (ts|dotnet|rest)", "ts")
     .option("--name <name>", "Project name (defaults to folder name)")
     .option("--force", "Overwrite files in a non-empty output directory", false)
     .action(
       async (options: { tsp: string; out: string; lang: string; name?: string; force: boolean }) => {
         const spinner = shouldUseSpinner() ? ora("Generating project...").start() : undefined;
         try {
-          const lang = options.lang === "dotnet" ? "dotnet" : "ts";
+          const lang = options.lang === "dotnet" ? "dotnet" : options.lang === "rest" ? "rest" : "ts";
           const usePreviewFeatures = program.opts().usePreviewFeatures as boolean;
           const result =
             lang === "ts"
@@ -312,7 +312,15 @@ export async function main(argv: string[]): Promise<void> {
                   force: options.force,
                   usePreviewFeatures,
                 })
-              : await initDotnetProject({
+              : lang === "dotnet"
+              ? await initDotnetProject({
+                  tspPath: options.tsp,
+                  outDir: options.out,
+                  ...(options.name ? { projectName: options.name } : {}),
+                  force: options.force,
+                  usePreviewFeatures,
+                })
+              : await initRestProject({
                   tspPath: options.tsp,
                   outDir: options.out,
                   ...(options.name ? { projectName: options.name } : {}),
@@ -334,7 +342,12 @@ export async function main(argv: string[]): Promise<void> {
               );
             }
           }
-          const nextCmd = lang === "ts" ? "npm install" : "dotnet build";
+          const nextCmd =
+            lang === "ts"
+              ? "npm install"
+              : lang === "dotnet"
+              ? "dotnet build"
+              : "open the .http files in your REST client";
           process.stdout.write(`  ${pc.dim("next")}: cd ${result.outDir} && ${nextCmd}\n`);
           process.exitCode = 0;
         } catch (error: unknown) {

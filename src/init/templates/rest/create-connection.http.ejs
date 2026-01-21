@@ -1,0 +1,10 @@
+@graphBaseUrl = <%= graphBaseUrl %>
+@connectionId = <%= connectionId %>
+@token = {{token}}
+
+### Create or replace connection
+PUT {{graphBaseUrl}}/external/connections/{{connectionId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+<%- connectionPayloadJson %>

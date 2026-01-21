@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Principal model now lives in generated core helpers (TS + .NET) for easier SDK migration.
 - .NET principal serialization now uses a Kiota `IParsable` implementation with updated principal fields.
 - Principal field mappings aligned with draft Graph docs (`externalName`, `externalId`, `entraDisplayName`, `entraId`, `email`, `upn`, `tenantId`).
+- Added REST output (`--lang rest`) that emits .http files for connection, schema, profile source, and ingestion calls.
 
 ### Fixed
 - Principal values now omit null fields in TS payloads and .NET serialization.

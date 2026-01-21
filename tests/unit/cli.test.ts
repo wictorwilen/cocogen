@@ -8,6 +8,7 @@ const validateIrMock = vi.fn<Parameters<typeof import("../../src/validate/valida
 const initStarterMock = vi.fn<Parameters<typeof import("../../src/tsp/init-tsp.js").initStarterTsp>, Promise<{ outPath: string; kind: "content" | "people" }>>();
 const initTsMock = vi.fn<Parameters<typeof import("../../src/init/init.js").initTsProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
 const initDotnetMock = vi.fn<Parameters<typeof import("../../src/init/init.js").initDotnetProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
+const initRestMock = vi.fn<Parameters<typeof import("../../src/init/init.js").initRestProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
 const updateProjectMock = vi.fn<Parameters<typeof import("../../src/init/init.js").updateProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
 
 vi.mock("../../src/emit/emit.js", () => ({ writeIrJson: writeIrJsonMock }));
@@ -17,6 +18,7 @@ vi.mock("../../src/tsp/init-tsp.js", () => ({ initStarterTsp: initStarterMock })
 vi.mock("../../src/init/init.js", () => ({
   initTsProject: initTsMock,
   initDotnetProject: initDotnetMock,
+  initRestProject: initRestMock,
   updateProject: updateProjectMock,
 }));
 vi.mock("ora", () => ({
@@ -81,6 +83,7 @@ beforeEach(() => {
   initStarterMock.mockReset();
   initTsMock.mockReset();
   initDotnetMock.mockReset();
+  initRestMock.mockReset();
   updateProjectMock.mockReset();
 });
 
@@ -504,6 +507,28 @@ describe("cli", () => {
         "/tmp/out",
         "--lang",
         "dotnet",
+      ]);
+    });
+
+    expect(stdout).toContain("Project generated");
+    expect(process.exitCode).toBe(0);
+  });
+
+  test("generate handles rest language", async () => {
+    initRestMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
+
+    const { main } = await import("../../src/cli.js");
+    const stdout = await captureStdout(async () => {
+      await main([
+        "node",
+        "cli",
+        "generate",
+        "--tsp",
+        "/tmp/schema.tsp",
+        "--out",
+        "/tmp/out",
+        "--lang",
+        "rest",
       ]);
     });
 

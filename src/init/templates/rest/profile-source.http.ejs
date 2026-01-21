@@ -1,0 +1,34 @@
+@graphBaseUrl = <%= graphBaseUrl %>
+@connectionId = <%= connectionId %>
+@token = {{token}}
+@profileSourceWebUrl = <%= profileSourceWebUrl %>
+@profileSourceDisplayName = <%= profileSourceDisplayName %>
+@profileSourcePriority = <%= profileSourcePriority %>
+@sourceUrl = {{graphBaseUrl}}/admin/people/profileSources(sourceId='{{connectionId}}')
+@settingsId = {{settingsId}}
+
+### Register profile source (people connectors)
+POST {{graphBaseUrl}}/admin/people/profileSources
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "sourceId": "{{connectionId}}",
+  "displayName": "{{profileSourceDisplayName}}",
+  "webUrl": "{{profileSourceWebUrl}}"
+}
+
+### List profile property settings
+GET {{graphBaseUrl}}/admin/people/profilePropertySettings
+Authorization: Bearer {{token}}
+
+### Update profile source precedence (set @settingsId after listing)
+PATCH {{graphBaseUrl}}/admin/people/profilePropertySettings/{{settingsId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "prioritizedSourceUrls": [
+    "{{sourceUrl}}"
+  ]
+}

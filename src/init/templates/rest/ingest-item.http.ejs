@@ -1,0 +1,11 @@
+@graphBaseUrl = <%= graphBaseUrl %>
+@connectionId = <%= connectionId %>
+@itemId = <%= itemId %>
+@token = {{token}}
+
+### Ingest one item
+PUT {{graphBaseUrl}}/external/connections/{{connectionId}}/items/{{itemId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+<%- itemPayloadJson %>
