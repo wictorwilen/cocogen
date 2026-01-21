@@ -59,7 +59,9 @@ function toTsType(type: PropertyType): string {
     case "dateTimeCollection":
       return "string[]";
     case "principal":
-      return "string";
+      return "Principal";
+    case "principalCollection":
+      return "Principal[]";
     default:
       return "unknown";
   }
@@ -68,8 +70,11 @@ function toTsType(type: PropertyType): string {
 function toCsType(type: PropertyType): string {
   switch (type) {
     case "string":
-    case "principal":
       return "string";
+    case "principal":
+      return "Principal";
+    case "principalCollection":
+      return "List<Principal>";
     case "boolean":
       return "bool";
     case "int64":
@@ -273,6 +278,8 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
           return "parseNumberCollection";
         case "dateTimeCollection":
           return "parseStringCollection";
+        case "principalCollection":
+          return "parseStringCollection";
         case "boolean":
           return "parseBoolean";
         case "int64":
@@ -316,15 +323,24 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
             ))
       : null;
 
+    const principalExpression =
+      p.type === "principal"
+        ? buildTsPrincipalExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        : p.type === "principalCollection"
+        ? buildTsPrincipalCollectionExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        : null;
+
     const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
     const needsManualEntity = isPeopleLabel && !p.personEntity;
     const noSource = Boolean(p.source.noSource);
     const expression = needsManualEntity
       ? `(() => { throw new Error("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement transform in propertyTransform.ts."); })()`
-      : personEntity
-      ? personEntity
       : noSource
       ? `undefined as unknown as ${toTsType(p.type)}`
+      : (p.type === "principal" || p.type === "principalCollection") && principalExpression
+      ? principalExpression
+      : personEntity
+      ? personEntity
       : `${parser}(readSourceValue(row, ${JSON.stringify(p.source.csvHeaders)}))`;
 
     const validationMetadata = {
@@ -338,7 +354,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       ...(p.maxValue !== undefined ? { maxValue: p.maxValue } : {}),
     };
 
-    const validatedExpression = needsManualEntity || noSource || personEntity
+    const validatedExpression = needsManualEntity || noSource || personEntity || p.type === "principal" || p.type === "principalCollection"
       ? expression
       : applyTsValidationExpression(validationMetadata, expression);
 
@@ -358,12 +374,17 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     ? `parseString(readSourceValue(row, ${JSON.stringify(idRawHeaders)}))`
     : '""';
 
+  const usesPrincipal = ir.properties.some(
+    (p) => p.type === "principal" || p.type === "principalCollection"
+  );
+
   await writeFile(
     path.join(outDir, "src", schemaFolderName, "model.ts"),
     await renderTemplate("ts/src/generated/model.ts.ejs", {
       itemTypeName: ir.item.typeName,
       properties: modelProperties,
       itemDocComment: ir.item.doc ? formatDocComment(ir.item.doc) : undefined,
+      usesPrincipal,
     }),
     "utf8"
   );
@@ -404,6 +425,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     path.join(outDir, "src", schemaFolderName, "propertyTransformBase.ts"),
     await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
       properties: transformProperties,
+      usesPrincipal,
     }),
     "utf8"
   );
@@ -425,6 +447,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       properties: transformProperties,
       itemTypeName: ir.item.typeName,
       idRawExpression,
+      usesPrincipal,
     }),
     "utf8"
   );
@@ -483,6 +506,14 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     await renderTemplate("ts/src/core/itemId.ts.ejs", {}),
     "utf8"
   );
+
+  if (usesPrincipal) {
+    await writeFile(
+      path.join(outDir, "src", "core", "principal.ts"),
+      await renderTemplate("ts/src/core/principal.ts.ejs", {}),
+      "utf8"
+    );
+  }
 }
 
 function toGraphPropertyTypeEnumName(type: PropertyType): string {
@@ -507,6 +538,8 @@ function toGraphPropertyTypeEnumName(type: PropertyType): string {
       return "DateTimeCollection";
     case "principal":
       return "Principal";
+    case "principalCollection":
+      return "PrincipalCollection";
     default:
       return "String";
   }
@@ -546,6 +579,7 @@ function toCsParseFunction(type: PropertyType): string {
     case "dateTime":
       return "RowParser.ParseDateTime";
     case "principal":
+    case "principalCollection":
     case "string":
     default:
       return "RowParser.ParseString";
@@ -695,6 +729,188 @@ ${indentUnit}}`;
   return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(\n      ${renderNodeMany(tree)}\n    ));\n  }\n  return results;\n})()`;
 }
 
+function buildPrincipalFieldEntries(
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[]
+): Array<{ key: string; headersLiteral: string }> {
+  if (fields && fields.length > 0) {
+    return fields
+      .map((field) => {
+        const key = field.path.split(".").pop() ?? field.path;
+        return {
+          key,
+          headersLiteral: JSON.stringify(field.source.csvHeaders),
+        };
+      })
+      .filter((entry) => entry.headersLiteral.length > 2 && entry.key.length > 0);
+  }
+
+  if (fallbackHeaders.length > 0) {
+    return [
+      {
+        key: "userPrincipalName",
+        headersLiteral: JSON.stringify([fallbackHeaders[0]!]),
+      },
+    ];
+  }
+
+  return [];
+}
+
+function buildTsPrincipalExpression(
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[]
+): string {
+  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders).map(
+    (entry) => `  ${JSON.stringify(entry.key)}: parseString(readSourceValue(row, ${entry.headersLiteral}))`
+  );
+
+  return `({\n  "@odata.type": "#microsoft.graph.externalConnectors.principal"${entries.length ? ",\n" + entries.join(",\n") : ""}\n})`;
+}
+
+function buildCsPrincipalExpression(
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[]
+): string {
+  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  const knownMap = new Map<string, string>([
+    ["userPrincipalName", "UserPrincipalName"],
+    ["tenantId", "TenantId"],
+    ["id", "Id"],
+    ["type", "Type"],
+    ["displayName", "DisplayName"],
+  ]);
+
+  const knownAssignments: string[] = [];
+  const additionalDataEntries: string[] = [];
+
+  for (const entry of entries) {
+    const headers = `new[] { ${JSON.parse(entry.headersLiteral).map((h: string) => JSON.stringify(h)).join(", ")} }`;
+    const propertyName = knownMap.get(entry.key);
+    if (propertyName) {
+      knownAssignments.push(`    ${propertyName} = RowParser.ParseString(row, ${headers}),`);
+    } else {
+      additionalDataEntries.push(`        [${JSON.stringify(entry.key)}] = RowParser.ParseString(row, ${headers}),`);
+    }
+  }
+
+  const additionalDataBlock = additionalDataEntries.length
+    ? [
+        "    AdditionalData = new Dictionary<string, object?>",
+        "    {",
+        ...additionalDataEntries,
+        "    },",
+      ]
+    : [];
+
+  return [
+    "new Principal",
+    "{",
+    "    OdataType = \"#microsoft.graph.externalConnectors.principal\",",
+    ...knownAssignments,
+    ...additionalDataBlock,
+    "}"
+  ].join("\n");
+}
+
+function buildTsPrincipalCollectionExpression(
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[]
+): string {
+  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  if (entries.length === 0) return "[]";
+
+  const fieldLines = entries.map(
+    (entry, index) => `  const field${index} = parseStringCollection(readSourceValue(row, ${entry.headersLiteral}));`
+  );
+  const lengthVars = entries.length
+    ? `  const lengths = [${entries.map((_, index) => `field${index}.length`).join(", ")}];`
+    : "  const lengths = [0];";
+
+  const fieldsBlock = entries
+    .map((entry, index) => `      ${JSON.stringify(entry.key)}: getValue(field${index}, index)`) 
+    .join(",\n");
+
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return "";\n    if (values.length === 1) return values[0] ?? "";\n    return values[index] ?? "";\n  };\n  const results: Principal[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push({\n      "@odata.type": "#microsoft.graph.externalConnectors.principal",\n${fieldsBlock}\n    });\n  }\n  return results;\n})()`;
+}
+
+function buildCsPrincipalCollectionExpression(
+  fields: PersonEntityField[] | null,
+  fallbackHeaders: string[]
+): string {
+  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  if (entries.length === 0) return "new List<Principal>()";
+
+  const fieldLines = entries.map((entry, index) => {
+    const headers = `new[] { ${JSON.parse(entry.headersLiteral).map((h: string) => JSON.stringify(h)).join(", ")} }`;
+    return `        var field${index} = RowParser.ParseStringCollection(row, ${headers});`;
+  });
+
+  const knownMap = new Map<string, string>([
+    ["userPrincipalName", "UserPrincipalName"],
+    ["tenantId", "TenantId"],
+    ["id", "Id"],
+    ["type", "Type"],
+    ["displayName", "DisplayName"],
+  ]);
+
+  const knownAssignments = entries
+    .map((entry, index) => {
+      const propertyName = knownMap.get(entry.key);
+      return propertyName ? `                ${propertyName} = GetValue(field${index}, index),` : null;
+    })
+    .filter((line): line is string => Boolean(line));
+
+  const additionalDataEntries = entries
+    .map((entry, index) => {
+      if (knownMap.has(entry.key)) return null;
+      return `                    [${JSON.stringify(entry.key)}] = GetValue(field${index}, index),`;
+    })
+    .filter((line): line is string => Boolean(line));
+
+  const additionalDataBlock = additionalDataEntries.length
+    ? [
+        "                AdditionalData = new Dictionary<string, object?>",
+        "                {",
+        ...additionalDataEntries,
+        "                },",
+      ]
+    : [];
+
+  const lengthsLine = entries.map((_, index) => `field${index}.Count`).join(", ");
+
+  return [
+    "new Func<List<Principal>>(() =>",
+    "{",
+    ...fieldLines,
+    `        var lengths = new[] { ${lengthsLine} };`,
+    "        var maxLen = 0;",
+    "        foreach (var len in lengths)",
+    "        {",
+    "            if (len > maxLen) maxLen = len;",
+    "        }",
+    "        string GetValue(IReadOnlyList<string> values, int index)",
+    "        {",
+    "            if (values.Count == 0) return \"\";",
+    "            if (values.Count == 1) return values[0] ?? \"\";",
+    "            return index < values.Count ? (values[index] ?? \"\") : \"\";",
+    "        }",
+    "        var results = new List<Principal>();",
+    "        for (var index = 0; index < maxLen; index++)",
+    "        {",
+    "            var principal = new Principal",
+    "            {",
+    "                OdataType = \"#microsoft.graph.externalConnectors.principal\",",
+    ...knownAssignments,
+    ...additionalDataBlock,
+    "            };",
+    "            results.Add(principal);",
+    "        }",
+    "        return results;",
+    "})()",
+  ].join("\n");
+}
+
 function buildCsPersonEntityExpression(
   fields: PersonEntityField[],
   valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
@@ -809,6 +1025,8 @@ function sampleValueForType(type: PropertyType): string {
       return "2024-01-01T00:00:00Z;2024-01-02T00:00:00Z";
     case "principal":
       return 'alice@contoso.com';
+    case "principalCollection":
+      return "alice@contoso.com;bob@contoso.com";
     case "string":
     default:
       return "sample";
@@ -1071,8 +1289,18 @@ async function writeGeneratedDotnet(
     const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
     const needsManualEntity = isPeopleLabel && !p.personEntity;
     const noSource = Boolean(p.source.noSource);
+    const principalExpression =
+      p.type === "principal"
+        ? buildCsPrincipalExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        : p.type === "principalCollection"
+        ? buildCsPrincipalCollectionExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        : null;
     const transformExpression = needsManualEntity
       ? `throw new NotImplementedException("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement in PropertyTransform.cs.")`
+      : noSource
+      ? "default!"
+      : (p.type === "principal" || p.type === "principalCollection") && principalExpression
+      ? principalExpression
       : personEntity
       ? isCollection
           ? buildCsPersonEntityCollectionExpression(personEntity.fields, (headersLiteral) => {
@@ -1087,8 +1315,6 @@ async function writeGeneratedDotnet(
               ? `Validation.ValidateString(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
               : base;
           })
-      : noSource
-      ? "default!"
       : `${parseFn}(row, ${csvHeadersLiteral})`;
 
     const validationMetadata = {
@@ -1102,7 +1328,7 @@ async function writeGeneratedDotnet(
       ...(p.maxValue !== undefined ? { maxValue: p.maxValue } : {}),
     };
 
-    const validatedExpression = needsManualEntity || noSource || personEntity
+    const validatedExpression = needsManualEntity || noSource || personEntity || p.type === "principal" || p.type === "principalCollection"
       ? transformExpression
       : applyCsValidationExpression(validationMetadata, transformExpression, csvHeadersLiteral);
 
@@ -1147,6 +1373,8 @@ async function writeGeneratedDotnet(
   const schemaPropertyLines = properties
     .filter((p) => p.name !== ir.item.contentPropertyName)
     .map((p) => {
+      const isPrincipalCollection =
+        ir.connection.graphApiVersion === "beta" && p.type === "principalCollection";
       const labels =
         p.labels.length > 0
           ? `new List<string> { ${p.labels.map((l) => JSON.stringify(l)).join(", ")} }`
@@ -1159,6 +1387,7 @@ async function writeGeneratedDotnet(
       const additionalDataEntries: string[] = [];
       if (p.description) additionalDataEntries.push(`                        ["description"] = ${JSON.stringify(p.description)},`);
       if (labels) additionalDataEntries.push(`                        ["labels"] = ${labels},`);
+      if (isPrincipalCollection) additionalDataEntries.push(`                        ["type"] = "principalCollection",`);
 
       const additionalDataBlock =
         additionalDataEntries.length > 0
@@ -1174,7 +1403,7 @@ async function writeGeneratedDotnet(
         "                new Property",
         "                {",
         `                    Name = ${JSON.stringify(p.name)},`,
-        `                    Type = PropertyType.${p.graphTypeEnumName},`,
+        ...(isPrincipalCollection ? [] : [`                    Type = PropertyType.${p.graphTypeEnumName},`]),
       ];
 
       if (p.search.searchable !== undefined) lines.push(`                    IsSearchable = ${p.search.searchable ? "true" : "false"},`);
@@ -1237,13 +1466,20 @@ async function writeGeneratedDotnet(
     "        };",
   ].join("\n");
 
+  const usesPrincipal = properties.some(
+    (p) => p.type === "principal" || p.type === "principalCollection"
+  );
+
   await writeFile(
     path.join(outDir, schemaFolderName, "Model.cs"),
     await renderTemplate("dotnet/Generated/Model.cs.ejs", {
+      namespaceName,
       schemaNamespace,
       itemTypeName: ir.item.typeName,
       properties: properties.map((p) => ({ csName: p.csName, csType: p.csType })),
       recordDocLines,
+      graphApiVersion: ir.connection.graphApiVersion,
+      usesPrincipal,
     }),
     "utf8"
   );
@@ -1324,6 +1560,8 @@ async function writeGeneratedDotnet(
       schemaNamespace,
       itemTypeName: ir.item.typeName,
       constructorArgLines,
+      usesPrincipal,
+      graphApiVersion: ir.connection.graphApiVersion,
     }),
     "utf8"
   );
@@ -1371,6 +1609,17 @@ async function writeGeneratedDotnet(
     }),
     "utf8"
   );
+
+  if (usesPrincipal && ir.connection.graphApiVersion === "beta") {
+    await writeFile(
+      path.join(outDir, "Core", "Principal.cs"),
+      await renderTemplate("dotnet/Core/Principal.cs.ejs", {
+        namespaceName,
+        graphApiVersion: ir.connection.graphApiVersion,
+      }),
+      "utf8"
+    );
+  }
 }
 
 function formatValidationErrors(ir: ConnectorIr): string {

@@ -222,7 +222,7 @@ function getPersonEntityMapping(
 
   if (fields.length === 0) return undefined;
   if (!entity) {
-    if (propertyType === "principal") {
+    if (propertyType === "principal" || propertyType === "principalCollection") {
       return {
         entity: "userAccountInformation",
         fields,
@@ -308,10 +308,7 @@ function mapTypeToPropertyType(program: Program, type: Type): PropertyType {
   if (type.kind === "Model" && isArrayModelType(program, type)) {
     const element = type.indexer.value;
     if (isPrincipalScalar(element)) {
-      // Graph does not list principalCollection in externalConnectors.propertyType.
-      throw new CocogenError(
-        "principalCollection is not supported by Microsoft Graph external connectors schema (no official propertyType value). Use a different representation."
-      );
+      return "principalCollection";
     }
     return mapCollectionType(element);
   }
@@ -478,7 +475,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
     };
   });
 
-  const usesPrincipal = irProperties.some((prop) => prop.type === "principal");
+  const usesPrincipal = irProperties.some((prop) => prop.type === "principal" || prop.type === "principalCollection");
   const graphApiVersion = computeGraphApiVersion(connection.contentCategory, usesPrincipal);
 
   const connectionCategory = connection.contentCategory;

@@ -1,4 +1,8 @@
 // C# representation of the external item schema.
+<% if (usesPrincipal && graphApiVersion === 'beta') { -%>
+using <%= namespaceName %>.Core;
+
+<% } -%>
 namespace <%= schemaNamespace %>;
 
 <% if (recordDocLines && recordDocLines.length) { -%>

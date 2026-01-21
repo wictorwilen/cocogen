@@ -2,6 +2,9 @@
  * Map raw source rows into the schema model.
  */
 import type { <%= itemTypeName %> } from "./model.js";
+<% if (usesPrincipal) { -%>
+import type { Principal } from "../core/principal.js";
+<% } -%>
 import { PropertyTransform } from "./propertyTransform.js";
 import { parseString, readSourceValue } from "../datasource/row.js";
 

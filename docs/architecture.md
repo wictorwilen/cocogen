@@ -183,6 +183,7 @@ TypeSpec → Graph `propertyType` mapping (initial):
 
 Additional scalar mappings:
 - `coco.Principal` (custom scalar) → `principal` (Graph /beta)
+- `coco.Principal[]` → `principalCollection` (Graph /beta)
 
 Constraints enforced:
 - Only `string` and `stringCollection` can be `searchable`.
@@ -192,9 +193,8 @@ Constraints enforced:
 - Semantic labels must match expected property types (for example, `createdDateTime` → `dateTime`).
 
 Notes on `principalCollection`:
-- Microsoft Graph external connectors schema `propertyType` (beta) includes `principal` but **does not list** `principalCollection`.
-- Therefore, `cocogen validate` MUST fail if a schema attempts to emit `principalCollection`.
-- If we later discover official support, we can add it behind a feature flag; until then, no "silent" generation.
+- Microsoft Graph external connectors schema `propertyType` (beta) includes `principalCollection`.
+- `cocogen` supports mapping `coco.Principal[]` to `principalCollection` when preview features are enabled.
 
 ### 5.4 Flattening policy
 Initial version: **no nested objects**.
@@ -318,8 +318,13 @@ Type conversion rules (generated code):
 - `string`: pass through.
 - `int64`, `double`, `boolean`, `dateTime`: parse from string with clear error messages (row/column context).
 - `...Collection`: accept either a JSON array string (preferred) or a delimiter-split string (semicolon-only).
-- `principal`: accept a JSON object string (recommended) and parse to an object shape compatible with Microsoft Graph `externalConnectors.identity` (`{ id: string, type: "user"|"group"|"externalgroup" }`).
-  - If the cell is empty, treat as missing/undefined.
+- `principal`: emit a typed object compatible with Microsoft Graph `externalConnectors.principal` (`{ "@odata.type": "#microsoft.graph.externalConnectors.principal", id?: string, type?: string, displayName?: string, userPrincipalName?: string, tenantId?: string, ... }`).
+  - Use `@coco.source(..., to)` to map CSV headers to principal properties (`userPrincipalName`, `tenantId`, `id`, `type`, `displayName`, or other supported fields).
+  - If no explicit `to` mapping exists, use the first CSV header as `userPrincipalName`.
+  - Validation should ensure this property is *not* marked `searchable`.
+- `principalCollection`: emit an array of `externalConnectors.principal` objects.
+  - Use `@coco.source(..., to)` to map CSV headers to principal properties (for example, `userPrincipalName`, `tenantId`).
+  - When multiple values are provided (semicolon-delimited), align values by index to build the collection.
   - Validation should ensure this property is *not* marked `searchable`.
 
 ### 10.4 Throttling & retries
@@ -364,7 +369,7 @@ The generated CLIs currently target a single connection via configuration. Multi
 - ACL: simple only.
 - Generator behavior: read-only TypeSpec input; provide feedback.
 - CSV: “standard-ish” defaults.
-- `principalCollection`: hard-fail validation (no escape hatch) until Microsoft Graph docs list it as supported.
+- `principalCollection`: supported in preview (Graph beta) with the same searchable restrictions as `principal`.
 
 ## 13. Implementation plan (high-level milestones)
 1) Build `cocogen validate` + IR emission from TypeSpec.

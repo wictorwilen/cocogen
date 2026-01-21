@@ -22,7 +22,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 
 ## Later
 - Add snapshot tests for emitted file trees
-- Add "continue on fail" for generated ingestion logic (abort on fail as option instead)
+- Add "continue on fail" for generated ingestion logic (abort on fail as option instead) ✅
 - Add richer schema features (display templates, activities) if needed
 - Rust export to complement dotnet and node
 
@@ -31,9 +31,12 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Runtime: Node 22 LTS + npm
 - Module system: ESM
 - CLI: commander + colorful UX + spinners (must degrade in CI/non-TTY, respect NO_COLOR)
-- People connectors: contentCategory configured in TSP; `principalCollection` hard-fails validation
+- People connectors: contentCategory configured in TSP
 
 ## Recently done
+- Added e2e tests for principal output (TS + .NET) C
+- Emit typed principal objects with `@odata.type`, `userPrincipalName`, and `tenantId` in TS/.NET ✅
+- Add `coco.Principal[]` / principalCollection support ✅
 - Moved item payload ID helpers into shared core files ✅
 - Added agent schema guidance doc ✅
 - Added coverage-driven tests for CLI, loader, decorators, and init generation branches ✅

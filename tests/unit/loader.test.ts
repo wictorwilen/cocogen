@@ -57,7 +57,7 @@ describe("loadIrFromTypeSpec", () => {
     expect(titleProp?.source.noSource).toBe(true);
   });
 
-  test("rejects principalCollection", async () => {
+  test("maps principalCollection", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
       model Item {
@@ -68,7 +68,10 @@ describe("loadIrFromTypeSpec", () => {
       }
     `);
 
-    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/principalCollection is not supported/i);
+    const ir = await loadIrFromTypeSpec(entry);
+    const ownersProp = ir.properties.find((p) => p.name === "owners");
+    expect(ownersProp?.type).toBe("principalCollection");
+    expect(ir.connection.graphApiVersion).toBe("beta");
   });
 
   test("rejects nested models", async () => {

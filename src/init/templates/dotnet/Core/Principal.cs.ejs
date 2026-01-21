@@ -1,0 +1,30 @@
+<% if (graphApiVersion === 'beta') { -%>
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+
+namespace <%= namespaceName %>.Core;
+
+public sealed class Principal
+{
+    [JsonPropertyName("@odata.type")]
+    public string? OdataType { get; set; } = "#microsoft.graph.externalConnectors.principal";
+
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("displayName")]
+    public string? DisplayName { get; set; }
+
+    [JsonPropertyName("userPrincipalName")]
+    public string? UserPrincipalName { get; set; }
+
+    [JsonPropertyName("tenantId")]
+    public string? TenantId { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, object?> AdditionalData { get; set; } = new();
+}
+<% } -%>

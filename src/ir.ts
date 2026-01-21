@@ -10,7 +10,8 @@ export type PropertyType =
   | "int64Collection"
   | "doubleCollection"
   | "dateTimeCollection"
-  | "principal";
+  | "principal"
+  | "principalCollection";
 
 export type SearchFlags = {
   searchable?: boolean;

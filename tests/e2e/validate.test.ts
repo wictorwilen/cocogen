@@ -139,7 +139,7 @@ describe("cocogen validate (e2e)", () => {
     expect(result.stderr).toMatch(/use-preview-features/i);
   });
 
-  test("prints actionable error on loader failures (no JSON)", async () => {
+  test("prints actionable error when preview required (no JSON)", async () => {
     const entry = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
       @coco.item
@@ -161,7 +161,7 @@ describe("cocogen validate (e2e)", () => {
 
     expect(result.code).toBe(1);
     expect(result.stdout.trim()).toBe("");
-    expect(result.stderr).toMatch(/principalCollection is not supported/i);
+    expect(result.stderr).toMatch(/use-preview-features/i);
   });
 });
 

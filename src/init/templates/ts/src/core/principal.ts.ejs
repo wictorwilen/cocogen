@@ -1,0 +1,12 @@
+/**
+ * Principal representation for external connector schema properties.
+ */
+export type Principal = {
+  "@odata.type": "#microsoft.graph.externalConnectors.principal";
+  id?: string;
+  type?: string;
+  displayName?: string;
+  userPrincipalName?: string;
+  tenantId?: string;
+  [key: string]: string | undefined;
+};

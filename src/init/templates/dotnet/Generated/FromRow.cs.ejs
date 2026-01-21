@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using <%= namespaceName %>;
 using <%= namespaceName %>.Datasource;
+<% if (usesPrincipal && graphApiVersion === 'beta') { -%>
+using <%= namespaceName %>.Core;
+<% } -%>
 
 namespace <%= schemaNamespace %>;
 

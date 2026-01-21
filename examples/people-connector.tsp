@@ -62,4 +62,11 @@ model PersonProfile {
   // NOTE: This is NOT a people-domain labeled property.
   @coco.description("Manager identity for this person.")
   manager: coco.Principal;
+
+  // Example of a principal collection (schema propertyType=principalCollection).
+  // NOTE: This is NOT a people-domain labeled property.
+  @coco.description("Delegated approvers for this person.")
+  @coco.source("approver upn", "userPrincipalName")
+  @coco.source("approver tenant", "tenantId")
+  approvers: coco.Principal[];
 }

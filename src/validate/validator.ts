@@ -145,10 +145,10 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
       }
     }
 
-    if (prop.type === "principal" && prop.search.searchable) {
+    if ((prop.type === "principal" || prop.type === "principalCollection") && prop.search.searchable) {
       issues.push({
         severity: "error",
-        message: `Property '${prop.name}' has type 'principal' and cannot be marked searchable.`,
+        message: `Property '${prop.name}' has type '${prop.type}' and cannot be marked searchable.`,
         hint: "Remove searchable=true for this property.",
       });
     }
