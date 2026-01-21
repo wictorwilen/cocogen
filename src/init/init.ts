@@ -275,6 +275,53 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     docComment: p.doc ? formatDocComment(p.doc, "  ") : undefined,
   }));
 
+  const hasPeopleSupport =
+    ir.connection.contentCategory === "people" ||
+    ir.properties.some((p) => p.labels.some((label) => label.startsWith("person")));
+  const peopleGraphTypesBundle = hasPeopleSupport ? buildPeopleGraphTypes(ir) : null;
+  const peopleGraphTypes = peopleGraphTypesBundle ? peopleGraphTypesBundle.templates : [];
+  const graphAliases = peopleGraphTypesBundle ? peopleGraphTypesBundle.aliases : new Map<string, PeopleGraphTypeAlias>();
+
+  const peopleProfileTypeInfoByAlias = new Map<string, TsPersonEntityTypeInfo>();
+  if (hasPeopleSupport && peopleGraphTypesBundle) {
+    for (const type of graphProfileSchema.types) {
+      const alias = toTsIdentifier(type.name);
+      const properties = new Map<string, string>();
+      for (const prop of type.properties ?? []) {
+        const descriptor = parseGraphTypeDescriptor(prop.type, graphAliases);
+        properties.set(prop.name, descriptor.tsType);
+      }
+      peopleProfileTypeInfoByAlias.set(alias, { alias, properties });
+    }
+    for (const type of peopleGraphTypesBundle.derived) {
+      const alias = type.alias;
+      const properties = new Map<string, string>(type.fields.map((field) => [field.name, field.tsType]));
+      peopleProfileTypeInfoByAlias.set(alias, { alias, properties });
+    }
+  }
+
+  const collectPeopleEntityTypes = (fields: PersonEntityField[], typeInfo: TsPersonEntityTypeInfo | null): Set<string> => {
+    const used = new Set<string>();
+    if (!typeInfo) return used;
+
+    const tree = buildObjectTree(fields);
+    const visit = (node: Record<string, unknown>, info: TsPersonEntityTypeInfo | null): void => {
+      if (!info) return;
+      used.add(info.alias);
+      for (const [key, value] of Object.entries(node)) {
+        if (typeof value === "object" && value && !Array.isArray(value) && !("path" in (value as PersonEntityField))) {
+          const propType = info.properties.get(key) ?? null;
+          const nestedInfo = propType && !propType.endsWith("[]") ? peopleProfileTypeInfoByAlias.get(propType) ?? null : null;
+          if (nestedInfo) {
+            visit(value as Record<string, unknown>, nestedInfo);
+          }
+        }
+      }
+    };
+    visit(tree, typeInfo);
+    return used;
+  };
+
   const peopleEntityTypes = new Set<string>();
   const transformProperties = ir.properties.map((p) => {
     const parser = (() => {
@@ -304,8 +351,14 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     const nameLiteral = JSON.stringify(p.name);
     const stringConstraints = buildTsStringConstraintsLiteral(p);
     const personEntityType = p.personEntity ? toTsIdentifier(p.personEntity.entity) : null;
-    if (personEntityType) {
-      peopleEntityTypes.add(personEntityType);
+    const personEntityTypeInfo = personEntityType ? peopleProfileTypeInfoByAlias.get(personEntityType) ?? null : null;
+    if (personEntityTypeInfo) {
+      for (const typeName of collectPeopleEntityTypes(
+        p.personEntity?.fields.map((field) => ({ path: field.path, source: field.source })) ?? [],
+        personEntityTypeInfo
+      )) {
+        peopleEntityTypes.add(typeName);
+      }
     }
     const personEntity = p.personEntity
       ? (p.type === "stringCollection"
@@ -320,7 +373,8 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
                   ? `validateStringCollection(${nameLiteral}, ${base}, ${stringConstraints})`
                   : base;
               },
-              personEntityType ?? undefined
+              personEntityTypeInfo,
+              peopleProfileTypeInfoByAlias
             )
           : buildTsPersonEntityExpression(
               p.personEntity.fields.map((field) => ({
@@ -333,7 +387,8 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
                   ? `validateString(${nameLiteral}, ${base}, ${stringConstraints})`
                   : base;
               },
-              personEntityType ?? undefined
+              personEntityTypeInfo,
+              peopleProfileTypeInfoByAlias
             ))
       : null;
 
@@ -391,10 +446,6 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
   const usesPrincipal = ir.properties.some(
     (p) => p.type === "principal" || p.type === "principalCollection"
   );
-  const hasPeopleSupport =
-    ir.connection.contentCategory === "people" ||
-    ir.properties.some((p) => p.labels.some((label) => label.startsWith("person")));
-  const peopleGraphTypes = hasPeopleSupport ? buildPeopleGraphTypes() : [];
   const peopleLabelSerializers = hasPeopleSupport ? buildPeopleLabelSerializers() : [];
   const serializerImports = new Set<string>();
   const payloadProperties = ir.properties
@@ -661,6 +712,13 @@ type PersonEntityField = {
   source: { csvHeaders: string[] };
 };
 
+type TsPersonEntityTypeInfo = {
+  alias: string;
+  properties: Map<string, string>;
+};
+
+type TsPersonEntityTypeMap = Map<string, TsPersonEntityTypeInfo>;
+
 function buildObjectTree(fields: PersonEntityField[]): Record<string, unknown> {
   const root: Record<string, unknown> = {};
 
@@ -693,12 +751,13 @@ function buildTsPersonEntityExpression(
   fields: PersonEntityField[],
   valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
     `parseString(readSourceValue(row, ${headersLiteral}))`,
-  typeName?: string
+  typeInfo: TsPersonEntityTypeInfo | null,
+  typeMap: TsPersonEntityTypeMap
 ): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "  ";
 
-  const renderNode = (node: Record<string, unknown>, level: number): string => {
+  const renderNode = (node: Record<string, unknown>, level: number, info: TsPersonEntityTypeInfo | null): string => {
     const indent = indentUnit.repeat(level);
     const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
@@ -707,15 +766,20 @@ function buildTsPersonEntityExpression(
         const headers = JSON.stringify(field.source.csvHeaders);
         return `${childIndent}${JSON.stringify(key)}: ${valueExpressionBuilder(headers)}`;
       }
-      return `${childIndent}${JSON.stringify(key)}: ${renderNode(value as Record<string, unknown>, level + 1)}`;
+
+      const propType = info?.properties.get(key) ?? null;
+      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      const renderedChild = renderNode(value as Record<string, unknown>, level + 1, nestedType);
+      const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
+      return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
     });
     return `{
 ${entries.join(",\n")}
 ${indent}}`;
   };
 
-  const rendered = renderNode(tree, 2);
-  const typed = typeName ? `(${rendered} as ${typeName})` : rendered;
+  const rendered = renderNode(tree, 2, typeInfo);
+  const typed = typeInfo ? `(${rendered} as ${typeInfo.alias})` : rendered;
   return `JSON.stringify(\n${indentUnit.repeat(2)}${typed}\n${indentUnit.repeat(2)})`;
 }
 
@@ -723,17 +787,27 @@ function buildTsPersonEntityCollectionExpression(
   fields: PersonEntityField[],
   collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
     `parseStringCollection(readSourceValue(row, ${headersLiteral}))`,
-  typeName?: string
+  typeInfo: TsPersonEntityTypeInfo | null,
+  typeMap: TsPersonEntityTypeMap
 ): string {
   const indentUnit = "  ";
-  const renderNode = (node: Record<string, unknown>, level: number, valueVar: string): string => {
+  const renderNode = (
+    node: Record<string, unknown>,
+    level: number,
+    valueVar: string,
+    info: TsPersonEntityTypeInfo | null
+  ): string => {
     const indent = indentUnit.repeat(level);
     const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         return `${childIndent}${JSON.stringify(key)}: ${valueVar}`;
       }
-      return `${childIndent}${JSON.stringify(key)}: ${renderNode(value as Record<string, unknown>, level + 1, valueVar)}`;
+      const propType = info?.properties.get(key) ?? null;
+      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      const renderedChild = renderNode(value as Record<string, unknown>, level + 1, valueVar, nestedType);
+      const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
+      return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
     });
     return `{
 ${entries.join(",\n")}
@@ -744,8 +818,8 @@ ${indent}}`;
     const tree = buildObjectTree(fields);
     const field = fields[0]!;
     const headers = JSON.stringify(field.source.csvHeaders);
-    const rendered = renderNode(tree, 2, "value");
-    const typed = typeName ? `(${rendered} as ${typeName})` : rendered;
+    const rendered = renderNode(tree, 2, "value", typeInfo);
+    const typed = typeInfo ? `(${rendered} as ${typeInfo.alias})` : rendered;
 
     return `${collectionExpressionBuilder(headers)}
   .map((value) => JSON.stringify(\n${indentUnit.repeat(2)}${typed}\n${indentUnit.repeat(2)}))`;
@@ -760,14 +834,18 @@ ${indent}}`;
     return `  const ${varName} = ${collectionExpressionBuilder(headers)};`;
   });
 
-  const renderNodeMany = (node: Record<string, unknown>): string => {
+  const renderNodeMany = (node: Record<string, unknown>, info: TsPersonEntityTypeInfo | null): string => {
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const varName = fieldVarByPath.get(field.path) ?? "";
         return `${indentUnit.repeat(2)}${JSON.stringify(key)}: getValue(${varName}, index)`;
       }
-      return `${indentUnit.repeat(2)}${JSON.stringify(key)}: ${renderNodeMany(value as Record<string, unknown>)}`;
+      const propType = info?.properties.get(key) ?? null;
+      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      const renderedChild = renderNodeMany(value as Record<string, unknown>, nestedType);
+      const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
+      return `${indentUnit.repeat(2)}${JSON.stringify(key)}: ${typedChild}`;
     });
     return `{
 ${entries.join(",\n")}
@@ -779,8 +857,8 @@ ${indentUnit}}`;
     ? `const lengths = [${fieldVars}].map((value) => value.length);`
     : "const lengths = [0];";
 
-  const renderedMany = renderNodeMany(tree);
-  const typedMany = typeName ? `(${renderedMany} as ${typeName})` : renderedMany;
+  const renderedMany = renderNodeMany(tree, typeInfo);
+  const typedMany = typeInfo ? `(${renderedMany} as ${typeInfo.alias})` : renderedMany;
 
   return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(\n      ${typedMany}\n    ));\n  }\n  return results;\n})()`;
 }
@@ -979,21 +1057,23 @@ type CsPersonEntityTypeInfo = {
   properties: Map<string, { csName: string; csType: string }>;
 };
 
-function isJsonElementType(csType: string): boolean {
-  const normalized = csType.replace("?", "");
-  return normalized === "JsonElement" || normalized === "List<JsonElement>";
-}
+type CsPersonEntityTypeMap = Map<string, CsPersonEntityTypeInfo>;
 
 function buildCsPersonEntityObjectExpression(
   fields: PersonEntityField[],
   fieldValueBuilder: (field: PersonEntityField) => string,
-  typeInfo?: CsPersonEntityTypeInfo | null,
+  typeInfo: CsPersonEntityTypeInfo | null,
+  typeMap: CsPersonEntityTypeMap,
   indentLevel = 2
 ): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "    ";
 
-  const renderDictionary = (node: Record<string, unknown>, level: number): string => {
+  const renderDictionary = (
+    node: Record<string, unknown>,
+    level: number,
+    parentInfo?: CsPersonEntityTypeInfo | null
+  ): string => {
     const indent = indentUnit.repeat(level);
     const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
@@ -1001,40 +1081,63 @@ function buildCsPersonEntityObjectExpression(
         const field = value as PersonEntityField;
         return `${childIndent}[${JSON.stringify(key)}] = ${fieldValueBuilder(field)}`;
       }
-      return `${childIndent}[${JSON.stringify(key)}] = ${renderDictionary(value as Record<string, unknown>, level + 1)}`;
+      const info = parentInfo?.properties.get(key);
+      const typeName = info?.csType.replace("?", "") ?? "";
+      const nestedType = typeMap.get(typeName) ?? null;
+      const renderedValue =
+        info && nestedType && typeof value === "object" && value && !("path" in (value as PersonEntityField))
+          ? renderTypedNode(value as Record<string, unknown>, nestedType, level + 1)
+          : renderDictionary(value as Record<string, unknown>, level + 1, nestedType);
+      return `${childIndent}[${JSON.stringify(key)}] = ${renderedValue}`;
     });
 
     return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
   };
 
-  const rootEntries = Object.entries(tree);
-  const canUseTyped = Boolean(typeInfo) && rootEntries.every(([key]) => typeInfo!.properties.has(key));
-  if (!canUseTyped || !typeInfo) {
+  const renderTypedNode = (
+    node: Record<string, unknown>,
+    info: CsPersonEntityTypeInfo,
+    level: number
+  ): string => {
+    const entries = Object.entries(node);
+    const canUse = entries.every(([key]) => info.properties.has(key));
+    if (!canUse) {
+      return renderDictionary(node, level, info);
+    }
+
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
+    const renderedEntries = entries.map(([key, value]) => {
+      const propInfo = info.properties.get(key)!;
+      const typeName = propInfo.csType.replace("?", "");
+      const nestedType = typeMap.get(typeName) ?? null;
+      const rawValue =
+        typeof value === "object" && value && "path" in (value as PersonEntityField)
+          ? fieldValueBuilder(value as PersonEntityField)
+          : renderDictionary(value as Record<string, unknown>, level + 1, nestedType);
+      const renderedValue =
+        nestedType && typeof value === "object" && value && !("path" in (value as PersonEntityField))
+          ? renderTypedNode(value as Record<string, unknown>, nestedType, level + 1)
+          : rawValue;
+      return `${childIndent}${propInfo.csName} = ${renderedValue}`;
+    });
+
+    return `new ${info.typeName}\n${indent}{\n${renderedEntries.join(",\n")}\n${indent}}`;
+  };
+
+  if (!typeInfo) {
     return renderDictionary(tree, indentLevel);
   }
 
-  const indent = indentUnit.repeat(indentLevel);
-  const childIndent = indentUnit.repeat(indentLevel + 1);
-  const entries = rootEntries.map(([key, value]) => {
-    const info = typeInfo.properties.get(key)!;
-    const rawValue =
-      typeof value === "object" && value && "path" in (value as PersonEntityField)
-        ? fieldValueBuilder(value as PersonEntityField)
-        : renderDictionary(value as Record<string, unknown>, indentLevel + 1);
-    const renderedValue = isJsonElementType(info.csType)
-      ? `JsonSerializer.SerializeToElement(${rawValue})`
-      : rawValue;
-    return `${childIndent}${info.csName} = ${renderedValue}`;
-  });
-
-  return `new ${typeInfo.typeName}\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
+  return renderTypedNode(tree, typeInfo, indentLevel);
 }
 
 function buildCsPersonEntityExpression(
   fields: PersonEntityField[],
   valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
     `RowParser.ParseString(row, ${headersLiteral})`,
-  typeInfo?: CsPersonEntityTypeInfo | null
+  typeInfo: CsPersonEntityTypeInfo | null,
+  typeMap: CsPersonEntityTypeMap
 ): string {
   const indentUnit = "    ";
   const objectExpression = buildCsPersonEntityObjectExpression(
@@ -1044,6 +1147,7 @@ function buildCsPersonEntityExpression(
       return valueExpressionBuilder(headers);
     },
     typeInfo,
+    typeMap,
     2
   );
 
@@ -1054,7 +1158,8 @@ function buildCsPersonEntityCollectionExpression(
   fields: PersonEntityField[],
   collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
     `RowParser.ParseStringCollection(row, ${headersLiteral})`,
-  typeInfo?: CsPersonEntityTypeInfo | null
+  typeInfo: CsPersonEntityTypeInfo | null,
+  typeMap: CsPersonEntityTypeMap
 ): string {
   const indentUnit = "    ";
 
@@ -1066,6 +1171,7 @@ function buildCsPersonEntityCollectionExpression(
           fields,
           () => "value",
           typeInfo,
+          typeMap,
           3
         );
 
@@ -1095,6 +1201,7 @@ function buildCsPersonEntityCollectionExpression(
       return `GetValue(${varName}, index)`;
     },
     typeInfo,
+    typeMap,
     2
   );
 
@@ -1573,6 +1680,31 @@ type PeopleGraphTypeTemplate = {
   fields: PeopleGraphFieldTemplate[];
 };
 
+type PeopleGraphTypeAlias = {
+  tsAlias: string;
+  csName: string;
+};
+
+type DerivedPeopleGraphType = {
+  name: string;
+  alias: string;
+  csName: string;
+  fields: PeopleGraphFieldTemplate[];
+  csProperties: Array<{ name: string; csName: string; csType: string; nullable: boolean }>;
+};
+
+const GRAPH_STRING_TYPES = new Set<string>([
+  "graph.emailType",
+  "graph.phoneType",
+  "graph.skillProficiencyLevel",
+  "graph.personAnnualEventType",
+  "graph.itemBody",
+]);
+
+function resolveGraphTypeName(typeName: string): string | null {
+  return typeName.startsWith("graph.") ? typeName.slice("graph.".length) : null;
+}
+
 type PeopleLabelSerializerTemplate = {
   label: string;
   serializerName: string;
@@ -1581,24 +1713,230 @@ type PeopleLabelSerializerTemplate = {
   collectionLimit: number | null;
 };
 
-function buildPeopleGraphTypes(): PeopleGraphTypeTemplate[] {
+function buildDerivedPeopleGraphTypes(ir: ConnectorIr): DerivedPeopleGraphType[] {
+  const fieldsByEntity = new Map<string, PersonEntityField[]>();
+  for (const prop of ir.properties) {
+    if (!prop.personEntity) continue;
+    const list = fieldsByEntity.get(prop.personEntity.entity) ?? [];
+    list.push(
+      ...prop.personEntity.fields.map((field) => ({
+        path: field.path,
+        source: field.source,
+      }))
+    );
+    fieldsByEntity.set(prop.personEntity.entity, list);
+  }
+
+  const schemaTypes = new Map(graphProfileSchema.types.map((type) => [type.name, type]));
+  const derived = new Map<string, DerivedPeopleGraphType>();
+
+  const buildDerivedFromTree = (
+    typeName: string,
+    node: Record<string, unknown>
+  ): DerivedPeopleGraphType => {
+    const existing = derived.get(typeName);
+    if (existing) {
+      const existingNames = new Set(existing.fields.map((field) => field.name));
+      const usedVarNames = new Set(existing.fields.map((field) => field.varName));
+      for (const [key, value] of Object.entries(node)) {
+        if (existingNames.has(key)) {
+          if (typeof value === "object" && value && !("path" in (value as PersonEntityField))) {
+            const nestedName = `${typeName}${toCsPascal(key)}`;
+            buildDerivedFromTree(nestedName, value as Record<string, unknown>);
+          }
+          continue;
+        }
+
+        const varName = toPeopleFieldVarName(key, usedVarNames);
+        if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+          existing.fields.push({
+            name: key,
+            varName,
+            tsType: "string",
+            optional: true,
+            isCollection: false,
+            typeCheck: `typeof ${varName} === "string"`,
+            expected: "a string",
+          });
+          existing.csProperties.push({
+            name: key,
+            csName: toCsPascal(key),
+            csType: "string?",
+            nullable: true,
+          });
+        } else {
+          const nestedName = `${typeName}${toCsPascal(key)}`;
+          const nested = buildDerivedFromTree(nestedName, value as Record<string, unknown>);
+          existing.fields.push({
+            name: key,
+            varName,
+            tsType: nested.alias,
+            optional: true,
+            isCollection: false,
+            typeCheck: "isRecord(" + varName + ")",
+            expected: "an object",
+          });
+          existing.csProperties.push({
+            name: key,
+            csName: toCsPascal(key),
+            csType: `${nested.csName}?`,
+            nullable: true,
+          });
+        }
+        existingNames.add(key);
+      }
+      return existing;
+    }
+
+    const alias = toTsIdentifier(typeName);
+    const csName = toCsPascal(typeName);
+    const usedVarNames = new Set<string>();
+    const fields: PeopleGraphFieldTemplate[] = [];
+    const csProperties: Array<{ name: string; csName: string; csType: string; nullable: boolean }> = [];
+
+    for (const [key, value] of Object.entries(node)) {
+      const varName = toPeopleFieldVarName(key, usedVarNames);
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        fields.push({
+          name: key,
+          varName,
+          tsType: "string",
+          optional: true,
+          isCollection: false,
+          typeCheck: `typeof ${varName} === "string"`,
+          expected: "a string",
+        });
+        csProperties.push({
+          name: key,
+          csName: toCsPascal(key),
+          csType: "string?",
+          nullable: true,
+        });
+      } else {
+        const nestedName = `${typeName}${toCsPascal(key)}`;
+        const nested = buildDerivedFromTree(nestedName, value as Record<string, unknown>);
+        fields.push({
+          name: key,
+          varName,
+          tsType: nested.alias,
+          optional: true,
+          isCollection: false,
+          typeCheck: "isRecord(" + varName + ")",
+          expected: "an object",
+        });
+        csProperties.push({
+          name: key,
+          csName: toCsPascal(key),
+          csType: `${nested.csName}?`,
+          nullable: true,
+        });
+      }
+    }
+
+    const created: DerivedPeopleGraphType = {
+      name: typeName,
+      alias,
+      csName,
+      fields,
+      csProperties,
+    };
+    derived.set(typeName, created);
+    return created;
+  };
+
+  for (const [entity, fields] of fieldsByEntity) {
+    const tree = buildObjectTree(fields);
+    const schemaType = schemaTypes.get(entity);
+    if (!schemaType) {
+      buildDerivedFromTree(entity, tree);
+      continue;
+    }
+
+    for (const prop of schemaType.properties ?? []) {
+      const propType = prop.type;
+      const graphName = resolveGraphTypeName(propType);
+      const isCollection = /^Collection\(/.test(propType);
+      const node = tree[prop.name];
+      if (!graphName || isCollection || GRAPH_STRING_TYPES.has(propType)) continue;
+      if (schemaTypes.has(graphName)) continue;
+      if (!node || typeof node !== "object") continue;
+      buildDerivedFromTree(graphName, node as Record<string, unknown>);
+    }
+  }
+
+  const referencedGraphTypes = new Set<string>();
+  for (const schemaType of graphProfileSchema.types) {
+    for (const prop of schemaType.properties ?? []) {
+      const collectionMatch = /^Collection\((.+)\)$/.exec(prop.type);
+      const elementType = collectionMatch ? collectionMatch[1]! : prop.type;
+      if (GRAPH_STRING_TYPES.has(elementType)) continue;
+      const graphName = resolveGraphTypeName(elementType);
+      if (!graphName) continue;
+      if (schemaTypes.has(graphName)) continue;
+      if (derived.has(graphName)) continue;
+      referencedGraphTypes.add(graphName);
+    }
+  }
+
+  for (const graphName of referencedGraphTypes) {
+    buildDerivedFromTree(graphName, {});
+  }
+
+  return [...derived.values()];
+}
+
+function buildPeopleGraphTypeAliases(
+  derived: DerivedPeopleGraphType[]
+): Map<string, PeopleGraphTypeAlias> {
+  const map = new Map<string, PeopleGraphTypeAlias>();
+  for (const type of graphProfileSchema.types) {
+    map.set(type.name, {
+      tsAlias: toTsIdentifier(type.name),
+      csName: toCsPascal(type.name),
+    });
+  }
+  for (const type of derived) {
+    map.set(type.name, { tsAlias: type.alias, csName: type.csName });
+  }
+  return map;
+}
+
+function buildPeopleGraphTypes(ir: ConnectorIr): {
+  templates: PeopleGraphTypeTemplate[];
+  derived: DerivedPeopleGraphType[];
+  aliases: Map<string, PeopleGraphTypeAlias>;
+} {
   const graphTypeNames = new Set<string>();
   for (const def of PEOPLE_LABEL_DEFINITIONS.values()) {
     graphTypeNames.add(def.graphTypeName);
   }
 
-  return [...graphTypeNames].map((typeName) => {
+  const derived = buildDerivedPeopleGraphTypes(ir);
+  const aliases = buildPeopleGraphTypeAliases(derived);
+
+  const templates = [...graphTypeNames].map((typeName) => {
     const schemaType = getProfileType(typeName);
     if (!schemaType) {
       throw new Error(`Graph profile schema is missing type '${typeName}'. Run npm run update-graph-profile-schema.`);
     }
     const usedVarNames = new Set<string>();
-    const fields = (schemaType.properties ?? []).map((prop) => convertGraphProperty(prop, usedVarNames));
+    const fields = (schemaType.properties ?? []).map((prop) =>
+      convertGraphProperty(prop, usedVarNames, aliases)
+    );
     return {
       alias: toTsIdentifier(typeName),
       fields,
     };
   });
+
+  for (const type of derived) {
+    templates.push({
+      alias: type.alias,
+      fields: type.fields,
+    });
+  }
+
+  return { templates, derived, aliases };
 }
 
 function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
@@ -1613,9 +1951,10 @@ function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
 
 function convertGraphProperty(
   prop: GraphProfileProperty,
-  usedVarNames: Set<string>
+  usedVarNames: Set<string>,
+  graphAliases: Map<string, PeopleGraphTypeAlias>
 ): PeopleGraphFieldTemplate {
-  const descriptor = parseGraphTypeDescriptor(prop.type);
+  const descriptor = parseGraphTypeDescriptor(prop.type, graphAliases);
   const varName = toPeopleFieldVarName(prop.name, usedVarNames);
   const typeCheck = descriptor.typeCheck.replaceAll("value", varName);
   return {
@@ -1646,18 +1985,36 @@ type ScalarTypeDescriptor = {
   check: (varName: string) => string;
 };
 
-const GRAPH_STRING_TYPES = new Set<string>([
-  "graph.emailType",
-  "graph.phoneType",
-  "graph.skillProficiencyLevel",
-  "graph.personAnnualEventType",
-  "graph.itemBody",
-]);
-
-function parseGraphTypeDescriptor(typeName: string): GraphTypeDescriptor {
+function parseGraphTypeDescriptor(
+  typeName: string,
+  graphAliases: Map<string, PeopleGraphTypeAlias>
+): GraphTypeDescriptor {
   const collectionMatch = /^Collection\((.+)\)$/.exec(typeName);
   if (collectionMatch) {
-    const element = getScalarDescriptor(collectionMatch[1]!);
+    const elementType = collectionMatch[1]!;
+    if (GRAPH_STRING_TYPES.has(elementType)) {
+      return {
+        tsType: "string[]",
+        isCollection: true,
+        typeCheck: "Array.isArray(value)",
+        expected: "an array",
+        elementTypeCheck: `typeof entry === "string"`,
+        elementExpected: "a string",
+      };
+    }
+    const graphName = resolveGraphTypeName(elementType);
+    if (graphName && graphAliases.has(graphName)) {
+      const alias = graphAliases.get(graphName)!.tsAlias;
+      return {
+        tsType: `${alias}[]`,
+        isCollection: true,
+        typeCheck: "Array.isArray(value)",
+        expected: "an array",
+        elementTypeCheck: "isRecord(entry)",
+        elementExpected: "an object",
+      };
+    }
+    const element = getScalarDescriptor(elementType);
     return {
       tsType: `${element.tsType}[]`,
       isCollection: true,
@@ -1665,6 +2022,24 @@ function parseGraphTypeDescriptor(typeName: string): GraphTypeDescriptor {
       expected: "an array",
       elementTypeCheck: element.check("entry"),
       elementExpected: element.expected,
+    };
+  }
+  if (GRAPH_STRING_TYPES.has(typeName)) {
+    return {
+      tsType: "string",
+      isCollection: false,
+      typeCheck: `typeof value === "string"`,
+      expected: "a string",
+    };
+  }
+  const graphName = resolveGraphTypeName(typeName);
+  if (graphName && graphAliases.has(graphName)) {
+    const alias = graphAliases.get(graphName)!.tsAlias;
+    return {
+      tsType: alias,
+      isCollection: false,
+      typeCheck: "isRecord(value)",
+      expected: "an object",
     };
   }
   const scalar = getScalarDescriptor(typeName);
@@ -1677,13 +2052,6 @@ function parseGraphTypeDescriptor(typeName: string): GraphTypeDescriptor {
 }
 
 function getScalarDescriptor(typeName: string): ScalarTypeDescriptor {
-  if (GRAPH_STRING_TYPES.has(typeName)) {
-    return {
-      tsType: "string",
-      expected: "a string",
-      check: (varName) => `typeof ${varName} === "string"`,
-    };
-  }
   switch (typeName) {
     case "Edm.String":
     case "Edm.Date":
@@ -1709,11 +2077,7 @@ function getScalarDescriptor(typeName: string): ScalarTypeDescriptor {
         check: (varName) => `typeof ${varName} === "number" && Number.isFinite(${varName})`,
       };
     default:
-      return {
-        tsType: "Record<string, unknown>",
-        expected: "an object",
-        check: (varName) => `isRecord(${varName})`,
-      };
+      throw new Error(`Unsupported Graph scalar type '${typeName}'. Update getScalarDescriptor to map this type.`);
   }
 }
 
@@ -1755,33 +2119,73 @@ async function writeGeneratedDotnet(
       collectionLimit: info.collectionLimit ?? null,
     };
   });
-  const peopleProfileTypes = graphProfileSchema.types.map((type) => {
-    const properties = type.properties.map((prop) => {
-      const match = /^Collection\((.+)\)$/.exec(prop.type);
-      const rawType = match ? match[1] : prop.type;
-      const isCollection = Boolean(match);
-      let csType: string;
-      switch (rawType) {
-        case "Edm.String":
-          csType = "string";
-          break;
-        case "Edm.Int64":
-          csType = "long";
-          break;
-        case "Edm.Double":
-          csType = "double";
-          break;
-        case "Edm.Boolean":
-          csType = "bool";
-          break;
-        case "Edm.DateTimeOffset":
-          csType = "DateTimeOffset";
-          break;
-        default:
-          csType = "JsonElement";
-          break;
+  const peopleGraphTypesBundle = buildPeopleGraphTypes(ir);
+  const graphAliases = peopleGraphTypesBundle.aliases;
+
+  const resolveCsType = (rawType: string): { csType: string; isCollection: boolean } => {
+    const collectionMatch = /^Collection\((.+)\)$/.exec(rawType);
+    if (collectionMatch) {
+      const elementType = collectionMatch[1]!;
+      if (GRAPH_STRING_TYPES.has(elementType)) {
+        return { csType: "List<string>", isCollection: true };
       }
-      const resolvedType = isCollection ? `List<${csType}>` : csType;
+      const graphName = resolveGraphTypeName(elementType);
+      if (graphName && graphAliases.has(graphName)) {
+        const alias = graphAliases.get(graphName)!.csName;
+        return { csType: `List<${alias}>`, isCollection: true };
+      }
+      const element = (() => {
+        switch (elementType) {
+          case "Edm.String":
+            return "string";
+          case "Edm.Date":
+            return "string";
+          case "Edm.Int64":
+            return "long";
+          case "Edm.Double":
+            return "double";
+          case "Edm.Boolean":
+            return "bool";
+          case "Edm.DateTimeOffset":
+            return "DateTimeOffset";
+          default:
+            throw new Error(`Unsupported Graph scalar type '${elementType}'. Update resolveCsType to map this type.`);
+        }
+      })();
+      return { csType: `List<${element}>`, isCollection: true };
+    }
+
+    if (GRAPH_STRING_TYPES.has(rawType)) {
+      return { csType: "string", isCollection: false };
+    }
+
+    const graphName = resolveGraphTypeName(rawType);
+    if (graphName && graphAliases.has(graphName)) {
+      return { csType: graphAliases.get(graphName)!.csName, isCollection: false };
+    }
+
+    switch (rawType) {
+      case "Edm.String":
+        return { csType: "string", isCollection: false };
+      case "Edm.Date":
+        return { csType: "string", isCollection: false };
+      case "Edm.Int64":
+        return { csType: "long", isCollection: false };
+      case "Edm.Double":
+        return { csType: "double", isCollection: false };
+      case "Edm.Boolean":
+        return { csType: "bool", isCollection: false };
+      case "Edm.DateTimeOffset":
+        return { csType: "DateTimeOffset", isCollection: false };
+      default:
+        throw new Error(`Unsupported Graph scalar type '${rawType}'. Update resolveCsType to map this type.`);
+    }
+  };
+
+  const baseProfileTypes = graphProfileSchema.types.map((type) => {
+    const properties = type.properties.map((prop) => {
+      const resolved = resolveCsType(prop.type);
+      const resolvedType = resolved.csType;
       const nullableSuffix = prop.nullable ? "?" : "";
       return {
         name: prop.name,
@@ -1796,6 +2200,26 @@ async function writeGeneratedDotnet(
       properties,
     };
   });
+  const derivedProfileTypes = peopleGraphTypesBundle.derived.map((type) => ({
+    name: type.name,
+    csName: type.csName,
+    properties: type.csProperties.map((prop) => ({
+      name: prop.name,
+      csName: prop.csName,
+      csType: prop.csType,
+      nullable: prop.nullable,
+    })),
+  }));
+  const peopleProfileTypes = [...baseProfileTypes, ...derivedProfileTypes];
+  const peopleProfileTypeInfoByName = new Map(
+    peopleProfileTypes.map((type) => [
+      type.csName,
+      {
+        typeName: type.csName,
+        properties: new Map(type.properties.map((prop) => [prop.name, { csName: prop.csName, csType: prop.csType }]))
+      } satisfies CsPersonEntityTypeInfo,
+    ])
+  );
   const peopleProfileTypeByName = new Map(
     peopleProfileTypes.map((type) => [type.name, type])
   );
@@ -1846,13 +2270,13 @@ async function writeGeneratedDotnet(
             return csStringConstraints.hasAny
               ? `Validation.ValidateStringCollection(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
               : base;
-          }, personEntityTypeInfo)
+          }, personEntityTypeInfo, peopleProfileTypeInfoByName)
         : buildCsPersonEntityExpression(personEntity.fields, (headersLiteral) => {
             const base = `RowParser.ParseString(row, ${headersLiteral})`;
             return csStringConstraints.hasAny
               ? `Validation.ValidateString(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
               : base;
-          }, personEntityTypeInfo)
+          }, personEntityTypeInfo, peopleProfileTypeInfoByName)
       : `${parseFn}(row, ${csvHeadersLiteral})`;
 
     const validationMetadata = {

@@ -50,3 +50,10 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Map graph enum/body types to TS strings ✅
 - Use JsonIgnore attributes for .NET people payload nulls ✅
 - Move TS principal cleaners into core ✅
+- Add all-labels people example ✅
+- Fix JsonIgnore for non-nullable properties ✅
+- Add complex non-people validations example ✅
+- Fix content-all-validations example errors ✅
+- Derive missing people graph types from mappings ✅
+- Remove JsonElement/Record fallbacks in people graph types ✅
+- Add nested TS people entity casts ✅

@@ -21,6 +21,14 @@ fi
 
 shopt -s nullglob
 
+required_examples=("people-all-labels" "content-all-validations")
+for example_name in "${required_examples[@]}"; do
+  if [[ ! -f "$EXAMPLES_DIR/${example_name}.tsp" ]]; then
+    printf "Error: missing required example %s\n" "$example_name" >&2
+    exit 1
+  fi
+done
+
 printf "| Example | Lang | Generate | Build | Dry-run |\n" > "$REPORT_PATH"
 printf "| --- | --- | --- | --- | --- |\n" >> "$REPORT_PATH"
 

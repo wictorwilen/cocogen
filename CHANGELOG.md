@@ -6,18 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 ### Added
 - People connector runtime helpers now enforce JSON-encoded payloads for people labels (TS + .NET).
 - People label registry snapshot and validation tests.
+- Added all-labels people connector example for exercising complex TypeSpec usage.
+- Added complex non-people connector example with extensive validations.
+
 ### Changed
 - People entity transforms now build typed payload objects before JSON serialization (TS + .NET).
-- .NET people entity serialization now omits null values.
 - .NET people payload types now use JsonIgnore attributes to omit nulls (instead of serializer options).
 - TS principal cleanup helpers now live in core/principal.
+- People graph helpers now derive missing nested types from mappings for stronger typing (TS + .NET).
+- People graph types now map all scalars explicitly and treat Edm.Date as string.
+- TS people entity transforms now cast nested objects to derived Graph types (e.g., PositionDetail) and import nested types.
+
 ### Fixed
 - People label validators now check the correct field values in TS helpers.
 - People profile graph enum/body types now map to string in TS helpers to avoid invalid type mismatches.
-- Examples report script now fails steps that log error markers.
+- C# people graph enum/body types now map to string for better alignment.
 
 ## [1.0.25] - 2026-01-21
 
@@ -42,8 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Principal values now omit null fields in TS payloads and .NET serialization.
 - PrincipalCollection now emits `Collection(microsoft.graph.externalConnectors.principal)` in `@odata.type`.
 - Sample CSV generation uses email values for principal `upn`/`userPrincipalName` sources.
-
-## [1.0.21] - 2026-01-21
 
 ## [1.0.20] - 2026-01-21
 
@@ -100,7 +105,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.0.25]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.25
 [1.0.24]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.24
 [1.0.22]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.22
-[1.0.21]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.21
 [1.0.20]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.20
 [1.0.19]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.19
 [1.0.18]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.18
