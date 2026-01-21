@@ -100,7 +100,7 @@ describe("loadIrFromTypeSpec", () => {
       }
     `);
 
-    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/Unsupported TypeSpec property type kind/i);
+    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/Unsupported TypeSpec scalar type: int16/i);
   });
 
   test("rejects unsupported collection element types", async () => {

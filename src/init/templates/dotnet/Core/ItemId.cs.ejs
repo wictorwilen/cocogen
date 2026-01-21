@@ -1,0 +1,39 @@
+using System;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace <%= namespaceName %>.Core;
+
+/// <summary>
+/// Shared helpers for external item ID encoding.
+/// </summary>
+public static class ItemId
+{
+    public static string GetItemId(string value, string encoding)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return encoding switch
+        {
+            "base64" => ToBase64Url(Encoding.UTF8.GetBytes(value)),
+            "hash" => ToBase64Url(SHA256.HashData(Encoding.UTF8.GetBytes(value))),
+            _ => Slugify(value),
+        };
+    }
+
+    private static string ToBase64Url(byte[] bytes)
+    {
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    private static string Slugify(string value)
+    {
+        var lower = value.Trim().ToLowerInvariant();
+        var slug = Regex.Replace(lower, "[^a-z0-9]+", "-");
+        slug = Regex.Replace(slug, "^-+|-+$", "");
+        return slug;
+    }
+}

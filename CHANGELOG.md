@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Clarified error messaging for unsupported scalar types (with float64 hint).
+
+### Changed
+- Moved item payload ID encoding helpers into shared core helpers for TS and .NET.
+
 ## [1.0.18] - 2026-01-21
 
 ### Breaking Changes

@@ -477,6 +477,12 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     await renderTemplate("ts/src/core/validation.ts.ejs", {}),
     "utf8"
   );
+
+  await writeFile(
+    path.join(outDir, "src", "core", "itemId.ts"),
+    await renderTemplate("ts/src/core/itemId.ts.ejs", {}),
+    "utf8"
+  );
 }
 
 function toGraphPropertyTypeEnumName(type: PropertyType): string {
@@ -924,7 +930,7 @@ function applyCsValidationExpression(
         : expression;
     case "dateTimeCollection":
       if (!stringConstraints.hasAny) return expression;
-      return `ValidateDateTimeCollection(${nameLiteral}, RowParser.ReadValue(row, ${csvHeadersLiteral}), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format})`;
+        return `Validation.ValidateStringCollection(${nameLiteral}, RowParser.ParseStringCollection(RowParser.ReadValue(row, ${csvHeadersLiteral})), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format}).Select(value => RowParser.ParseDateTime(value)).ToList()`;
     case "int64":
       return numberConstraints.hasAny
         ? `Validation.ValidateInt64(${nameLiteral}, ${expression}, ${numberConstraints.minValue}, ${numberConstraints.maxValue})`
@@ -1286,6 +1292,14 @@ async function writeGeneratedDotnet(
       schemaNamespace,
       properties,
       usesPersonEntity: properties.some((p) => p.personEntity),
+      usesLinq: properties.some(
+        (p) =>
+          p.type === "dateTimeCollection" &&
+          (p.minLength !== undefined ||
+            p.maxLength !== undefined ||
+            Boolean(p.pattern?.regex) ||
+            Boolean(p.format))
+      ),
     }),
     "utf8"
   );
@@ -1318,6 +1332,7 @@ async function writeGeneratedDotnet(
   await writeFile(
     path.join(outDir, schemaFolderName, "ItemPayload.cs"),
     await renderTemplate("dotnet/Generated/ItemPayload.cs.ejs", {
+      namespaceName,
       schemaNamespace,
       itemTypeName: ir.item.typeName,
       itemIdExpression,
@@ -1344,6 +1359,14 @@ async function writeGeneratedDotnet(
   await writeFile(
     path.join(outDir, "Core", "Validation.cs"),
     await renderTemplate("dotnet/Core/Validation.cs.ejs", {
+      namespaceName,
+    }),
+    "utf8"
+  );
+
+  await writeFile(
+    path.join(outDir, "Core", "ItemId.cs"),
+    await renderTemplate("dotnet/Core/ItemId.cs.ejs", {
       namespaceName,
     }),
     "utf8"

@@ -335,7 +335,12 @@ function mapTypeToPropertyType(program: Program, type: Type): PropertyType {
       case "utcDateTime":
         return "dateTime";
       default:
-        break;
+        {
+          const hint = scalarName === "double" ? " Did you mean 'float64'?" : "";
+          throw new CocogenError(
+            `Unsupported TypeSpec scalar type: ${scalarName}. Supported scalars: string, boolean, int64, float64, utcDateTime, coco.Principal.${hint}`
+          );
+        }
     }
   }
 

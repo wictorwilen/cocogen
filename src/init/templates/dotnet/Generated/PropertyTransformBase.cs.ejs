@@ -1,8 +1,10 @@
 // Generated property transforms derived from TypeSpec.
 using System;
 using System.Collections.Generic;
-<% if (usesPersonEntity) { -%>
+<% if (usesPersonEntity || usesLinq) { -%>
 using System.Linq;
+<% } -%>
+<% if (usesPersonEntity) { -%>
 using System.Text.Json;
 <% } -%>
 using <%= namespaceName %>.Core;
@@ -44,16 +46,4 @@ public abstract class PropertyTransformBase
 
 <% } -%>
 
-    private static List<DateTimeOffset> ValidateDateTimeCollection(string name, string raw, int? minLength, int? maxLength, string? pattern, string? format)
-    {
-        var parts = RowParser.ParseStringCollection(raw);
-        if (parts.Count == 0) return new List<DateTimeOffset>();
-        var results = new List<DateTimeOffset>(parts.Count);
-        for (var index = 0; index < parts.Count; index++)
-        {
-            var validated = Validation.ValidateString(name, parts[index], minLength, maxLength, pattern, format);
-            results.Add(RowParser.ParseDateTime(validated));
-        }
-        return results;
-    }
 }
