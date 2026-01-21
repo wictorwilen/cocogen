@@ -74,11 +74,9 @@ const { index, unreleasedHeader } = ensureUnreleasedSection(changelog);
 
 if (hasVersionSection(changelog, version)) {
   const published = await isVersionPublished(packageName, version);
-  if (published) {
-    console.log(`CHANGELOG.md already contains ${version} and it is published. Skipping update.`);
-    process.exit(0);
-  }
-  throw new Error(`CHANGELOG.md already contains a section for version ${version}.`);
+  const status = published ? "published" : "not published";
+  console.log(`CHANGELOG.md already contains ${version} (${status}). Skipping update.`);
+  process.exit(0);
 }
 
 const date = todayIsoDate();
