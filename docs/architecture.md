@@ -156,8 +156,12 @@ People connectors (preview) helpers:
   - personSkills → skillProficiency
   - personWebAccounts → webAccount
   - personWebSite → personWebsite
-  - personAnniversaries → personAnniversary
+  - personAnniversaries → personAnnualEvent (Graph type; label stays personAnniversaries)
   - personNote → personAnnotation
+
+Runtime serialization rules (people connectors):
+- People labels must be JSON-encoded strings (single label) or arrays of JSON strings (collection labels).
+- The runtime helpers live in `src/core/people.ts` (TS) and `Core/PeoplePayload.cs` (.NET) and validate required Graph fields + collection limits before emitting the payload.
 
 Generated projects include a `PropertyTransform` override (TS/.NET) so you can customize how values and entity JSON are built. Defaults are generated in `PropertyTransformBase` from the TypeSpec fields.
 

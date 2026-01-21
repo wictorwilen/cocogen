@@ -175,6 +175,10 @@ People connectors:
    - `personAnniversaries`
    - `personNote`
 
+People payloads:
+- The generated runtime expects people label values to be JSON-encoded strings (single labels) or arrays of JSON strings (collection labels).
+- Invalid JSON or non-object payloads are rejected at runtime.
+
 ### `@coco.aliases("...")`
 
 Adds Graph schema property aliases. Can be repeated.

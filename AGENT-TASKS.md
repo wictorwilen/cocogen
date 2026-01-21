@@ -41,3 +41,4 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Decoupled TS datasource contracts from concrete item models via generics ✅
 - Added .NET people payload core types + validators ✅
 - Added people label serialization enforcement tests ✅
+- Updated people label docs + changelog ✅

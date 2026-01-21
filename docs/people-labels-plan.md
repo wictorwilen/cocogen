@@ -114,10 +114,10 @@ Mark tasks one-by-one in AGENT-TASKS.md using statuses: not-started, in-progress
 - [x] Tests for required field and collection-limit validation.
 - [x] E2E tests for generated TS and .NET outputs that reject invalid payloads.
 
-### 8) Documentation + changelog *(status: not-started)*
-- [ ] Update docs/architecture.md with new people-label pipeline.
-- [ ] Update docs/end-user.md and docs/typespec.md with usage guidance.
-- [ ] Add CHANGELOG.md entry.
+### 8) Documentation + changelog *(status: completed)*
+- [x] Update docs/architecture.md with new people-label pipeline.
+- [x] Update docs/end-user.md and docs/typespec.md with usage guidance.
+- [x] Add CHANGELOG.md entry.
 
 ## How to follow this plan
 

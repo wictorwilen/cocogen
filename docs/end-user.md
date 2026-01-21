@@ -76,6 +76,7 @@ model PersonProfile {
 - The model must be flat (no nested objects or models).
 - Property names in Graph must be alphanumeric and ≤ 32 characters. Use `@coco.name("...")` if needed.
 - People-labeled properties must define at least one `@coco.source("column", "entity.path")` mapping.
+- People label values must be JSON-encoded strings (single labels) or arrays of JSON strings (collection labels).
 
 ### Common decorators you will use
 - `@coco.label("...")` — marks Graph property labels (including people labels)
@@ -176,6 +177,7 @@ Ingest debugging flags:
 ### Where to customize mapping
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
 - Generated mapping helpers live in `src/<ConnectionName>/*` and are overwritten on update.
+- People payload helpers live in `src/core/people.ts` and enforce JSON string payloads for people labels.
 - Use `src/<ConnectionName>/propertyTransform.ts` for manual mapping tweaks (safe file).
 - For advanced transforms, extend the ingestion pipeline in `src/index.ts` or `src/datasource/*`.
 

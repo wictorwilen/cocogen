@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- People connector runtime helpers now enforce JSON-encoded payloads for people labels (TS + .NET).
+- People label registry snapshot and validation tests.
 
 ## [1.0.25] - 2026-01-21
 
