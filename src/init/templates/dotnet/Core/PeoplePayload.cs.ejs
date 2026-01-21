@@ -127,6 +127,7 @@ public static class PeoplePayload
 public sealed class <%= type.csName %>
 {
 <% for (const prop of type.properties) { -%>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName(<%= JSON.stringify(prop.name) %>)]
     public <%= prop.csType %> <%= prop.csName %> { get; init; }
 

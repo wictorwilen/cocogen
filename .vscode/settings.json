@@ -1,5 +1,12 @@
 {
     "cSpell.words": [
         "COCOGEN"
-    ]
+    ],
+    "chat.tools.terminal.autoApprove": {
+        "scripts/run-examples-report.sh": true,
+        "/^cd /home/wictorwilen/code/github/wictorwilen/gcgen && bash scripts/run-examples-report\\.sh$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
 }

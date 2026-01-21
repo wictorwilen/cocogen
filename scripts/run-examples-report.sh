@@ -37,7 +37,11 @@ run_step() {
   local status=$?
   set -e
   if [[ $status -eq 0 ]]; then
-    printf "ok"
+    if grep -Eiq "err+or:" "$log_path"; then
+      printf "fail"
+    else
+      printf "ok"
+    fi
   else
     printf "fail"
   fi

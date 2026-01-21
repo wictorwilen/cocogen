@@ -76,21 +76,21 @@ export function validate<%= type.alias %>(value: unknown, fieldPath: string): <%
   const <%= field.varName %> = (value as Record<string, unknown>)[<%= JSON.stringify(field.name) %>];
   if (<%= field.varName %> === undefined || <%= field.varName %> === null) {
 <% if (!field.optional) { -%>
-    throw new Error(`${fieldPath}.${<%= JSON.stringify(field.name) %>} is required.`);
+    throw new Error(fieldPath + ".<%= field.name %> is required.");
 <% } -%>
   } else {
 <% if (field.isCollection) { -%>
     if (!Array.isArray(<%= field.varName %>)) {
-      throw new Error(`${fieldPath}.${<%= field.name %>} must be an array.`);
+      throw new Error(fieldPath + ".<%= field.name %> must be an array.");
     }
     (<%= field.varName %> as unknown[]).forEach((entry, entryIndex) => {
       if (!(<%= field.elementTypeCheck %>)) {
-        throw new Error(`${fieldPath}.${<%= field.name %>}[${"${entryIndex}"}] must be <%= field.elementExpected %>.`);
+        throw new Error(fieldPath + ".<%= field.name %>[" + entryIndex + "] must be <%= field.elementExpected %>.");
       }
     });
 <% } else { -%>
     if (!(<%= field.typeCheck %>)) {
-      throw new Error(`${fieldPath}.${<%= field.name %>} must be <%= field.expected %>.`);
+      throw new Error(fieldPath + ".<%= field.name %> must be <%= field.expected %>.");
     }
 <% } -%>
   }

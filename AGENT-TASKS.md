@@ -42,3 +42,11 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Added .NET people payload core types + validators ✅
 - Added people label serialization enforcement tests ✅
 - Updated people label docs + changelog ✅
+- Fixed e2e TypeSpec import for local package ✅
+- Emit typed people entity objects in transforms ✅
+- Omit nulls in .NET people payload JSON ✅
+- Fix TS people validator field checks ✅
+- Detect error markers in examples report ✅
+- Map graph enum/body types to TS strings ✅
+- Use JsonIgnore attributes for .NET people payload nulls ✅
+- Move TS principal cleaners into core ✅

@@ -529,7 +529,7 @@ describe("validateIr", () => {
         (i) =>
           i.severity === "error" &&
           i.message.includes("personManager") &&
-          i.message.includes("reserved for Microsoft Graph")
+          i.message.includes("blocked for custom connectors")
       )
     ).toBe(true);
   });

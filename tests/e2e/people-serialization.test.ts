@@ -12,7 +12,6 @@ function distCliPath(): string {
 }
 
 const peopleSchema = `
-  import "@wictorwilen/cocogen";
   using coco;
 
   @coco.connection({
@@ -39,6 +38,7 @@ const peopleSchema = `
 
     @coco.label("personEmails")
     @coco.source("email", "address")
+    @coco.source("emailType", "type")
     emails: string[];
   }
 `;

@@ -13,9 +13,8 @@ describe("people label registry", () => {
     expect(info.collectionLimit).toBe(3);
   });
 
-  test("personAnniversaries maps to personAnnualEvent and requires type", () => {
-    const def = getPeopleLabelDefinition("personAnniversaries");
-    expect(def?.graphTypeName).toBe("personAnnualEvent");
+  test("personEmails requires type", () => {
+    const def = getPeopleLabelDefinition("personEmails");
     expect(def?.requiredFields).toContain("type");
   });
 

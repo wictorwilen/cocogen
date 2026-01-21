@@ -275,6 +275,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     docComment: p.doc ? formatDocComment(p.doc, "  ") : undefined,
   }));
 
+  const peopleEntityTypes = new Set<string>();
   const transformProperties = ir.properties.map((p) => {
     const parser = (() => {
       switch (p.type) {
@@ -302,6 +303,10 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
 
     const nameLiteral = JSON.stringify(p.name);
     const stringConstraints = buildTsStringConstraintsLiteral(p);
+    const personEntityType = p.personEntity ? toTsIdentifier(p.personEntity.entity) : null;
+    if (personEntityType) {
+      peopleEntityTypes.add(personEntityType);
+    }
     const personEntity = p.personEntity
       ? (p.type === "stringCollection"
           ? buildTsPersonEntityCollectionExpression(
@@ -314,7 +319,8 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
                 return stringConstraints
                   ? `validateStringCollection(${nameLiteral}, ${base}, ${stringConstraints})`
                   : base;
-              }
+              },
+              personEntityType ?? undefined
             )
           : buildTsPersonEntityExpression(
               p.personEntity.fields.map((field) => ({
@@ -326,7 +332,8 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
                 return stringConstraints
                   ? `validateString(${nameLiteral}, ${base}, ${stringConstraints})`
                   : base;
-              }
+              },
+              personEntityType ?? undefined
             ))
       : null;
 
@@ -477,6 +484,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
     await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
       properties: transformProperties,
       usesPrincipal,
+      peopleEntityTypes: Array.from(peopleEntityTypes),
     }),
     "utf8"
   );
@@ -684,7 +692,8 @@ function buildObjectTree(fields: PersonEntityField[]): Record<string, unknown> {
 function buildTsPersonEntityExpression(
   fields: PersonEntityField[],
   valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `parseString(readSourceValue(row, ${headersLiteral}))`
+    `parseString(readSourceValue(row, ${headersLiteral}))`,
+  typeName?: string
 ): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "  ";
@@ -706,13 +715,15 @@ ${indent}}`;
   };
 
   const rendered = renderNode(tree, 2);
-  return `JSON.stringify(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)})`;
+  const typed = typeName ? `(${rendered} as ${typeName})` : rendered;
+  return `JSON.stringify(\n${indentUnit.repeat(2)}${typed}\n${indentUnit.repeat(2)})`;
 }
 
 function buildTsPersonEntityCollectionExpression(
   fields: PersonEntityField[],
   collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `parseStringCollection(readSourceValue(row, ${headersLiteral}))`
+    `parseStringCollection(readSourceValue(row, ${headersLiteral}))`,
+  typeName?: string
 ): string {
   const indentUnit = "  ";
   const renderNode = (node: Record<string, unknown>, level: number, valueVar: string): string => {
@@ -734,9 +745,10 @@ ${indent}}`;
     const field = fields[0]!;
     const headers = JSON.stringify(field.source.csvHeaders);
     const rendered = renderNode(tree, 2, "value");
+    const typed = typeName ? `(${rendered} as ${typeName})` : rendered;
 
     return `${collectionExpressionBuilder(headers)}
-  .map((value) => JSON.stringify(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)}))`;
+  .map((value) => JSON.stringify(\n${indentUnit.repeat(2)}${typed}\n${indentUnit.repeat(2)}))`;
   }
 
   const tree = buildObjectTree(fields);
@@ -767,7 +779,10 @@ ${indentUnit}}`;
     ? `const lengths = [${fieldVars}].map((value) => value.length);`
     : "const lengths = [0];";
 
-  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(\n      ${renderNodeMany(tree)}\n    ));\n  }\n  return results;\n})()`;
+  const renderedMany = renderNodeMany(tree);
+  const typedMany = typeName ? `(${renderedMany} as ${typeName})` : renderedMany;
+
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(\n      ${typedMany}\n    ));\n  }\n  return results;\n})()`;
 }
 
 function buildPrincipalFieldEntries(
@@ -959,60 +974,103 @@ function buildCsPrincipalCollectionExpression(
   ].join("\n");
 }
 
-function buildCsPersonEntityExpression(
+type CsPersonEntityTypeInfo = {
+  typeName: string;
+  properties: Map<string, { csName: string; csType: string }>;
+};
+
+function isJsonElementType(csType: string): boolean {
+  const normalized = csType.replace("?", "");
+  return normalized === "JsonElement" || normalized === "List<JsonElement>";
+}
+
+function buildCsPersonEntityObjectExpression(
   fields: PersonEntityField[],
-  valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `RowParser.ParseString(row, ${headersLiteral})`
+  fieldValueBuilder: (field: PersonEntityField) => string,
+  typeInfo?: CsPersonEntityTypeInfo | null,
+  indentLevel = 2
 ): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "    ";
 
-  const renderNode = (node: Record<string, unknown>, level: number): string => {
+  const renderDictionary = (node: Record<string, unknown>, level: number): string => {
     const indent = indentUnit.repeat(level);
     const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
-        const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-        return `${childIndent}[${JSON.stringify(key)}] = ${valueExpressionBuilder(headers)}`;
+        return `${childIndent}[${JSON.stringify(key)}] = ${fieldValueBuilder(field)}`;
       }
-      return `${childIndent}[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>, level + 1)}`;
+      return `${childIndent}[${JSON.stringify(key)}] = ${renderDictionary(value as Record<string, unknown>, level + 1)}`;
     });
 
     return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
   };
 
-  const rendered = renderNode(tree, 2);
-  return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${rendered}\n${indentUnit.repeat(2)})`;
+  const rootEntries = Object.entries(tree);
+  const canUseTyped = Boolean(typeInfo) && rootEntries.every(([key]) => typeInfo!.properties.has(key));
+  if (!canUseTyped || !typeInfo) {
+    return renderDictionary(tree, indentLevel);
+  }
+
+  const indent = indentUnit.repeat(indentLevel);
+  const childIndent = indentUnit.repeat(indentLevel + 1);
+  const entries = rootEntries.map(([key, value]) => {
+    const info = typeInfo.properties.get(key)!;
+    const rawValue =
+      typeof value === "object" && value && "path" in (value as PersonEntityField)
+        ? fieldValueBuilder(value as PersonEntityField)
+        : renderDictionary(value as Record<string, unknown>, indentLevel + 1);
+    const renderedValue = isJsonElementType(info.csType)
+      ? `JsonSerializer.SerializeToElement(${rawValue})`
+      : rawValue;
+    return `${childIndent}${info.csName} = ${renderedValue}`;
+  });
+
+  return `new ${typeInfo.typeName}\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
+}
+
+function buildCsPersonEntityExpression(
+  fields: PersonEntityField[],
+  valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
+    `RowParser.ParseString(row, ${headersLiteral})`,
+  typeInfo?: CsPersonEntityTypeInfo | null
+): string {
+  const indentUnit = "    ";
+  const objectExpression = buildCsPersonEntityObjectExpression(
+    fields,
+    (field) => {
+      const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
+      return valueExpressionBuilder(headers);
+    },
+    typeInfo,
+    2
+  );
+
+  return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${objectExpression}\n${indentUnit.repeat(2)})`;
 }
 
 function buildCsPersonEntityCollectionExpression(
   fields: PersonEntityField[],
   collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `RowParser.ParseStringCollection(row, ${headersLiteral})`
+    `RowParser.ParseStringCollection(row, ${headersLiteral})`,
+  typeInfo?: CsPersonEntityTypeInfo | null
 ): string {
   const indentUnit = "    ";
-  const renderNode = (node: Record<string, unknown>, level: number, valueVar: string): string => {
-    const indent = indentUnit.repeat(level);
-    const childIndent = indentUnit.repeat(level + 1);
-    const entries = Object.entries(node).map(([key, value]) => {
-      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
-        return `${childIndent}[${JSON.stringify(key)}] = ${valueVar}`;
-      }
-      return `${childIndent}[${JSON.stringify(key)}] = ${renderNode(value as Record<string, unknown>, level + 1, valueVar)}`;
-    });
-
-    return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
-  };
 
   if (fields.length === 1) {
     const tree = buildObjectTree(fields);
     const field = fields[0]!;
     const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-    const rendered = renderNode(tree, 3, "value");
+        const objectExpression = buildCsPersonEntityObjectExpression(
+          fields,
+          () => "value",
+          typeInfo,
+          3
+        );
 
     return `${collectionExpressionBuilder(headers)}
-            .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${rendered}\n${indentUnit.repeat(3)}))
+                .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${objectExpression}\n${indentUnit.repeat(3)}))
             .ToList()`;
   }
 
@@ -1025,25 +1083,22 @@ function buildCsPersonEntityCollectionExpression(
     return `        var ${varName} = ${collectionExpressionBuilder(headers)};`;
   });
 
-  const renderNodeMany = (node: Record<string, unknown>): string => {
-    const entries = Object.entries(node).map(([key, value]) => {
-      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
-        const field = value as PersonEntityField;
-        const varName = fieldVarByPath.get(field.path) ?? "";
-        return `${indentUnit.repeat(3)}[${JSON.stringify(key)}] = GetValue(${varName}, index)`;
-      }
-      return `${indentUnit.repeat(3)}[${JSON.stringify(key)}] = ${renderNodeMany(value as Record<string, unknown>)}`;
-    });
-
-    return `new Dictionary<string, object?>\n${indentUnit.repeat(2)}{\n${entries.join(",\n")}\n${indentUnit.repeat(2)}}`;
-  };
-
   const fieldVars = [...fieldVarByPath.values()];
   const lengthLines = fieldVars.length > 0
     ? `        var maxLen = new[] { ${fieldVars.map((v) => `${v}.Count`).join(", ")} }.Max();`
     : "        var maxLen = 0;";
 
-  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${renderNodeMany(tree)}));\n        }\n        return results;\n    }).Invoke()`;
+  const objectExpression = buildCsPersonEntityObjectExpression(
+    fields,
+    (field) => {
+      const varName = fieldVarByPath.get(field.path) ?? "";
+      return `GetValue(${varName}, index)`;
+    },
+    typeInfo,
+    2
+  );
+
+  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${objectExpression}));\n        }\n        return results;\n    }).Invoke()`;
 }
 
 function csvEscape(value: string): string {
@@ -1562,13 +1617,14 @@ function convertGraphProperty(
 ): PeopleGraphFieldTemplate {
   const descriptor = parseGraphTypeDescriptor(prop.type);
   const varName = toPeopleFieldVarName(prop.name, usedVarNames);
+  const typeCheck = descriptor.typeCheck.replaceAll("value", varName);
   return {
     name: prop.name,
     varName,
     tsType: descriptor.tsType,
     optional: prop.nullable !== false,
     isCollection: descriptor.isCollection,
-    typeCheck: descriptor.typeCheck,
+    typeCheck,
     expected: descriptor.expected,
     elementTypeCheck: descriptor.elementTypeCheck,
     elementExpected: descriptor.elementExpected,
@@ -1589,6 +1645,14 @@ type ScalarTypeDescriptor = {
   expected: string;
   check: (varName: string) => string;
 };
+
+const GRAPH_STRING_TYPES = new Set<string>([
+  "graph.emailType",
+  "graph.phoneType",
+  "graph.skillProficiencyLevel",
+  "graph.personAnnualEventType",
+  "graph.itemBody",
+]);
 
 function parseGraphTypeDescriptor(typeName: string): GraphTypeDescriptor {
   const collectionMatch = /^Collection\((.+)\)$/.exec(typeName);
@@ -1613,6 +1677,13 @@ function parseGraphTypeDescriptor(typeName: string): GraphTypeDescriptor {
 }
 
 function getScalarDescriptor(typeName: string): ScalarTypeDescriptor {
+  if (GRAPH_STRING_TYPES.has(typeName)) {
+    return {
+      tsType: "string",
+      expected: "a string",
+      check: (varName) => `typeof ${varName} === "string"`,
+    };
+  }
   switch (typeName) {
     case "Edm.String":
     case "Edm.Date":
@@ -1725,6 +1796,9 @@ async function writeGeneratedDotnet(
       properties,
     };
   });
+  const peopleProfileTypeByName = new Map(
+    peopleProfileTypes.map((type) => [type.name, type])
+  );
   const itemTypeName = toCsIdentifier(ir.item.typeName);
   const properties = ir.properties.map((p) => {
     const parseFn = toCsParseFunction(p.type);
@@ -1739,6 +1813,15 @@ async function writeGeneratedDotnet(
             path: field.path,
             source: field.source,
           })),
+        }
+      : null;
+    const personEntityType = personEntity ? peopleProfileTypeByName.get(personEntity.entity) : null;
+    const personEntityTypeInfo = personEntityType
+      ? {
+          typeName: personEntityType.csName,
+          properties: new Map(
+            personEntityType.properties.map((prop) => [prop.name, { csName: prop.csName, csType: prop.csType }])
+          ),
         }
       : null;
     const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
@@ -1763,13 +1846,13 @@ async function writeGeneratedDotnet(
             return csStringConstraints.hasAny
               ? `Validation.ValidateStringCollection(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
               : base;
-          })
+          }, personEntityTypeInfo)
         : buildCsPersonEntityExpression(personEntity.fields, (headersLiteral) => {
             const base = `RowParser.ParseString(row, ${headersLiteral})`;
             return csStringConstraints.hasAny
               ? `Validation.ValidateString(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
               : base;
-          })
+          }, personEntityTypeInfo)
       : `${parseFn}(row, ${csvHeadersLiteral})`;
 
     const validationMetadata = {

@@ -17,6 +17,9 @@ import {
   validateString,
   validateStringCollection
 } from "../core/validation.js";
+<% if (peopleEntityTypes && peopleEntityTypes.length > 0) { -%>
+import type { <%= peopleEntityTypes.join(", ") %> } from "../core/people.js";
+<% } -%>
 <% if (usesPrincipal) { -%>
 import type { Principal } from "../core/principal.js";
 <% } -%>

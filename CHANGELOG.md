@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - People connector runtime helpers now enforce JSON-encoded payloads for people labels (TS + .NET).
 - People label registry snapshot and validation tests.
+### Changed
+- People entity transforms now build typed payload objects before JSON serialization (TS + .NET).
+- .NET people entity serialization now omits null values.
+- .NET people payload types now use JsonIgnore attributes to omit nulls (instead of serializer options).
+- TS principal cleanup helpers now live in core/principal.
+### Fixed
+- People label validators now check the correct field values in TS helpers.
+- People profile graph enum/body types now map to string in TS helpers to avoid invalid type mismatches.
+- Examples report script now fails steps that log error markers.
 
 ## [1.0.25] - 2026-01-21
 

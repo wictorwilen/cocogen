@@ -45,11 +45,13 @@ model PersonProfile {
   @coco.description("Email addresses associated with this person.")
     @example(#["alex@contoso.com", "alex.wilber@contoso.com"])
   @coco.source("email", "address")
+  @coco.source("email type", "type")
   emails: string[];
 
   @coco.label("personPhones")
   @coco.description("Phone numbers associated with this person.")
   @coco.source("phone", "number")
+  @coco.source("phone type", "type")
   phones: string[];
 
   @coco.label("personNote")

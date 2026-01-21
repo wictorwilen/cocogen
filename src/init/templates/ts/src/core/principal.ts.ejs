@@ -12,3 +12,19 @@ export type Principal = {
   tenantId?: string;
   [key: string]: string | undefined;
 };
+
+export const cleanPrincipal = (
+  value: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null | undefined => {
+  if (!value) return value;
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== null && v !== undefined));
+};
+
+export const cleanPrincipalCollection = (
+  values: Array<Record<string, unknown>> | null | undefined
+): Array<Record<string, unknown>> | null | undefined => {
+  if (!values) return values;
+  return values
+    .filter((value): value is Record<string, unknown> => Boolean(value))
+    .map((value) => cleanPrincipal(value) ?? value);
+};
