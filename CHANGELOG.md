@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Principal model now lives in generated core helpers (TS + .NET) for easier SDK migration.
+- .NET principal serialization now uses a Kiota `IParsable` implementation with updated principal fields.
+- Principal field mappings aligned with draft Graph docs (`externalName`, `externalId`, `entraDisplayName`, `entraId`, `email`, `upn`, `tenantId`).
+
+### Fixed
+- Principal values now omit null fields in TS payloads and .NET serialization.
+- PrincipalCollection now emits `Collection(microsoft.graph.externalConnectors.principal)` in `@odata.type`.
+- Sample CSV generation uses email values for principal `upn`/`userPrincipalName` sources.
+
 ## [1.0.21] - 2026-01-21
 
 ## [1.0.20] - 2026-01-21
