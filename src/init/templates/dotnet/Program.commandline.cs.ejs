@@ -90,11 +90,6 @@ string ProfileSourcePriority()
 /// </summary>
 TokenCredential CreateCredential()
 {
-    var managedIdentityClientId = configuration["AzureAd:ManagedIdentityClientId"];
-    TokenCredential managedIdentity = string.IsNullOrWhiteSpace(managedIdentityClientId)
-        ? new ManagedIdentityCredential()
-        : new ManagedIdentityCredential(managedIdentityClientId);
-
     var tenantId = configuration["AzureAd:TenantId"];
     var clientId = configuration["AzureAd:ClientId"];
     var clientSecret = configuration["AzureAd:ClientSecret"];
@@ -103,7 +98,10 @@ TokenCredential CreateCredential()
         && string.IsNullOrWhiteSpace(clientId)
         && string.IsNullOrWhiteSpace(clientSecret))
     {
-        return managedIdentity;
+        var managedIdentityClientId = configuration["AzureAd:ManagedIdentityClientId"];
+        return string.IsNullOrWhiteSpace(managedIdentityClientId)
+            ? new ManagedIdentityCredential()
+            : new ManagedIdentityCredential(managedIdentityClientId);
     }
 
     if (string.IsNullOrWhiteSpace(tenantId)
@@ -115,8 +113,7 @@ TokenCredential CreateCredential()
         );
     }
 
-    var clientSecretCredential = new ClientSecretCredential(tenantId, clientId, clientSecret);
-    return new ChainedTokenCredential(managedIdentity, clientSecretCredential);
+    return new ClientSecretCredential(tenantId, clientId, clientSecret);
 }
 
 /// <summary>

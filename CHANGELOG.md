@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- .NET CLI now uses client secret credentials directly when configured (avoids managed identity failures).
+- TS CLI now uses client secret credentials directly when configured (avoids managed identity failures).
+
 ## [1.0.19] - 2026-01-21
 
 ### Fixed
