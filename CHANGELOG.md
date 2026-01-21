@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- .NET core ingestion now uses generic payload adapters to avoid coupling core helpers to concrete schema models.
+- TS datasource contracts now use generics to avoid coupling shared helpers to concrete schema models.
+
 ## [1.0.22] - 2026-01-21
 
 ### Changed

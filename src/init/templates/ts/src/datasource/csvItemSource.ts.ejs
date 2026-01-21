@@ -11,7 +11,7 @@ import { fromRow } from "../<%= schemaFolderName %>/fromRow.js";
 /**
  * CSV-based datasource (default). Replace with your own ItemSource as needed.
  */
-export class CsvItemSource implements ItemSource {
+export class CsvItemSource implements ItemSource<<%= itemTypeName %>> {
   constructor(private readonly filePath: string) {}
 
   /**

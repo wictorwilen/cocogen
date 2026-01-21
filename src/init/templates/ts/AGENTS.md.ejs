@@ -16,5 +16,5 @@ Only `src/<%= schemaFolderName %>/**` is overwritten by `cocogen update`.
 Edit `src/<%= schemaFolderName %>/propertyTransform.ts` (safe file). The generated base lives in `src/<%= schemaFolderName %>/propertyTransformBase.ts`.
 
 ## Switch datasource / backend
-1) Implement `ItemSource` in `src/datasource`.
+1) Implement `ItemSource<<%= itemTypeName %>>` in `src/datasource`.
 2) Update `src/cli.ts` to use your source instead of `CsvItemSource`.

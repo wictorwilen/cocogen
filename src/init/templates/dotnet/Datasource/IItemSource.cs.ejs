@@ -1,18 +1,16 @@
 // Datasource contract for producing items to ingest.
 using System.Collections.Generic;
 
-using <%= schemaNamespace %>;
-
 namespace <%= namespaceName %>.Datasource;
 
 /// <summary>
 /// Contract for any datasource that yields items for ingestion.
 /// Implement this interface to swap the default datasource for an API, database, or other system.
 /// </summary>
-public interface IItemSource
+public interface IItemSource<TItem>
 {
     /// <summary>
     /// Stream items asynchronously for ingestion.
     /// </summary>
-    IAsyncEnumerable<<%= itemTypeName %>> GetItemsAsync(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<TItem> GetItemsAsync(CancellationToken cancellationToken = default);
 }

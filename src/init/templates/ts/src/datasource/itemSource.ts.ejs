@@ -1,15 +1,10 @@
 /**
- * Datasource contract for producing items to ingest.
- */
-import type { <%= itemTypeName %> } from "../<%= schemaFolderName %>/model.js";
-
-/**
  * Contract for any datasource that yields items for ingestion.
  * Implement this interface to swap the default datasource for an API, database, or other system.
  */
-export interface ItemSource {
+export interface ItemSource<TItem> {
   /**
    * Return items as an async iterable (streaming preferred).
    */
-  getItems(): AsyncIterable<<%= itemTypeName %>>;
+  getItems(): AsyncIterable<TItem>;
 }

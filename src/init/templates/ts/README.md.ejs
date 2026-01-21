@@ -49,7 +49,7 @@ Use `npm run ingest --` with:
 Note: `--dry-run` does not require CONNECTION_ID, but you still need it for real ingestion.
 
 ## Switching from CSV to another datasource
-1) Implement `ItemSource` in `src/datasource`.
+1) Implement `ItemSource<<%= itemTypeName %>>` in `src/datasource`.
 2) If your source yields raw records, map them to `<%= itemTypeName %>` using `fromRow`-style logic.
 3) Update `src/cli.ts` to instantiate your new source instead of `CsvItemSource`.
 

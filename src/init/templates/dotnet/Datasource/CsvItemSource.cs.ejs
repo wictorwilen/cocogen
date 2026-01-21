@@ -11,7 +11,7 @@ namespace <%= namespaceName %>.Datasource;
 /// <summary>
 /// CSV-based datasource (default). Replace with your own IItemSource as needed.
 /// </summary>
-public sealed class CsvItemSource : IItemSource
+public sealed class CsvItemSource : IItemSource<<%= itemTypeName %>>
 {
     private readonly string _csvPath;
 

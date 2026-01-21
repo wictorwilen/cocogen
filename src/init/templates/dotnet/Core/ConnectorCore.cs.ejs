@@ -24,10 +24,11 @@ namespace <%= namespaceName %>.Core;
 /// <summary>
 /// Reusable connector core for provisioning, ingestion, and deletion.
 /// </summary>
-public sealed class ConnectorCore
+public sealed class ConnectorCore<TItem>
 {
     private readonly GraphServiceClient? _graph;
     private readonly TokenCredential? _credential;
+    private readonly IItemPayload<TItem> _itemPayload;
     private readonly string _connectionId;
     private readonly string _connectionName;
     private readonly string _connectionDescription;
@@ -39,6 +40,7 @@ public sealed class ConnectorCore
     public ConnectorCore(
         GraphServiceClient? graph,
         TokenCredential? credential,
+        IItemPayload<TItem> itemPayload,
         string connectionId,
         string connectionName,
         string connectionDescription,
@@ -49,6 +51,7 @@ public sealed class ConnectorCore
     {
         _graph = graph;
         _credential = credential;
+        _itemPayload = itemPayload;
         _connectionId = connectionId;
         _connectionName = connectionName;
         _connectionDescription = connectionDescription;
@@ -112,12 +115,12 @@ public sealed class ConnectorCore
     /// <summary>
     /// Upsert a single item into the external connection.
     /// </summary>
-    public async Task PutItemAsync(<%= itemTypeName %> item, bool verbose)
+    public async Task PutItemAsync(TItem item, bool verbose)
     {
         EnsureGraph();
 
-        var itemId = ItemPayload.GetItemId(item);
-        var externalItem = ItemPayload.ToExternalItem(item);
+        var itemId = _itemPayload.GetItemId(item);
+        var externalItem = _itemPayload.ToExternalItem(item);
         externalItem.Id = itemId;
         if (externalItem.Content == null)
         {
@@ -170,7 +173,7 @@ public sealed class ConnectorCore
     /// <summary>
     /// Ingest items from a datasource.
     /// </summary>
-    public async Task IngestAsync(IItemSource source, bool dryRun, int? limit, bool verbose, bool failFast)
+    public async Task IngestAsync(IItemSource<TItem> source, bool dryRun, int? limit, bool verbose, bool failFast)
     {
         var count = 0;
         var successCount = 0;
@@ -182,7 +185,7 @@ public sealed class ConnectorCore
 
             if (!dryRun)
             {
-                var itemId = ItemPayload.GetItemId(item);
+                var itemId = _itemPayload.GetItemId(item);
                 Console.WriteLine($"info: ingesting item {count + 1} (id={itemId})");
                 try
                 {
@@ -202,8 +205,8 @@ public sealed class ConnectorCore
             }
             else if (verbose)
             {
-                var itemId = ItemPayload.GetItemId(item);
-                Console.WriteLine($"verbose: DRY RUN item {count + 1} (id={itemId}) payload " + JsonSerializer.Serialize(ItemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
+                var itemId = _itemPayload.GetItemId(item);
+                Console.WriteLine($"verbose: DRY RUN item {count + 1} (id={itemId}) payload " + JsonSerializer.Serialize(_itemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
             }
 
             count++;

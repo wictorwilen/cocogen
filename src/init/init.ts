@@ -1809,6 +1809,15 @@ async function writeGeneratedDotnet(
   );
 
   await writeFile(
+    path.join(outDir, "Core", "IItemPayload.cs"),
+    await renderTemplate("dotnet/Core/IItemPayload.cs.ejs", {
+      namespaceName,
+      graphApiVersion: ir.connection.graphApiVersion,
+    }),
+    "utf8"
+  );
+
+  await writeFile(
     path.join(outDir, "Core", "Validation.cs"),
     await renderTemplate("dotnet/Core/Validation.cs.ejs", {
       namespaceName,

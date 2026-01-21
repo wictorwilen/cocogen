@@ -59,3 +59,13 @@ public static class ItemPayload
         return externalItem;
     }
 }
+
+/// <summary>
+/// Adapter for consuming ItemPayload through core abstractions.
+/// </summary>
+public sealed class ItemPayloadAdapter : IItemPayload<<%= itemTypeName %>>
+{
+    public string GetItemId(<%= itemTypeName %> item) => ItemPayload.GetItemId(item);
+
+    public ExternalItem ToExternalItem(<%= itemTypeName %> item) => ItemPayload.ToExternalItem(item);
+}
