@@ -318,12 +318,12 @@ Type conversion rules (generated code):
 - `string`: pass through.
 - `int64`, `double`, `boolean`, `dateTime`: parse from string with clear error messages (row/column context).
 - `...Collection`: accept either a JSON array string (preferred) or a delimiter-split string (semicolon-only).
-- `principal`: emit a typed object compatible with Microsoft Graph `externalConnectors.principal` (`{ "@odata.type": "#microsoft.graph.externalConnectors.principal", id?: string, type?: string, displayName?: string, userPrincipalName?: string, tenantId?: string, ... }`).
-  - Use `@coco.source(..., to)` to map CSV headers to principal properties (`userPrincipalName`, `tenantId`, `id`, `type`, `displayName`, or other supported fields).
+- `principal`: emit a typed object compatible with Microsoft Graph `externalConnectors.principal` (`{ "@odata.type": "microsoft.graph.externalConnectors.principal", externalName?: string, externalId?: string, entraDisplayName?: string, entraId?: string, email?: string, upn?: string, tenantId?: string, ... }`).
+  - Use `@coco.source(..., to)` to map CSV headers to principal properties (`upn`, `email`, `externalName`, `externalId`, `entraDisplayName`, `entraId`, `tenantId`, or other supported fields).
   - If no explicit `to` mapping exists, use the first CSV header as `userPrincipalName`.
   - Validation should ensure this property is *not* marked `searchable`.
 - `principalCollection`: emit an array of `externalConnectors.principal` objects.
-  - Use `@coco.source(..., to)` to map CSV headers to principal properties (for example, `userPrincipalName`, `tenantId`).
+  - Use `@coco.source(..., to)` to map CSV headers to principal properties (for example, `upn`, `tenantId`).
   - When multiple values are provided (semicolon-delimited), align values by index to build the collection.
   - Validation should ensure this property is *not* marked `searchable`.
 

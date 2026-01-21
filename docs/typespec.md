@@ -259,7 +259,7 @@ Maps a CSV header to a destination property or people-entity field.
 Notes:
 - For people entity mappings, `to` is recommended and should be the entity JSON path. If you omit it, cocogen will skip defaults and you must build JSON yourself in generated transforms/overrides.
 - For non-people connectors, omit `to` (equivalent to `@coco.source("header")`).
-- For `coco.Principal` and `coco.Principal[]`, use `to` to map CSV headers to principal properties (for example `@coco.source("manager", "userPrincipalName")`).
+- For `coco.Principal` and `coco.Principal[]`, use `to` to map CSV headers to principal properties (for example `@coco.source("manager", "upn")`).
 - For people connectors, any property with a people label should define at least one `@coco.source(..., to)` mapping; otherwise validation warns and you must implement the mapping manually.
 
 ### People entity fields with `@coco.source(..., to)`

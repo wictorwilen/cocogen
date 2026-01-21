@@ -745,7 +745,8 @@ function buildPrincipalFieldEntries(
   if (fields && fields.length > 0) {
     return fields
       .map((field) => {
-        const key = field.path.split(".").pop() ?? field.path;
+        const rawKey = field.path.split(".").pop() ?? field.path;
+        const key = rawKey === "userPrincipalName" ? "upn" : rawKey;
         return {
           key,
           headersLiteral: JSON.stringify(field.source.csvHeaders),
@@ -757,7 +758,7 @@ function buildPrincipalFieldEntries(
   if (fallbackHeaders.length > 0) {
     return [
       {
-        key: "userPrincipalName",
+        key: "upn",
         headersLiteral: JSON.stringify([fallbackHeaders[0]!]),
       },
     ];
@@ -774,7 +775,7 @@ function buildTsPrincipalExpression(
     (entry) => `  ${JSON.stringify(entry.key)}: parseString(readSourceValue(row, ${entry.headersLiteral}))`
   );
 
-  return `({\n  "@odata.type": "#microsoft.graph.externalConnectors.principal"${entries.length ? ",\n" + entries.join(",\n") : ""}\n})`;
+  return `({\n  "@odata.type": "microsoft.graph.externalConnectors.principal"${entries.length ? ",\n" + entries.join(",\n") : ""}\n})`;
 }
 
 function buildCsPrincipalExpression(
@@ -783,11 +784,14 @@ function buildCsPrincipalExpression(
 ): string {
   const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
   const knownMap = new Map<string, string>([
-    ["userPrincipalName", "UserPrincipalName"],
+    ["upn", "Upn"],
+    ["userPrincipalName", "Upn"],
     ["tenantId", "TenantId"],
-    ["id", "Id"],
-    ["type", "Type"],
-    ["displayName", "DisplayName"],
+    ["externalName", "ExternalName"],
+    ["externalId", "ExternalId"],
+    ["entraDisplayName", "EntraDisplayName"],
+    ["entraId", "EntraId"],
+    ["email", "Email"],
   ]);
 
   const knownAssignments: string[] = [];
@@ -815,7 +819,7 @@ function buildCsPrincipalExpression(
   return [
     "new Principal",
     "{",
-    "    OdataType = \"#microsoft.graph.externalConnectors.principal\",",
+    "    OdataType = \"microsoft.graph.externalConnectors.principal\",",
     ...knownAssignments,
     ...additionalDataBlock,
     "}"
@@ -840,7 +844,7 @@ function buildTsPrincipalCollectionExpression(
     .map((entry, index) => `      ${JSON.stringify(entry.key)}: getValue(field${index}, index)`) 
     .join(",\n");
 
-  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return "";\n    if (values.length === 1) return values[0] ?? "";\n    return values[index] ?? "";\n  };\n  const results: Principal[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push({\n      "@odata.type": "#microsoft.graph.externalConnectors.principal",\n${fieldsBlock}\n    });\n  }\n  return results;\n})()`;
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return "";\n    if (values.length === 1) return values[0] ?? "";\n    return values[index] ?? "";\n  };\n  const results: Principal[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push({\n      "@odata.type": "microsoft.graph.externalConnectors.principal",\n${fieldsBlock}\n    });\n  }\n  return results;\n})()`;
 }
 
 function buildCsPrincipalCollectionExpression(
@@ -856,11 +860,14 @@ function buildCsPrincipalCollectionExpression(
   });
 
   const knownMap = new Map<string, string>([
-    ["userPrincipalName", "UserPrincipalName"],
+    ["upn", "Upn"],
+    ["userPrincipalName", "Upn"],
     ["tenantId", "TenantId"],
-    ["id", "Id"],
-    ["type", "Type"],
-    ["displayName", "DisplayName"],
+    ["externalName", "ExternalName"],
+    ["externalId", "ExternalId"],
+    ["entraDisplayName", "EntraDisplayName"],
+    ["entraId", "EntraId"],
+    ["email", "Email"],
   ]);
 
   const knownAssignments = entries
@@ -909,7 +916,7 @@ function buildCsPrincipalCollectionExpression(
     "        {",
     "            var principal = new Principal",
     "            {",
-    "                OdataType = \"#microsoft.graph.externalConnectors.principal\",",
+    "                OdataType = \"microsoft.graph.externalConnectors.principal\",",
     ...knownAssignments,
     ...additionalDataBlock,
     "            };",
@@ -1246,7 +1253,10 @@ function buildSampleCsv(ir: ConnectorIr): string {
       for (const field of prop.personEntity.fields) {
         for (const header of field.source.csvHeaders) {
           if (valueByHeader.has(header)) continue;
-          if ((prop.type === "principal" || prop.type === "principalCollection") && field.path === "userPrincipalName") {
+          if (
+            (prop.type === "principal" || prop.type === "principalCollection") &&
+            (field.path === "upn" || field.path === "userPrincipalName")
+          ) {
             valueByHeader.set(header, sampleValueForType(prop.type));
             continue;
           }

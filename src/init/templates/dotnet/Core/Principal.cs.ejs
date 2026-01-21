@@ -1,35 +1,50 @@
 <% if (graphApiVersion === 'beta') { -%>
+using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
+using Microsoft.Kiota.Abstractions.Serialization;
 
 namespace <%= namespaceName %>.Core;
 
-public sealed class Principal
+public sealed class Principal : IAdditionalDataHolder, IParsable
 {
-    [JsonPropertyName("@odata.type")]
-    public string? OdataType { get; set; } = "#microsoft.graph.externalConnectors.principal";
-
-    [JsonPropertyName("id")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Id { get; set; }
-
-    [JsonPropertyName("type")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Type { get; set; }
-
-    [JsonPropertyName("displayName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? DisplayName { get; set; }
-
-    [JsonPropertyName("userPrincipalName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? UserPrincipalName { get; set; }
-
-    [JsonPropertyName("tenantId")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OdataType { get; set; } = "microsoft.graph.externalConnectors.principal";
+    public string? ExternalName { get; set; }
+    public string? ExternalId { get; set; }
+    public string? EntraDisplayName { get; set; }
+    public string? EntraId { get; set; }
+    public string? Email { get; set; }
+    public string? Upn { get; set; }
     public string? TenantId { get; set; }
+    public IDictionary<string, object> AdditionalData { get; set; } = new Dictionary<string, object>();
 
-    [JsonExtensionData]
-    public Dictionary<string, object?> AdditionalData { get; set; } = new();
+    public static Principal CreateFromDiscriminatorValue(IParseNode parseNode) => new();
+
+    public IDictionary<string, Action<IParseNode>> GetFieldDeserializers()
+    {
+        return new Dictionary<string, Action<IParseNode>>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "@odata.type", n => OdataType = n.GetStringValue() },
+            { "externalName", n => ExternalName = n.GetStringValue() },
+            { "externalId", n => ExternalId = n.GetStringValue() },
+            { "entraDisplayName", n => EntraDisplayName = n.GetStringValue() },
+            { "entraId", n => EntraId = n.GetStringValue() },
+            { "email", n => Email = n.GetStringValue() },
+            { "upn", n => Upn = n.GetStringValue() },
+            { "tenantId", n => TenantId = n.GetStringValue() },
+        };
+    }
+
+    public void Serialize(ISerializationWriter writer)
+    {
+        writer.WriteStringValue("@odata.type", OdataType);
+        writer.WriteStringValue("externalName", ExternalName);
+        writer.WriteStringValue("externalId", ExternalId);
+        writer.WriteStringValue("entraDisplayName", EntraDisplayName);
+        writer.WriteStringValue("entraId", EntraId);
+        writer.WriteStringValue("email", Email);
+        writer.WriteStringValue("upn", Upn);
+        writer.WriteStringValue("tenantId", TenantId);
+        writer.WriteAdditionalData(AdditionalData);
+    }
 }
 <% } -%>

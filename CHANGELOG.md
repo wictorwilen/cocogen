@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.20] - 2026-01-21
 
 ### Changed
-- Principal properties now emit a typed principal object with `@odata.type`, `userPrincipalName`, and `tenantId` mappings.
+- Principal properties now emit a typed principal object with `@odata.type` and updated Graph fields.
 - Added support for `coco.Principal[]` mapping to Graph `principalCollection` (preview).
+- Updated principal field mappings to match Graph docs (`externalName`, `externalId`, `entraDisplayName`, `entraId`, `email`, `upn`, `tenantId`).
 
 ### Fixed
 - .NET CLI now uses client secret credentials directly when configured (avoids managed identity failures).

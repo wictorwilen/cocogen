@@ -22,17 +22,23 @@ const principalSchema = `
     @coco.id
     id: string;
 
-    @coco.source("ownerUpn", "userPrincipalName")
-    @coco.source("ownerTid", "tenantId")
-    @coco.source("ownerId", "id")
-    @coco.source("ownerType", "type")
-    @coco.source("ownerDisplay", "displayName")
+    @coco.source("ownerUpn", "upn")
+    @coco.source("ownerTenant", "tenantId")
+    @coco.source("ownerExternalName", "externalName")
+    @coco.source("ownerExternalId", "externalId")
+    @coco.source("ownerEntraName", "entraDisplayName")
+    @coco.source("ownerEntraId", "entraId")
+    @coco.source("ownerEmail", "email")
     @coco.source("ownerCustom", "customField")
     owner: coco.Principal;
 
-    @coco.source("approverUpn", "userPrincipalName")
-    @coco.source("approverTid", "tenantId")
-    @coco.source("approverDisplay", "displayName")
+    @coco.source("approverUpn", "upn")
+    @coco.source("approverTenant", "tenantId")
+    @coco.source("approverExternalName", "externalName")
+    @coco.source("approverExternalId", "externalId")
+    @coco.source("approverEntraName", "entraDisplayName")
+    @coco.source("approverEntraId", "entraId")
+    @coco.source("approverEmail", "email")
     @coco.source("approverCustom", "customField")
     approvers: coco.Principal[];
 
@@ -61,9 +67,13 @@ describe("cocogen generate principal outputs (e2e)", () => {
     const schemaFolder = "PrincipalTest";
     const principalCore = await readFile(path.join(outDir, "src", "core", "principal.ts"), "utf8");
     expect(principalCore).toMatch(/export type Principal/);
-    expect(principalCore).toMatch(/userPrincipalName/);
+    expect(principalCore).toMatch(/externalName/);
+    expect(principalCore).toMatch(/externalId/);
+    expect(principalCore).toMatch(/entraDisplayName/);
+    expect(principalCore).toMatch(/entraId/);
+    expect(principalCore).toMatch(/email/);
+    expect(principalCore).toMatch(/upn/);
     expect(principalCore).toMatch(/tenantId/);
-    expect(principalCore).toMatch(/displayName/);
 
     const model = await readFile(path.join(outDir, "src", schemaFolder, "model.ts"), "utf8");
     expect(model).toMatch(/from "\.\.\/core\/principal\.js"/);
@@ -73,9 +83,13 @@ describe("cocogen generate principal outputs (e2e)", () => {
       path.join(outDir, "src", schemaFolder, "propertyTransformBase.ts"),
       "utf8"
     );
-    expect(transforms).toMatch(/"userPrincipalName"/);
+    expect(transforms).toMatch(/"upn"/);
     expect(transforms).toMatch(/"tenantId"/);
-    expect(transforms).toMatch(/"displayName"/);
+    expect(transforms).toMatch(/"externalName"/);
+    expect(transforms).toMatch(/"externalId"/);
+    expect(transforms).toMatch(/"entraDisplayName"/);
+    expect(transforms).toMatch(/"entraId"/);
+    expect(transforms).toMatch(/"email"/);
     expect(transforms).toMatch(/"customField"/);
     expect(transforms).toMatch(/"@odata.type"/);
     expect(transforms).toMatch(/const results: Principal\[\] = \[\]/);
@@ -111,18 +125,21 @@ describe("cocogen generate principal outputs (e2e)", () => {
     const schemaFolder = "PrincipalTest";
     const principalCore = await readFile(path.join(outDir, "Core", "Principal.cs"), "utf8");
     expect(principalCore).toMatch(/namespace .*\.Core;/);
-    expect(principalCore).toMatch(/JsonExtensionData/);
+    expect(principalCore).toMatch(/IParsable/);
+    expect(principalCore).toMatch(/WriteAdditionalData/);
 
     const model = await readFile(path.join(outDir, schemaFolder, "Model.cs"), "utf8");
     expect(model).toMatch(/using .*\.Core;/);
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toMatch(/new Principal/);
-    expect(transforms).toMatch(/UserPrincipalName =/);
+    expect(transforms).toMatch(/Upn =/);
     expect(transforms).toMatch(/TenantId =/);
-    expect(transforms).toMatch(/Id =/);
-    expect(transforms).toMatch(/Type =/);
-    expect(transforms).toMatch(/DisplayName =/);
+    expect(transforms).toMatch(/ExternalName =/);
+    expect(transforms).toMatch(/ExternalId =/);
+    expect(transforms).toMatch(/EntraDisplayName =/);
+    expect(transforms).toMatch(/EntraId =/);
+    expect(transforms).toMatch(/Email =/);
     expect(transforms).toMatch(/AdditionalData/);
     expect(transforms).toMatch(/\["customField"\]/);
   });

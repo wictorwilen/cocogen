@@ -19,7 +19,9 @@ const cleanPrincipalCollection = (
   values: Array<Record<string, unknown>> | null | undefined
 ): Array<Record<string, unknown>> | null | undefined => {
   if (!values) return values;
-  return values.map((value) => cleanPrincipal(value));
+  return values
+    .filter((value): value is Record<string, unknown> => Boolean(value))
+    .map((value) => cleanPrincipal(value) ?? value);
 };
 <% } -%>
 

@@ -513,7 +513,7 @@ model Item {
     expect(values[contactsIndex]).toContain("@contoso.com");
   });
 
-  test("initDotnetProject omits null principal fields in JSON", async () => {
+  test("initDotnetProject emits Kiota principal serializer", async () => {
     const tspPath = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
       @coco.item
@@ -532,7 +532,8 @@ model Item {
     await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
     const principal = await readFile(path.join(outDir, "Core", "Principal.cs"), "utf8");
-    expect(principal).toContain("JsonIgnoreCondition.WhenWritingNull");
+    expect(principal).toContain("IParsable");
+    expect(principal).toContain("WriteAdditionalData");
   });
 
   test("initTsProject strips null principal fields in payload", async () => {
