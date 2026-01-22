@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.27] - 2026-01-22
+
 ### Added
 - Graph profile metadata now includes ItemFacet and derived base types for people connectors.
 - Read-only enforcement for ItemFacet server-generated fields in TS and .NET people payloads.
@@ -117,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.27]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.27
 [1.0.26]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.26
 [1.0.25]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.25
 [1.0.24]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.24
