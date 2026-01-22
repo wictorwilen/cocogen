@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.30] - 2026-01-22
+
 ## [1.0.29] - 2026-01-22
 
 ### Added
@@ -142,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.30]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.30
 [1.0.29]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.29
 [1.0.28]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.28
 [1.0.27]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.27
