@@ -251,6 +251,24 @@ describe("loadIrFromTypeSpec", () => {
     expect(projectProp?.source.jsonPath).toBe("$.projects[0].name");
   });
 
+  test("errors on invalid jsonpath syntax", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        @coco.source("id")
+        id: string;
+
+        @coco.source("$.details[")
+        role: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "json" }))
+      .rejects
+      .toThrow(/invalid jsonpath/i);
+  });
+
   test("ignores deprecated properties", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

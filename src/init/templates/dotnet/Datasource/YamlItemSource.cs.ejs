@@ -1,8 +1,10 @@
 // Default YAML datasource implementation.
+using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 using <%= schemaNamespace %>;
 using ItemModel = <%= schemaNamespace %>.<%= itemTypeName %>;
@@ -24,20 +26,23 @@ public sealed class YamlItemSource : IItemSource<ItemModel>
     public async IAsyncEnumerable<ItemModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var raw = await File.ReadAllTextAsync(_path, cancellationToken);
-        var deserializer = new DeserializerBuilder().Build();
+        var deserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .Build();
         var yamlObject = deserializer.Deserialize<object>(raw);
-        var json = JsonSerializer.Serialize(yamlObject);
-        var root = JsonNode.Parse(json) ?? throw new InvalidOperationException("YAML input could not be parsed.");
+        var normalized = NormalizeYamlValue(yamlObject);
+        var root = JsonNode.Parse(JsonSerializer.Serialize(normalized))
+            ?? throw new InvalidOperationException("YAML input could not be parsed.");
         var items = ResolveItems(root);
 
         foreach (var item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (item is not JsonObject)
+            if (item is not JsonObject obj)
             {
                 throw new InvalidOperationException("YAML input items must be objects.");
             }
-            yield return FromRow.Parse(item);
+            yield return FromRow.Parse(obj);
         }
     }
 
@@ -54,5 +59,30 @@ public sealed class YamlItemSource : IItemSource<ItemModel>
         }
 
         throw new InvalidOperationException("YAML input must be an array or an object with an 'items' array.");
+    }
+
+    private static object? NormalizeYamlValue(object? value)
+    {
+        if (value is null) return null;
+        if (value is IDictionary<object, object> dict)
+        {
+            var output = new Dictionary<string, object?>();
+            foreach (var (key, entry) in dict)
+            {
+                var name = key?.ToString() ?? string.Empty;
+                output[name] = NormalizeYamlValue(entry);
+            }
+            return output;
+        }
+        if (value is IList list)
+        {
+            var output = new List<object?>();
+            foreach (var entry in list)
+            {
+                output.Add(NormalizeYamlValue(entry));
+            }
+            return output;
+        }
+        return value;
     }
 }

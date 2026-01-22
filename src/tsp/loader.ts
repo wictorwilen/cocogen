@@ -22,6 +22,7 @@ import {
   type Scalar,
   type Type,
 } from "@typespec/compiler";
+import { JSONPath } from "jsonpath-plus";
 
 import type { ConnectorIr, GraphApiVersion, PropertyType, SearchFlags } from "../ir.js";
 import { getPeopleLabelDefinition, type PersonEntityName } from "../people/label-registry.js";
@@ -204,6 +205,51 @@ function normalizeSourceSettings(
     return `$${encoded}`;
   };
 
+  const assertValidJsonPath = (value: string): void => {
+    if (!value || value.trim().length === 0) return;
+    let bracketDepth = 0;
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let escaped = false;
+    for (const char of value) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        continue;
+      }
+      if (char === '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        continue;
+      }
+      if (!inSingleQuote && !inDoubleQuote) {
+        if (char === "[") bracketDepth += 1;
+        if (char === "]") bracketDepth -= 1;
+        if (bracketDepth < 0) {
+          throw new CocogenError(`Invalid JSONPath syntax '${value}'. Unbalanced brackets.`);
+        }
+      }
+    }
+    if (bracketDepth !== 0 || inSingleQuote || inDoubleQuote) {
+      throw new CocogenError(`Invalid JSONPath syntax '${value}'. Unbalanced brackets or quotes.`);
+    }
+    if (/\[\s*\]/u.test(value)) {
+      throw new CocogenError(`Invalid JSONPath syntax '${value}'. Empty bracket expression.`);
+    }
+    try {
+      JSONPath({ path: value, json: {}, wrap: false });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CocogenError(`Invalid JSONPath syntax '${value}'. ${message}`);
+    }
+  };
+
   if (sourcePathSyntax === "jsonpath") {
     if (settings && typeof settings === "object" && "csv" in settings && settings.csv) {
       throw new CocogenError("@coco.source csv settings are not valid for jsonpath input. Use jsonPath or a string path.");
@@ -212,6 +258,7 @@ function normalizeSourceSettings(
     let path = typeof jsonPath === "string" ? jsonPath : "";
     if (!path && !noSource) path = fallbackName;
     const normalized = path ? normalizeJsonPath(path) : "";
+    if (normalized) assertValidJsonPath(normalized);
     return {
       csvHeaders: [],
       jsonPath: normalized,

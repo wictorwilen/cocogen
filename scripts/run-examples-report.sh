@@ -79,6 +79,9 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
     rm -rf "$out_ts" "$out_dotnet"
 
     gen_ts_status="$(run_step "${base}-ts-${input_format}-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_ts" --lang ts --force --data-format "$input_format" "${preview[@]}")"
+    if [[ "$base" == "people-connector-complex" && "$input_format" == "json" ]]; then
+      cp "$EXAMPLES_DIR/people-connector-complex.json" "$out_ts/data.json"
+    fi
     build_ts_status="$(run_step "${base}-ts-${input_format}-install" "$out_ts" npm install --no-audit --no-fund)"
     if [[ "$build_ts_status" == "ok" ]]; then
       build_ts_status="$(run_step "${base}-ts-${input_format}-build" "$out_ts" npm run build)"
@@ -88,6 +91,9 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
     printf "| %s | %s | ts | %s | %s | %s |\n" "$base" "$input_format" "$gen_ts_status" "$build_ts_status" "$dry_ts_status" >> "$REPORT_PATH"
 
     gen_dotnet_status="$(run_step "${base}-dotnet-${input_format}-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force --data-format "$input_format" "${preview[@]}")"
+    if [[ "$base" == "people-connector-complex" && "$input_format" == "json" ]]; then
+      cp "$EXAMPLES_DIR/people-connector-complex.json" "$out_dotnet/data.json"
+    fi
     build_dotnet_status="$(run_step "${base}-dotnet-${input_format}-build" "$out_dotnet" dotnet build)"
     dry_dotnet_status="$(run_step "${base}-dotnet-${input_format}-dry" "$out_dotnet" dotnet run -- ingest --dry-run)"
 

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- JsonPath.Net 2.x handling now returns array matches correctly in .NET JSON/YAML ingestion.
+ - Invalid JSONPath syntax now fails fast during schema loading.
+
+### Changed
+- JSON/YAML collection parsing no longer splits on CSV-style delimiters.
+- Bumped System.CommandLine to 2.0.2 in generated .NET projects.
+- Updated .NET CLI template to use System.CommandLine 2.x APIs.
+
+### Added
+- Tests for JSONPath validation and .NET YAML JsonPath array ingestion.
+### Changed
+- Bumped JsonPath.Net to 2.2.0 in generated .NET projects.
 
 ## [1.0.30] - 2026-01-22
 

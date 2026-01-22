@@ -1470,9 +1470,10 @@ function sampleValueForHeader(header: string, type?: PropertyType): string {
   if (lower.includes("email")) return "user@contoso.com";
   if (lower.includes("url") || lower.includes("website")) return "https://example.com";
   if (lower.includes("phone")) return "+1 555 0100";
-  if (lower.includes("name")) return "Ada Lovelace";
+  if (lower.includes("level")) return "expert;intermediate";
   if (lower.includes("skill")) return "TypeScript;Python";
   if (lower.includes("proficiency")) return "advancedProfessional;expert";
+  if (lower.includes("name")) return "Ada Lovelace";
   if (lower.includes("address")) return "1 Main St";
   if (lower.includes("city")) return "Seattle";
   if (lower.includes("country")) return "US";
@@ -1921,6 +1922,20 @@ function setNestedValue(target: Record<string, unknown>, steps: JsonPathStep[], 
   }
 }
 
+function setNestedObject(target: Record<string, unknown>, segments: string[], value: unknown): void {
+  if (segments.length === 0) return;
+  let cursor: Record<string, unknown> = target;
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    const key = segments[i]!;
+    const existing = cursor[key];
+    if (!existing || typeof existing !== "object" || Array.isArray(existing)) {
+      cursor[key] = {};
+    }
+    cursor = cursor[key] as Record<string, unknown>;
+  }
+  cursor[segments[segments.length - 1]!] = value;
+}
+
 function sampleJsonValueForType(type: PropertyType): unknown {
   switch (type) {
     case "boolean":
@@ -1954,12 +1969,43 @@ function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
 
   for (const prop of ir.properties) {
     if (prop.personEntity) {
+      const arrayGroups = new Map<string, Array<{ key: string; values: string[] }>>();
+
       for (const field of prop.personEntity.fields) {
         const path = field.source.jsonPath ?? field.source.csvHeaders[0] ?? field.path;
+        if (path.includes("[*]")) {
+          const [rootRaw = "", tailRaw = ""] = path.split("[*]");
+          const root = rootRaw.replace(/\.$/, "").replace(/^\$\.?/, "").trim();
+          const key = tailRaw.replace(/^\./, "").trim() || field.path;
+          const sampleValue = sampleValueForHeader(`${root}.${key}`, prop.type);
+          const values = sampleValue.split(";").map((value) => value.trim()).filter(Boolean);
+          const list = arrayGroups.get(root) ?? [];
+          list.push({ key, values: values.length > 0 ? values : [sampleValue] });
+          arrayGroups.set(root, list);
+          continue;
+        }
+
         const steps = jsonPathToSteps(path);
         const header = [...steps].reverse().find((step) => step.type === "prop")?.key ?? field.path;
         const sampleValue = sampleValueForHeader(header, prop.type);
         setNestedValue(item, steps, sampleValue);
+      }
+
+      for (const [root, fields] of arrayGroups) {
+        const lengths = fields.map((field) => field.values.length).filter((len) => len > 0);
+        const maxLen = lengths.length > 0 ? Math.max(...lengths) : 1;
+        const entries = Array.from({ length: maxLen }, (_, index) => {
+          const obj: Record<string, unknown> = {};
+          for (const field of fields) {
+            const value = field.values[index] ?? field.values[0] ?? "sample";
+            obj[field.key] = value;
+          }
+          return obj;
+        });
+        const segments = root.split(".").map((seg) => seg.trim()).filter(Boolean);
+        if (segments.length > 0) {
+          setNestedObject(item, segments, entries);
+        }
       }
       continue;
     }

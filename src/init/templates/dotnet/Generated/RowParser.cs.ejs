@@ -240,9 +240,12 @@ public static class RowParser
             return element.EnumerateArray().Select((entry) => ParseString(entry)).Where((entry) => entry.Length > 0).ToList();
         }
         var v = ParseString(value);
-        return v.Length == 0
-            ? new List<string>()
-            : v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        if (v.Length == 0) return new List<string>();
+    <% if (inputFormat === "csv") { -%>
+        return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+    <% } else { -%>
+        return new List<string> { v };
+    <% } -%>
     }
 
     /// <summary>
@@ -278,9 +281,13 @@ public static class RowParser
         }
         var v = ParseString(value);
         if (v.Length == 0) return new List<long>();
+    <% if (inputFormat === "csv") { -%>
         return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select((x) => long.TryParse(x, out var n) ? n : 0)
             .ToList();
+    <% } else { -%>
+        return long.TryParse(v, out var n) ? new List<long> { n } : new List<long>();
+    <% } -%>
     }
 
     /// <summary>
@@ -316,9 +323,13 @@ public static class RowParser
         }
         var v = ParseString(value);
         if (v.Length == 0) return new List<double>();
+    <% if (inputFormat === "csv") { -%>
         return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select((x) => double.TryParse(x, out var n) ? n : 0)
             .ToList();
+    <% } else { -%>
+        return double.TryParse(v, out var n) ? new List<double> { n } : new List<double>();
+    <% } -%>
     }
 
     /// <summary>
@@ -354,9 +365,13 @@ public static class RowParser
         }
         var v = ParseString(value);
         if (v.Length == 0) return new List<DateTimeOffset>();
+    <% if (inputFormat === "csv") { -%>
         return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select((x) => DateTimeOffset.TryParse(x, out var dt) ? dt : DateTimeOffset.MinValue)
             .ToList();
+    <% } else { -%>
+        return DateTimeOffset.TryParse(v, out var dt) ? new List<DateTimeOffset> { dt } : new List<DateTimeOffset>();
+    <% } -%>
     }
 
 <% if (inputFormat !== "csv") { -%>
@@ -366,7 +381,8 @@ public static class RowParser
         {
             var normalized = NormalizeJsonPath(jsonPath);
             if (string.IsNullOrWhiteSpace(normalized)) return "";
-            var path = JsonPath.Parse(normalized);
+            if (!TryParseJsonPath(normalized, out var path, out var canonical)) return "";
+
             var result = path.Evaluate(node);
             var matches = result.Matches?.ToList() ?? new List<Node>();
             if (matches.Count == 0) return "";
@@ -377,6 +393,17 @@ public static class RowParser
                 if (match?.Value is null)
                 {
                     array.Add((JsonNode?)null);
+                    continue;
+                }
+                if (match.Value is JsonValue jsonValue && jsonValue.TryGetValue<JsonElement>(out var elementValue))
+                {
+                    var parsed = JsonNode.Parse(elementValue.GetRawText());
+                    array.Add(parsed ?? JsonValue.Create(elementValue.GetRawText()));
+                    continue;
+                }
+                if (match.Value is JsonValue jsonScalar)
+                {
+                    array.Add(jsonScalar);
                     continue;
                 }
                 if (match.Value is JsonNode nodeValue)
@@ -401,6 +428,117 @@ public static class RowParser
         if (trimmed.StartsWith("$")) return trimmed;
         if (trimmed.StartsWith("[")) return "$" + trimmed;
         return "$." + trimmed;
+    }
+
+    private static bool TryParseJsonPath(string jsonPath, out JsonPath path, out string canonical)
+    {
+        canonical = "";
+        if (JsonPath.TryParse(jsonPath, out path)) return true;
+
+        if (!TryBuildCanonicalJsonPath(jsonPath, out canonical))
+        {
+            return false;
+        }
+
+        return JsonPath.TryParse(canonical, out path);
+    }
+
+
+    private enum JsonPathStepKind
+    {
+        Property,
+        Index,
+        Wildcard
+    }
+
+    private sealed record JsonPathStep(JsonPathStepKind Kind, string Value, int Index);
+
+    private static bool TryBuildCanonicalJsonPath(string jsonPath, out string canonical)
+    {
+        canonical = "";
+        var trimmed = jsonPath.Trim();
+        if (trimmed.Length == 0) return false;
+        if (trimmed.Contains("..", StringComparison.Ordinal) ||
+            trimmed.Contains("?", StringComparison.Ordinal) ||
+            trimmed.Contains("@", StringComparison.Ordinal) ||
+            trimmed.Contains(":", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var steps = ParseJsonPathSteps(trimmed);
+        if (steps.Count == 0) return false;
+
+        var parts = new List<string> { "$" };
+        foreach (var step in steps)
+        {
+            switch (step.Kind)
+            {
+                case JsonPathStepKind.Property:
+                    parts.Add("['" + step.Value.Replace("'", "\\'", StringComparison.Ordinal) + "']");
+                    break;
+                case JsonPathStepKind.Index:
+                    parts.Add("[" + step.Index.ToString(CultureInfo.InvariantCulture) + "]");
+                    break;
+                case JsonPathStepKind.Wildcard:
+                    parts.Add("[*]");
+                    break;
+            }
+        }
+
+        canonical = string.Concat(parts);
+        return true;
+    }
+
+    private static List<JsonPathStep> ParseJsonPathSteps(string jsonPath)
+    {
+        var trimmed = jsonPath.Trim();
+        if (trimmed.StartsWith("$")) trimmed = trimmed[1..];
+        if (trimmed.StartsWith(".")) trimmed = trimmed[1..];
+
+        var steps = new List<JsonPathStep>();
+        foreach (var segment in trimmed.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (segment.Length == 0) continue;
+            var remaining = segment;
+            var bracketIndex = remaining.IndexOf('[');
+            var prop = bracketIndex >= 0 ? remaining[..bracketIndex] : remaining;
+            if (prop.Length > 0)
+            {
+                steps.Add(new JsonPathStep(JsonPathStepKind.Property, prop, -1));
+            }
+
+            while (bracketIndex >= 0)
+            {
+                var end = remaining.IndexOf(']', bracketIndex + 1);
+                if (end <= bracketIndex) break;
+                var content = remaining[(bracketIndex + 1)..end].Trim();
+                if (content.Length >= 2 &&
+                    ((content.StartsWith("\"") && content.EndsWith("\"")) ||
+                     (content.StartsWith("'") && content.EndsWith("'"))))
+                {
+                    var unquoted = content[1..^1];
+                    if (unquoted == "*")
+                    {
+                        steps.Add(new JsonPathStep(JsonPathStepKind.Wildcard, "", -1));
+                    }
+                    else
+                    {
+                        steps.Add(new JsonPathStep(JsonPathStepKind.Property, unquoted, -1));
+                    }
+                }
+                else if (content == "*")
+                {
+                    steps.Add(new JsonPathStep(JsonPathStepKind.Wildcard, "", -1));
+                }
+                else if (int.TryParse(content, out var index))
+                {
+                    steps.Add(new JsonPathStep(JsonPathStepKind.Index, "", index));
+                }
+                bracketIndex = remaining.IndexOf('[', end + 1);
+            }
+        }
+        return steps;
     }
 <% } -%>
 }
