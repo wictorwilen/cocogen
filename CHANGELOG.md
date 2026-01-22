@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.26] - 2026-01-22
+
 ### Added
 - People connector runtime helpers now enforce JSON-encoded payloads for people labels (TS + .NET).
 - People label registry snapshot and validation tests.
@@ -102,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.26]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.26
 [1.0.25]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.25
 [1.0.24]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.24
 [1.0.22]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.22
