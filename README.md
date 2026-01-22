@@ -32,6 +32,10 @@
 End-user guide:
 - [docs/end-user.md](https://github.com/wictorwilen/cocogen/blob/main/docs/end-user.md)
 
+Tutorials:
+- [Content connector tutorial](https://github.com/wictorwilen/cocogen/blob/main/docs/tutorial-content-connector.md)
+- [People connector tutorial](https://github.com/wictorwilen/cocogen/blob/main/docs/tutorial-people-connector.md)
+
 Agent schema guidance:
 - [docs/schema-assistant.md](https://github.com/wictorwilen/cocogen/blob/main/docs/schema-assistant.md)
 
