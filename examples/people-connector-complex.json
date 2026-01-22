@@ -1,0 +1,43 @@
+[
+  {
+    "profile": {
+      "account": {
+        "upn": "alex@contoso.com"
+      },
+      "name": {
+        "display": "Alex Wilber"
+      },
+      "position": {
+        "detail": {
+          "jobTitle": "Senior Software Engineer",
+          "company": {
+            "displayName": "Contoso"
+          },
+          "employeeId": "E123"
+        }
+      },
+      "department": {
+        "name": "Engineering"
+      }
+    },
+    "contact": {
+      "emails": [
+        {
+          "address": "alex@contoso.com",
+          "type": "work"
+        }
+      ],
+      "phones": [
+        {
+          "number": "+1 555 0100",
+          "type": "work"
+        }
+      ]
+    },
+    "projects": [
+      {
+        "name": "Copilot rollout"
+      }
+    ]
+  }
+]

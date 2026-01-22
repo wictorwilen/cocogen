@@ -143,6 +143,13 @@ function printIssues(list: ValidationIssue[]): void {
   printGroup("warnings", warnings, pc.yellow);
 }
 
+function normalizeInputFormat(raw?: string): "csv" | "json" | "yaml" | "custom" {
+  if (!raw) return "csv";
+  const value = raw.trim().toLowerCase();
+  if (value === "csv" || value === "json" || value === "yaml" || value === "custom") return value;
+  throw new Error("Invalid input format. Expected csv, json, yaml, or custom.");
+}
+
 export async function main(argv: string[]): Promise<void> {
   printBanner();
   await checkForUpdates();
@@ -166,11 +173,12 @@ export async function main(argv: string[]): Promise<void> {
     .command("validate")
     .description("Validate a TypeSpec schema against connector constraints")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
+    .option("--data-format, --input-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--json", "Output validation result as JSON", false)
-    .action(async (options: { tsp: string; json: boolean }) => {
+    .action(async (options: { tsp: string; json: boolean; dataFormat?: string }) => {
       const spinner = shouldUseSpinner() ? ora("Validating TypeSpec...").start() : undefined;
       try {
-        const ir = await loadIrFromTypeSpec(options.tsp);
+        const ir = await loadIrFromTypeSpec(options.tsp, { inputFormat: normalizeInputFormat(options.dataFormat) });
         requirePreviewIfNeeded(ir, program.opts().usePreviewFeatures as boolean);
         const issues = validateIr(ir);
 
@@ -218,11 +226,12 @@ export async function main(argv: string[]): Promise<void> {
     .command("emit")
     .description("Emit cocogen IR as JSON (useful for debugging and CI)")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
+    .option("--data-format, --input-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--out <path>", "Write IR JSON to a file instead of stdout")
-    .action(async (options: { tsp: string; out?: string }) => {
+    .action(async (options: { tsp: string; out?: string; dataFormat?: string }) => {
       const spinner = shouldUseSpinner() ? ora("Compiling TypeSpec...").start() : undefined;
       try {
-        const ir = await loadIrFromTypeSpec(options.tsp);
+        const ir = await loadIrFromTypeSpec(options.tsp, { inputFormat: normalizeInputFormat(options.dataFormat) });
         requirePreviewIfNeeded(ir, program.opts().usePreviewFeatures as boolean);
         const issues = validateIr(ir);
         const errors = issues.filter((i) => i.severity === "error");
@@ -296,13 +305,15 @@ export async function main(argv: string[]): Promise<void> {
     .requiredOption("--out <dir>", "Output directory")
     .option("--lang <lang>", "Target language (ts|dotnet|rest)", "ts")
     .option("--name <name>", "Project name (defaults to folder name)")
+    .option("--data-format, --input-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--force", "Overwrite files in a non-empty output directory", false)
     .action(
-      async (options: { tsp: string; out: string; lang: string; name?: string; force: boolean }) => {
+      async (options: { tsp: string; out: string; lang: string; name?: string; force: boolean; dataFormat?: string }) => {
         const spinner = shouldUseSpinner() ? ora("Generating project...").start() : undefined;
         try {
           const lang = options.lang === "dotnet" ? "dotnet" : options.lang === "rest" ? "rest" : "ts";
           const usePreviewFeatures = program.opts().usePreviewFeatures as boolean;
+          const inputFormat = normalizeInputFormat(options.dataFormat);
           const result =
             lang === "ts"
               ? await initTsProject({
@@ -311,6 +322,7 @@ export async function main(argv: string[]): Promise<void> {
                   ...(options.name ? { projectName: options.name } : {}),
                   force: options.force,
                   usePreviewFeatures,
+                  inputFormat,
                 })
               : lang === "dotnet"
               ? await initDotnetProject({
@@ -319,6 +331,7 @@ export async function main(argv: string[]): Promise<void> {
                   ...(options.name ? { projectName: options.name } : {}),
                   force: options.force,
                   usePreviewFeatures,
+                  inputFormat,
                 })
               : await initRestProject({
                   tspPath: options.tsp,
@@ -326,6 +339,7 @@ export async function main(argv: string[]): Promise<void> {
                   ...(options.name ? { projectName: options.name } : {}),
                   force: options.force,
                   usePreviewFeatures,
+                  inputFormat,
                 });
 
           spinner?.succeed(pc.green("Generated"));

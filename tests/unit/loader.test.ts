@@ -218,6 +218,39 @@ describe("loadIrFromTypeSpec", () => {
     expect(ratingProp?.maxValue).toBe(10);
   });
 
+  test("captures jsonpath sources", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        @coco.source("id")
+        id: string;
+
+        @coco.source("detail.role")
+        role: string;
+
+        @coco.source("contact.emails[*].address")
+        emails: string[];
+
+        @coco.source("projects[0].name")
+        primaryProject: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "json" });
+    expect(ir.connection.inputFormat).toBe("json");
+
+    const roleProp = ir.properties.find((p) => p.name === "role");
+    expect(roleProp?.source.jsonPath).toBe("$.detail.role");
+    expect(roleProp?.source.csvHeaders).toEqual([]);
+
+    const emailsProp = ir.properties.find((p) => p.name === "emails");
+    expect(emailsProp?.source.jsonPath).toBe("$.contact.emails[*].address");
+
+    const projectProp = ir.properties.find((p) => p.name === "primaryProject");
+    expect(projectProp?.source.jsonPath).toBe("$.projects[0].name");
+  });
+
   test("ignores deprecated properties", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Input format support for JSON/YAML with JSONPath-based source mapping (TS + .NET).
+- Custom input format that emits a stub datasource for user-provided backends.
+
+### Changed
+- Input format selection moved to `cocogen generate --data-format`; generated projects no longer expose runtime format configuration.
+- Generated outputs now include only the datasource files and sample data for the selected input format.
+
+### Fixed
+- JSONPath normalization now preserves array indexes and wildcards for generated .NET transforms.
+- Sample JSON/YAML generation now emits arrays for JSONPath index and wildcard segments.
+- .NET JSON/YAML datasource async iterators now annotate cancellation tokens to avoid CS8425 warnings.
+
 ## [1.0.28] - 2026-01-22
 
 ### Added

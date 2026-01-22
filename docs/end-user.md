@@ -117,6 +117,16 @@ npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --use-preview-featur
 ```bash
 npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector
 ```
+To generate a JSON or YAML input project:
+```bash
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --data-format json
+```
+To generate a custom input project (no built-in datasource):
+```bash
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --data-format custom
+```
+This emits a stub datasource that throws until you replace it with your own backend implementation.
+Input format is fixed at generation time. To switch formats, re-run `generate` into a new folder.
 
 ### .NET
 ```bash
@@ -156,14 +166,14 @@ npx @wictorwilen/cocogen@latest update --out ./my-connector --tsp ../schema.tsp
 - `src/datasource/**` — **editable**. Customize how items are read (CSV, APIs, databases).
 - `src/cli.ts` — **editable**. Controls provisioning/ingestion commands.
 - `src/index.ts` — **editable**. Main entrypoint and pipeline composition.
-- `.env` / `.env.example` — configuration values (client credentials, connection defaults, CSV path).
+- `.env` / `.env.example` — configuration values (client credentials, connection defaults).
 
 ### Typical flow
 ```bash
 npm install
 npm run build
 node dist/cli.js provision
-node dist/cli.js ingest --csv ./data.csv
+node dist/cli.js ingest --input ./data.csv
 ```
 
 ### Authentication
@@ -173,6 +183,7 @@ Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
 - `--limit <n>` limits items ingested
 - `--verbose` prints item payloads
+- `--input <path>` overrides the input file path
 
 ### Where to customize mapping
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
@@ -181,10 +192,10 @@ Ingest debugging flags:
 - Use `src/<ConnectionName>/propertyTransform.ts` for manual mapping tweaks (safe file).
 - For advanced transforms, extend the ingestion pipeline in `src/index.ts` or `src/datasource/*`.
 
-### Switching from CSV to another datasource (TypeScript)
+### Switching from the generated datasource (TypeScript)
 1) Implement `ItemSource` in `src/datasource`.
 2) Map your raw records to `Item` objects (you can reuse `fromRow` logic or create your own mapping).
-3) Update `src/cli.ts` to instantiate your new source instead of `CsvItemSource`.
+3) Update `src/cli.ts` to instantiate your new source instead of the generated source.
 
 ## 6) Working with generated .NET projects
 
@@ -193,13 +204,13 @@ Ingest debugging flags:
 - `<ConnectionName>/PropertyTransform.cs` — created once; safe for manual edits.
 - `Datasource/**` — **editable**. Customize how items are read (CSV, APIs, databases).
 - `Program.cs` and `Program.commandline.cs` — **editable**. CLI and pipeline wiring.
-- `appsettings.json` — configuration values (client credentials, connection defaults, CSV path).
+- `appsettings.json` — configuration values (client credentials, connection defaults).
 
 ### Typical flow
 ```bash
 dotnet build
 dotnet run -- provision
-dotnet run -- ingest --csv ./data.csv
+dotnet run -- ingest --input ./data.csv
 ```
 
 ### Authentication
@@ -209,6 +220,7 @@ Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
 - `--limit <n>` limits items ingested
 - `--verbose` prints item payloads
+- `--input <path>` overrides the input file path
 
 ### Where to customize mapping
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
@@ -216,10 +228,10 @@ Ingest debugging flags:
 - Use `<ConnectionName>/PropertyTransform.cs` for manual mapping tweaks (safe file).
 - For advanced transforms, extend the ingestion pipeline in `Program.cs` or `Datasource/*`.
 
-### Switching from CSV to another datasource (.NET)
+### Switching from the generated datasource (.NET)
 1) Implement `IItemSource` in `Datasource/`.
 2) Map your raw records to `Item` objects (you can reuse `FromRow` logic or create your own mapping).
-3) Update `Program.cs` to instantiate your new source instead of `CsvItemSource`.
+3) Update `Program.cs` to instantiate your new source instead of the generated source.
 
 ## 7) Common customization scenarios
 
@@ -228,10 +240,10 @@ Ingest debugging flags:
 - Re-run `cocogen update`.
 - Update `.env` (TS) or `appsettings.json` (.NET) as needed.
 
-### Change CSV headers
-- Update `@coco.source("header")` in the TypeSpec.
+### Change source mappings
+- Update `@coco.source("header")` in the TypeSpec (CSV) or JSONPath values (JSON/YAML/custom).
 - Re-run `cocogen update`.
-- Update your CSV file headers accordingly.
+- Update your input file to match the new paths.
 
 ### Add/modify people profile data
 - Use people labels like `personName` or `personCurrentPosition`.

@@ -39,6 +39,7 @@ namespace coco {
 
   model SourceSettings {
     csv?: string;
+    jsonPath?: string;
   }
 
 

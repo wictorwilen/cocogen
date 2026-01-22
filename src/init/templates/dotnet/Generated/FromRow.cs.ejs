@@ -16,7 +16,7 @@ public static class FromRow
     /// <summary>
     /// Convert a row dictionary into a schema model instance.
     /// </summary>
-    public static <%= itemTypeName %> Parse(IReadOnlyDictionary<string, string?> row)
+    public static <%= itemTypeName %> Parse(object row)
     {
         var transforms = new PropertyTransform();
         return new <%= itemTypeName %>(

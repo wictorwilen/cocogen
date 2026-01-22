@@ -1,0 +1,24 @@
+/**
+ * Normalize JSONPath expressions for structured input formats.
+ */
+export function normalizeJsonPath(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("$")) return trimmed;
+  if (trimmed.startsWith("[")) return `$${trimmed}`;
+
+  const segments = trimmed.split(".").filter(Boolean);
+  if (segments.length === 0) return "";
+
+  const encoded = segments
+    .map((segment) => {
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(segment)) {
+        return `.${segment}`;
+      }
+      const escaped = segment.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      return `['${escaped}']`;
+    })
+    .join("");
+
+  return `$${encoded}`;
+}

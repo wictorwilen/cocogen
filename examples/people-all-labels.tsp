@@ -100,9 +100,9 @@ model PeopleAllLabelsProfile {
 
   @coco.label("personWebAccounts")
   @doc("Web accounts.")
-  @example(#["{\"userId\":\"alex\",\"service\":{\"displayName\":\"GitHub\"}}"])
+  @example(#["{\"userId\":\"alex\",\"service\":{\"name\":\"GitHub\"}}"])
   @coco.source("web user", "userId")
-  @coco.source("web service", "service.displayName")
+  @coco.source("web service", "service.name")
   @coco.source("web url", "webUrl")
   webAccounts: string[];
 

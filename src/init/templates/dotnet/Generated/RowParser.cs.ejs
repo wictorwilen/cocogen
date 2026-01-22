@@ -1,7 +1,13 @@
 // Row value parsing helpers used by generated transforms.
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+<% if (inputFormat !== "csv") { -%>
+using Json.Path;
+<% } -%>
 
 namespace <%= namespaceName %>.Datasource;
 
@@ -13,35 +19,104 @@ public static class RowParser
     /// <summary>
     /// Read the first matching header value from the row.
     /// </summary>
-    public static string ReadValue(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static object? ReadValue(object row, string[] headers)
     {
         if (headers.Length == 0) return "";
-        return row.TryGetValue(headers[0], out var v) ? (v ?? "") : "";
+        if (row is IReadOnlyDictionary<string, object?> dict && dict.TryGetValue(headers[0], out var value))
+        {
+            return value ?? "";
+        }
+        return "";
     }
+
+    /// <summary>
+    /// Read a value from the row using a JSONPath expression.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static object? ReadValue(object row, string jsonPath)
+    {
+        if (string.IsNullOrWhiteSpace(jsonPath)) return "";
+        if (row is JsonNode node)
+        {
+            return EvaluateJsonPath(node, jsonPath);
+        }
+        if (row is JsonElement element)
+        {
+            var parsed = JsonNode.Parse(element.GetRawText());
+            return parsed is null ? "" : EvaluateJsonPath(parsed, jsonPath);
+        }
+        if (row is IReadOnlyDictionary<string, object?> dict)
+        {
+            var parsed = JsonNode.Parse(JsonSerializer.Serialize(dict));
+            return parsed is null ? "" : EvaluateJsonPath(parsed, jsonPath);
+        }
+        return "";
+    }
+<% } -%>
 
     /// <summary>
     /// Parse a nullable string value into a string.
     /// </summary>
-    public static string ParseString(string? value)
+    public static string ParseString(object? value)
     {
-        return value ?? "";
+        if (value is null) return "";
+        if (value is JsonValue jsonValue)
+        {
+            if (jsonValue.TryGetValue<string>(out var s)) return s ?? "";
+            if (jsonValue.TryGetValue<long>(out var l)) return l.ToString(CultureInfo.InvariantCulture);
+            if (jsonValue.TryGetValue<double>(out var d)) return d.ToString(CultureInfo.InvariantCulture);
+            if (jsonValue.TryGetValue<bool>(out var b)) return b ? "true" : "false";
+        }
+        if (value is JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString() ?? "",
+                JsonValueKind.Number => element.GetRawText(),
+                JsonValueKind.True => "true",
+                JsonValueKind.False => "false",
+                JsonValueKind.Null => "",
+                _ => element.GetRawText(),
+            };
+        }
+        return value.ToString() ?? "";
     }
 
     /// <summary>
     /// Parse a string from a row using the provided headers.
     /// </summary>
-    public static string ParseString(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static string ParseString(object row, string[] headers)
     {
         return ParseString(ReadValue(row, headers));
     }
 
     /// <summary>
+    /// Parse a string from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static string ParseString(object row, string jsonPath)
+    {
+        return ParseString(ReadValue(row, jsonPath));
+    }
+<% } -%>
+
+    /// <summary>
     /// Parse a boolean from a row using the provided headers.
     /// </summary>
-    public static bool ParseBoolean(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static bool ParseBoolean(object row, string[] headers)
     {
         return ParseBoolean(ParseString(row, headers));
     }
+
+    /// <summary>
+    /// Parse a boolean from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static bool ParseBoolean(object row, string jsonPath)
+    {
+        return ParseBoolean(ParseString(row, jsonPath));
+    }
+<% } -%>
 
     /// <summary>
     /// Parse a boolean from a string value.
@@ -55,10 +130,20 @@ public static class RowParser
     /// <summary>
     /// Parse an Int64 from a row using the provided headers.
     /// </summary>
-    public static long ParseInt64(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static long ParseInt64(object row, string[] headers)
     {
         return ParseInt64(ParseString(row, headers));
     }
+
+    /// <summary>
+    /// Parse an Int64 from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static long ParseInt64(object row, string jsonPath)
+    {
+        return ParseInt64(ParseString(row, jsonPath));
+    }
+<% } -%>
 
     /// <summary>
     /// Parse an Int64 from a string value.
@@ -72,10 +157,20 @@ public static class RowParser
     /// <summary>
     /// Parse a double from a row using the provided headers.
     /// </summary>
-    public static double ParseDouble(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static double ParseDouble(object row, string[] headers)
     {
         return ParseDouble(ParseString(row, headers));
     }
+
+    /// <summary>
+    /// Parse a double from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static double ParseDouble(object row, string jsonPath)
+    {
+        return ParseDouble(ParseString(row, jsonPath));
+    }
+<% } -%>
 
     /// <summary>
     /// Parse a double from a string value.
@@ -89,10 +184,20 @@ public static class RowParser
     /// <summary>
     /// Parse a DateTimeOffset from a row using the provided headers.
     /// </summary>
-    public static DateTimeOffset ParseDateTime(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static DateTimeOffset ParseDateTime(object row, string[] headers)
     {
         return ParseDateTime(ParseString(row, headers));
     }
+
+    /// <summary>
+    /// Parse a DateTimeOffset from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static DateTimeOffset ParseDateTime(object row, string jsonPath)
+    {
+        return ParseDateTime(ParseString(row, jsonPath));
+    }
+<% } -%>
 
     /// <summary>
     /// Parse a DateTimeOffset from a string value.
@@ -106,16 +211,34 @@ public static class RowParser
     /// <summary>
     /// Parse a string collection from a row using the provided headers.
     /// </summary>
-    public static List<string> ParseStringCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static List<string> ParseStringCollection(object row, string[] headers)
     {
         return ParseStringCollection(ParseString(row, headers));
     }
 
     /// <summary>
+    /// Parse a string collection from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static List<string> ParseStringCollection(object row, string jsonPath)
+    {
+        return ParseStringCollection(ReadValue(row, jsonPath));
+    }
+<% } -%>
+
+    /// <summary>
     /// Parse a string collection from a string value.
     /// </summary>
-    public static List<string> ParseStringCollection(string? value)
+    public static List<string> ParseStringCollection(object? value)
     {
+        if (value is JsonArray array)
+        {
+            return array.Select((entry) => ParseString(entry)).Where((entry) => entry.Length > 0).ToList();
+        }
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element.EnumerateArray().Select((entry) => ParseString(entry)).Where((entry) => entry.Length > 0).ToList();
+        }
         var v = ParseString(value);
         return v.Length == 0
             ? new List<string>()
@@ -125,16 +248,34 @@ public static class RowParser
     /// <summary>
     /// Parse an Int64 collection from a row using the provided headers.
     /// </summary>
-    public static List<long> ParseInt64Collection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static List<long> ParseInt64Collection(object row, string[] headers)
     {
         return ParseInt64Collection(ParseString(row, headers));
     }
 
     /// <summary>
+    /// Parse an Int64 collection from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static List<long> ParseInt64Collection(object row, string jsonPath)
+    {
+        return ParseInt64Collection(ReadValue(row, jsonPath));
+    }
+<% } -%>
+
+    /// <summary>
     /// Parse an Int64 collection from a string value.
     /// </summary>
-    public static List<long> ParseInt64Collection(string? value)
+    public static List<long> ParseInt64Collection(object? value)
     {
+        if (value is JsonArray array)
+        {
+            return array.Select((entry) => long.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+        }
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element.EnumerateArray().Select((entry) => long.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+        }
         var v = ParseString(value);
         if (v.Length == 0) return new List<long>();
         return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -145,16 +286,34 @@ public static class RowParser
     /// <summary>
     /// Parse a double collection from a row using the provided headers.
     /// </summary>
-    public static List<double> ParseDoubleCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static List<double> ParseDoubleCollection(object row, string[] headers)
     {
         return ParseDoubleCollection(ParseString(row, headers));
     }
 
     /// <summary>
+    /// Parse a double collection from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static List<double> ParseDoubleCollection(object row, string jsonPath)
+    {
+        return ParseDoubleCollection(ReadValue(row, jsonPath));
+    }
+<% } -%>
+
+    /// <summary>
     /// Parse a double collection from a string value.
     /// </summary>
-    public static List<double> ParseDoubleCollection(string? value)
+    public static List<double> ParseDoubleCollection(object? value)
     {
+        if (value is JsonArray array)
+        {
+            return array.Select((entry) => double.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+        }
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element.EnumerateArray().Select((entry) => double.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+        }
         var v = ParseString(value);
         if (v.Length == 0) return new List<double>();
         return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -165,20 +324,83 @@ public static class RowParser
     /// <summary>
     /// Parse a DateTimeOffset collection from a row using the provided headers.
     /// </summary>
-    public static List<DateTimeOffset> ParseDateTimeCollection(IReadOnlyDictionary<string, string?> row, string[] headers)
+    public static List<DateTimeOffset> ParseDateTimeCollection(object row, string[] headers)
     {
         return ParseDateTimeCollection(ParseString(row, headers));
     }
 
     /// <summary>
+    /// Parse a DateTimeOffset collection from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static List<DateTimeOffset> ParseDateTimeCollection(object row, string jsonPath)
+    {
+        return ParseDateTimeCollection(ReadValue(row, jsonPath));
+    }
+<% } -%>
+
+    /// <summary>
     /// Parse a DateTimeOffset collection from a string value.
     /// </summary>
-    public static List<DateTimeOffset> ParseDateTimeCollection(string? value)
+    public static List<DateTimeOffset> ParseDateTimeCollection(object? value)
     {
+        if (value is JsonArray array)
+        {
+            return array.Select((entry) => DateTimeOffset.TryParse(ParseString(entry), out var dt) ? dt : DateTimeOffset.MinValue).ToList();
+        }
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element.EnumerateArray().Select((entry) => DateTimeOffset.TryParse(ParseString(entry), out var dt) ? dt : DateTimeOffset.MinValue).ToList();
+        }
         var v = ParseString(value);
         if (v.Length == 0) return new List<DateTimeOffset>();
         return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select((x) => DateTimeOffset.TryParse(x, out var dt) ? dt : DateTimeOffset.MinValue)
             .ToList();
     }
+
+<% if (inputFormat !== "csv") { -%>
+    private static object? EvaluateJsonPath(JsonNode node, string jsonPath)
+    {
+        try
+        {
+            var normalized = NormalizeJsonPath(jsonPath);
+            if (string.IsNullOrWhiteSpace(normalized)) return "";
+            var path = JsonPath.Parse(normalized);
+            var result = path.Evaluate(node);
+            var matches = result.Matches?.ToList() ?? new List<Node>();
+            if (matches.Count == 0) return "";
+            if (matches.Count == 1) return matches[0]?.Value;
+            var array = new JsonArray();
+            foreach (var match in matches)
+            {
+                if (match?.Value is null)
+                {
+                    array.Add((JsonNode?)null);
+                    continue;
+                }
+                if (match.Value is JsonNode nodeValue)
+                {
+                    array.Add(nodeValue);
+                    continue;
+                }
+                array.Add(JsonValue.Create(match.Value));
+            }
+            return array;
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static string NormalizeJsonPath(string jsonPath)
+    {
+        var trimmed = jsonPath.Trim();
+        if (trimmed.Length == 0) return "";
+        if (trimmed.StartsWith("$")) return trimmed;
+        if (trimmed.StartsWith("[")) return "$" + trimmed;
+        return "$." + trimmed;
+    }
+<% } -%>
 }

@@ -54,6 +54,12 @@ export class CocogenError extends Error {
   }
 }
 
+export type LoadIrOptions = {
+  inputFormat?: "csv" | "json" | "yaml" | "custom" | undefined;
+};
+
+type SourcePathSyntax = "csv" | "jsonpath";
+
 function requireSingleItemModel(program: Program): Model {
   const items = [...program.stateSet(COCOGEN_STATE_ITEM_MODELS)].filter(
     (t): t is Model => t.kind === "Model"
@@ -75,6 +81,17 @@ function requireSingleItemModel(program: Program): Model {
 
 function getConnectionSettings(program: Program, itemModel: Model): CocogenConnectionSettings {
   return (program.stateMap(COCOGEN_STATE_CONNECTION_SETTINGS).get(itemModel) ?? {}) as CocogenConnectionSettings;
+}
+
+function resolveInputFormat(raw?: string): "csv" | "json" | "yaml" | "custom" {
+  if (!raw) return "csv";
+  const value = raw.trim().toLowerCase();
+  if (value === "csv" || value === "json" || value === "yaml" || value === "custom") return value;
+  throw new CocogenError("Invalid input format. Expected csv, json, yaml, or custom.");
+}
+
+function getSourcePathSyntax(inputFormat: "csv" | "json" | "yaml" | "custom"): SourcePathSyntax {
+  return inputFormat === "csv" ? "csv" : "jsonpath";
 }
 
 function getProfileSourceSettings(program: Program, itemModel: Model): CocogenProfileSourceSettings | undefined {
@@ -111,10 +128,97 @@ function normalizeSourceSettings(
   raw: unknown,
   fallbackName: string,
   explicit: boolean,
-  noSource: boolean
-): { csvHeaders: string[]; explicit: boolean; noSource: boolean } {
+  noSource: boolean,
+  sourcePathSyntax: SourcePathSyntax
+): { csvHeaders: string[]; jsonPath?: string; explicit: boolean; noSource: boolean } {
   const settings = (raw ?? {}) as CocogenSourceSettings | string | undefined;
   const csv = typeof settings === "string" ? settings : settings?.csv;
+  const jsonPath = typeof settings === "string" ? settings : settings?.jsonPath;
+
+  const normalizeJsonPath = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("$")) return trimmed;
+    if (trimmed.startsWith("[")) return `$${trimmed}`;
+    const splitSegments = (value: string): string[] => {
+      const segments: string[] = [];
+      let current = "";
+      let bracketDepth = 0;
+      let inSingleQuote = false;
+      let inDoubleQuote = false;
+      let escaped = false;
+
+      for (const char of value) {
+        if (escaped) {
+          current += char;
+          escaped = false;
+          continue;
+        }
+        if (char === "\\") {
+          current += char;
+          escaped = true;
+          continue;
+        }
+        if (char === "'" && !inDoubleQuote) {
+          inSingleQuote = !inSingleQuote;
+          current += char;
+          continue;
+        }
+        if (char === '"' && !inSingleQuote) {
+          inDoubleQuote = !inDoubleQuote;
+          current += char;
+          continue;
+        }
+        if (!inSingleQuote && !inDoubleQuote) {
+          if (char === "[") {
+            bracketDepth += 1;
+          } else if (char === "]") {
+            bracketDepth = Math.max(0, bracketDepth - 1);
+          } else if (char === "." && bracketDepth === 0) {
+            if (current.length > 0) segments.push(current);
+            current = "";
+            continue;
+          }
+        }
+        current += char;
+      }
+
+      if (current.length > 0) segments.push(current);
+      return segments.filter(Boolean);
+    };
+
+    const segments = splitSegments(trimmed);
+    if (segments.length === 0) return "";
+    const encoded = segments
+      .map((segment) => {
+        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(segment)) {
+          return `.${segment}`;
+        }
+        if (/^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]+\])+$/u.test(segment)) {
+          return `.${segment}`;
+        }
+        const escaped = segment.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+        return `['${escaped}']`;
+      })
+      .join("");
+    return `$${encoded}`;
+  };
+
+  if (sourcePathSyntax === "jsonpath") {
+    if (settings && typeof settings === "object" && "csv" in settings && settings.csv) {
+      throw new CocogenError("@coco.source csv settings are not valid for jsonpath input. Use jsonPath or a string path.");
+    }
+
+    let path = typeof jsonPath === "string" ? jsonPath : "";
+    if (!path && !noSource) path = fallbackName;
+    const normalized = path ? normalizeJsonPath(path) : "";
+    return {
+      csvHeaders: [],
+      jsonPath: normalized,
+      explicit,
+      noSource,
+    };
+  }
 
   let csvHeaders: string[] = [];
   if (typeof csv === "string") {
@@ -123,6 +227,10 @@ function normalizeSourceSettings(
     throw new CocogenError(
       "Source field merging is not supported. Use a single CSV header per property or preprocess your data."
     );
+  }
+
+  if (settings && typeof settings === "object" && "jsonPath" in settings && settings.jsonPath) {
+    throw new CocogenError("@coco.source jsonPath settings are not valid for CSV input.");
   }
 
   if (csvHeaders.length === 0 && !noSource) {
@@ -136,8 +244,14 @@ function normalizeSourceSettings(
   };
 }
 
-function getSourceSettings(program: Program, prop: ModelProperty, fallbackName: string): {
+function getSourceSettings(
+  program: Program,
+  prop: ModelProperty,
+  fallbackName: string,
+  sourcePathSyntax: SourcePathSyntax
+): {
   csvHeaders: string[];
+  jsonPath?: string;
   explicit: boolean;
   noSource: boolean;
 } {
@@ -146,18 +260,19 @@ function getSourceSettings(program: Program, prop: ModelProperty, fallbackName: 
   const explicit = map.has(prop);
   const noSource = Boolean(program.stateMap(COCOGEN_STATE_PROPERTY_NO_SOURCE).get(prop));
   if (noSource) {
-    return normalizeSourceSettings(undefined, fallbackName, true, true);
+    return normalizeSourceSettings(undefined, fallbackName, true, true, sourcePathSyntax);
   }
-  return normalizeSourceSettings(raw, fallbackName, explicit, false);
+  return normalizeSourceSettings(raw, fallbackName, explicit, false, sourcePathSyntax);
 }
 
 function getPersonEntityMapping(
   program: Program,
   prop: ModelProperty,
-  propertyType: PropertyType
+  propertyType: PropertyType,
+  sourcePathSyntax: SourcePathSyntax
 ): {
   entity: PersonEntityName;
-  fields: Array<{ path: string; source: { csvHeaders: string[] } }>;
+  fields: Array<{ path: string; source: { csvHeaders: string[]; jsonPath?: string } }>;
 } | undefined {
   const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
   const entity = labels
@@ -167,14 +282,38 @@ function getPersonEntityMapping(
   const rawFields =
     (program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS).get(prop) as CocogenPersonEntityField[]) ?? [];
 
+  const normalizeEntityPath = (rawPath: string): string => {
+    const trimmed = rawPath.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("$.")) return trimmed.slice(2);
+    if (trimmed.startsWith("$[")) {
+      const parts: string[] = [];
+      const regex = /\[['"]([^'"]+)['"]\]/g;
+      let match: RegExpExecArray | null = null;
+      while ((match = regex.exec(trimmed))) {
+        parts.push(match[1]!);
+      }
+      if (parts.length > 0 && regex.lastIndex === trimmed.length) {
+        return parts.join(".");
+      }
+    }
+    return trimmed;
+  };
+
   const fields = rawFields
     .map((field) => {
-      const path = typeof field.path === "string" ? field.path : "";
+      const path = typeof field.path === "string" ? normalizeEntityPath(field.path) : "";
       if (!path) return undefined;
-      const sourceSettings = normalizeSourceSettings(field.source, path, true, false);
-      return { path, source: { csvHeaders: sourceSettings.csvHeaders } };
+      const sourceSettings = normalizeSourceSettings(field.source, path, true, false, sourcePathSyntax);
+      return {
+        path,
+        source: {
+          csvHeaders: sourceSettings.csvHeaders,
+          ...(sourceSettings.jsonPath ? { jsonPath: sourceSettings.jsonPath } : {}),
+        },
+      };
     })
-    .filter((value): value is { path: string; source: { csvHeaders: string[] } } => Boolean(value));
+    .filter((value): value is { path: string; source: { csvHeaders: string[]; jsonPath?: string } } => Boolean(value));
 
   if (fields.length === 0) return undefined;
   if (!entity) {
@@ -343,7 +482,7 @@ export async function compileTypeSpec(entryTspPath: string): Promise<Program> {
   });
 }
 
-export async function loadIrFromTypeSpec(entryTspPath: string): Promise<ConnectorIr> {
+export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOptions = {}): Promise<ConnectorIr> {
   const program = await compileTypeSpec(entryTspPath);
   if (program.hasError()) {
     const missingConnectionSettings = program.diagnostics.some(
@@ -366,6 +505,8 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
   const profileSource = getProfileSourceSettings(program, itemModel);
   const properties = [...itemModel.properties.values()];
   const itemDoc = getItemDoc(program, itemModel);
+  const inputFormat = resolveInputFormat(options.inputFormat);
+  const sourcePathSyntax = getSourcePathSyntax(inputFormat);
 
   const deprecatedProps = new Set(properties.filter((prop) => Boolean(getDeprecated(program, prop))));
 
@@ -409,7 +550,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
     const maxValue = maxValueRaw === undefined ? undefined : Number(maxValueRaw);
 
     const propertyType = mapTypeToPropertyType(program, prop.type);
-    const personEntity = getPersonEntityMapping(program, prop, propertyType);
+    const personEntity = getPersonEntityMapping(program, prop, propertyType, sourcePathSyntax);
 
     return {
       name,
@@ -427,13 +568,12 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
       aliases,
       search: getSearchFlags(program, prop),
       ...(personEntity ? { personEntity } : {}),
-      source: getSourceSettings(program, prop, name),
+      source: getSourceSettings(program, prop, name, sourcePathSyntax),
     };
   });
 
   const usesPrincipal = irProperties.some((prop) => prop.type === "principal" || prop.type === "principalCollection");
   const graphApiVersion = computeGraphApiVersion(connection.contentCategory, usesPrincipal);
-
   const connectionCategory = connection.contentCategory;
   const connectionName = typeof connection.name === "string" ? connection.name.trim() : "";
   const connectionId = typeof connection.connectionId === "string" ? connection.connectionId.trim() : "";
@@ -445,6 +585,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string): Promise<Connecto
       ...(connectionName ? { connectionName } : {}),
       ...(connectionId ? { connectionId } : {}),
       ...(connectionDescription ? { connectionDescription } : {}),
+      inputFormat,
       ...(profileSource ? { profileSource } : {}),
       graphApiVersion,
     },

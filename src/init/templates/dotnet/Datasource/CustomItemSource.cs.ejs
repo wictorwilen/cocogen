@@ -1,0 +1,26 @@
+// Custom datasource placeholder.
+using System.Collections.Generic;
+using System.Threading;
+
+using <%= schemaNamespace %>;
+using ItemModel = <%= schemaNamespace %>.<%= itemTypeName %>;
+
+namespace <%= namespaceName %>.Datasource;
+
+/// <summary>
+/// Custom datasource placeholder. Replace with your own backend implementation.
+/// </summary>
+public sealed class CustomItemSource : IItemSource<ItemModel>
+{
+    private readonly string? _sourceHint;
+
+    public CustomItemSource(string? sourceHint = null)
+    {
+        _sourceHint = sourceHint;
+    }
+
+    public IAsyncEnumerable<ItemModel> GetItemsAsync(CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException("Custom input format selected. Replace CustomItemSource with your own IItemSource implementation.");
+    }
+}

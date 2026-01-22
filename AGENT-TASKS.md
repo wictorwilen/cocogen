@@ -60,3 +60,9 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Enforce per-file coverage thresholds ✅
 - Fix TS people transform indentation ✅
 - Populate complex people graph types from metadata ✅
+- Add JSON/YAML input formats with JSONPath ✅
+- Move input format selection to CLI and emit only the chosen datasource ✅
+- Preserve JSONPath array/wildcard segments in .NET output ✅
+- Fix JSON/YAML sample data for JSONPath arrays ✅
+- Annotate .NET JSON/YAML async iterators to avoid CS8425 ✅
+- Add custom input format with stub datasource ✅

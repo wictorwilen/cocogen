@@ -14,8 +14,10 @@
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "commander": "^14.0.2",
-    "dotenv": "^17.2.3",
-    "csv-parse": "^6.1.0"
+    "dotenv": "^17.2.3"<% if (inputFormat === "csv") { %>,
+    "csv-parse": "^6.1.0"<% } %><% if (inputFormat !== "csv") { %>,
+    "jsonpath-plus": "^10.3.0"<% } %><% if (inputFormat === "yaml") { %>,
+    "yaml": "^2.8.1"<% } %>
   },
   "devDependencies": {
     "@wictorwilen/cocogen": "^1.0.0",

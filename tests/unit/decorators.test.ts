@@ -141,7 +141,7 @@ describe("TypeSpec decorators", () => {
 
     $source(context, prop, "Title");
     const source = getMap(program, COCOGEN_STATE_PROPERTY_SOURCE).get(prop);
-    expect(source).toEqual({ csv: "Title" });
+    expect(source).toBe("Title");
 
     $source(context, prop, { csv: "Updated" });
     const source2 = getMap(program, COCOGEN_STATE_PROPERTY_SOURCE).get(prop);

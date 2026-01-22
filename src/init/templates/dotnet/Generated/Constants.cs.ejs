@@ -17,6 +17,8 @@ public static class SchemaConstants
     public const string? ConnectionName = <%= connectionName ? JSON.stringify(connectionName) : "null" %>;
     public const string? ConnectionDescription = <%= connectionDescription ? JSON.stringify(connectionDescription) : "null" %>;
 
+    public const string InputFormat = <%= JSON.stringify(inputFormat) %>;
+
     public const string? ContentCategory = <%= contentCategory ? JSON.stringify(contentCategory) : "null" %>;
 
     public const string? ProfileSourceWebUrl = <%= profileSourceWebUrl ? JSON.stringify(profileSourceWebUrl) : "null" %>;

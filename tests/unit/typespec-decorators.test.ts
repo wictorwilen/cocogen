@@ -258,7 +258,7 @@ describe("TypeSpec decorators", () => {
 
     const csvProp = createProperty("title");
     $source(context, csvProp, "headline");
-    expect(program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE).get(csvProp)).toEqual({ csv: "headline" });
+    expect(program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE).get(csvProp)).toBe("headline");
 
     const csvObjectProp = createProperty("summary");
     $source(context, csvObjectProp, { csv: "summary" });

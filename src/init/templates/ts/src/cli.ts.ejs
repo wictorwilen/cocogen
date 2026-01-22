@@ -18,7 +18,16 @@ import {
   schemaPayload
 } from "./<%= schemaFolderName %>/index.js";
 import { getItemId, toExternalItem } from "./<%= schemaFolderName %>/itemPayload.js";
+import type { ItemSource } from "./datasource/itemSource.js";
+<% if (inputFormat === "json") { -%>
+import { JsonItemSource } from "./datasource/jsonItemSource.js";
+<% } else if (inputFormat === "yaml") { -%>
+import { YamlItemSource } from "./datasource/yamlItemSource.js";
+<% } else if (inputFormat === "custom") { -%>
+import { CustomItemSource } from "./datasource/customItemSource.js";
+<% } else { -%>
 import { CsvItemSource } from "./datasource/csvItemSource.js";
+<% } -%>
 import { ConnectorCore } from "./core/connectorCore.js";
 
 const GRAPH_BASE_URL = <%= JSON.stringify(graphBaseUrl) %>;
@@ -81,6 +90,15 @@ function resolveProfileSourcePriority(): "first" | "last" {
     throw new Error("Invalid PROFILE_SOURCE_PRIORITY: expected 'first' or 'last'");
   }
   return value as "first" | "last";
+}
+
+function resolveInputPath(inputPath?: string): string {
+  if (inputPath) return inputPath;
+  return <%= JSON.stringify(inputFormat === "custom" ? "" : inputFormat === "json" ? "data.json" : inputFormat === "yaml" ? "data.yaml" : "data.csv") %>;
+}
+
+function buildItemSource(path: string): ItemSource<<%= itemTypeName %>> {
+  return new <%= inputFormat === "json" ? "JsonItemSource" : inputFormat === "yaml" ? "YamlItemSource" : inputFormat === "custom" ? "CustomItemSource" : "CsvItemSource" %>(path);
 }
 
 async function getAccessToken(): Promise<string> {
@@ -164,15 +182,15 @@ async function deleteConnection(): Promise<void> {
  * Ingest items from the configured datasource.
  */
 async function ingest(options: {
-  csvPath?: string;
+  inputPath?: string;
   dryRun?: boolean;
   limit?: number;
   verbose?: boolean;
   failFast?: boolean;
 }): Promise<void> {
   const connectionId = options.dryRun ? "dry-run" : resolveConnectionId();
-  // Swap this for any ItemSource implementation (API, DB, queue, etc.).
-  const source = new CsvItemSource(options.csvPath ?? process.env.CSV_PATH ?? "data.csv");
+  const path = resolveInputPath(options.inputPath);
+  const source = buildItemSource(path);
   const core = buildConnectorCore();
   await core.ingest({
     source,
@@ -195,15 +213,15 @@ program
 
 program
   .command("ingest")
-  .description("Ingest items from CSV")
-  .option("--csv <path>", "CSV path")
+  .description("Ingest items from the configured input file")
+  .option("--input <path>", "Input file path")
   .option("--dry-run", "Build payloads but do not send to Graph")
   .option("--fail-fast", "Abort on the first item failure")
   .option("--limit <n>", "Limit number of items", (value) => Number(value))
   .option("--verbose", "Print payloads sent to Graph")
-  .action((options: { csv?: string; dryRun?: boolean; limit?: number; verbose?: boolean; failFast?: boolean }) =>
+  .action((options: { input?: string; dryRun?: boolean; limit?: number; verbose?: boolean; failFast?: boolean }) =>
     ingest({
-      csvPath: options.csv,
+      inputPath: options.input,
       dryRun: options.dryRun,
       failFast: options.failFast,
       limit: options.limit,

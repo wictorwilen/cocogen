@@ -28,8 +28,8 @@ vi.mock("ora", () => ({
 }));
 
 const minimalIr: ConnectorIr = {
-  connection: { graphApiVersion: "v1.0" },
-  item: { typeName: "Item", idPropertyName: "id" },
+  connection: { graphApiVersion: "v1.0", inputFormat: "csv" },
+  item: { typeName: "Item", idPropertyName: "id", idEncoding: "slug" },
   properties: [
     {
       name: "id",
@@ -318,7 +318,10 @@ describe("cli", () => {
   test("update prints beta note for contentCategory", async () => {
     updateProjectMock.mockResolvedValue({
       outDir: "/tmp/out",
-      ir: { ...minimalIr, connection: { graphApiVersion: "beta", contentCategory: "people" } },
+      ir: {
+        ...minimalIr,
+        connection: { ...minimalIr.connection, graphApiVersion: "beta", contentCategory: "people" },
+      },
     });
 
     const { main } = await import("../../src/cli.js");
@@ -503,7 +506,7 @@ describe("cli", () => {
   test("emit fails when preview features are required", async () => {
     loadIrMock.mockResolvedValue({
       ...minimalIr,
-      connection: { graphApiVersion: "beta" },
+      connection: { ...minimalIr.connection, graphApiVersion: "beta" },
     });
     validateIrMock.mockReturnValue([]);
 
@@ -519,7 +522,7 @@ describe("cli", () => {
   test("emit allows beta when preview features enabled", async () => {
     loadIrMock.mockResolvedValue({
       ...minimalIr,
-      connection: { graphApiVersion: "beta" },
+      connection: { ...minimalIr.connection, graphApiVersion: "beta" },
     });
     validateIrMock.mockReturnValue([]);
     writeIrJsonMock.mockResolvedValue("{}\n");
@@ -535,7 +538,7 @@ describe("cli", () => {
       outDir: "/tmp/out",
       ir: {
         ...minimalIr,
-        connection: { graphApiVersion: "beta", contentCategory: "people" },
+        connection: { ...minimalIr.connection, graphApiVersion: "beta", contentCategory: "people" },
       },
     });
 

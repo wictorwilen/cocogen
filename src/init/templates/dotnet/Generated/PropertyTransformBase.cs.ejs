@@ -20,7 +20,7 @@ public abstract class PropertyTransformBase
     /// <summary>
     /// Transform a property by name using the generated transform methods.
     /// </summary>
-    public object TransformProperty(string name, IReadOnlyDictionary<string, string?> row)
+    public object TransformProperty(string name, object row)
     {
         return name switch
         {
@@ -35,7 +35,7 @@ public abstract class PropertyTransformBase
     /// <summary>
     /// Transform the <%= prop.name %> property from a source row.
     /// </summary>
-    protected virtual <%= prop.csType %> Transform<%= prop.csName %>(IReadOnlyDictionary<string, string?> row)
+    protected virtual <%= prop.csType %> Transform<%= prop.csName %>(object row)
     {
 <%_ if (prop.transformThrows) { -%>
         <%- prop.transformExpression %>;

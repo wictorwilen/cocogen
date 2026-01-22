@@ -182,7 +182,7 @@ export function $source(
   if (typeof rawFrom === "string") {
     const text = rawFrom.trim();
     if (text.length > 0) {
-      context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE).set(target, { csv: text });
+      context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE).set(target, text);
     }
     return;
   }

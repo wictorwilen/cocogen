@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { stringify as stringifyYaml } from "yaml";
+
 import type { ConnectorIr, PropertyType } from "../ir.js";
 import { loadIrFromTypeSpec } from "../tsp/loader.js";
 import { PEOPLE_LABEL_DEFINITIONS, getPeopleLabelInfo, supportedPeopleLabels } from "../people/label-registry.js";
@@ -17,6 +19,7 @@ export type InitOptions = {
   projectName?: string;
   force?: boolean;
   usePreviewFeatures?: boolean;
+  inputFormat?: "csv" | "json" | "yaml" | "custom" | undefined;
 };
 
 export type UpdateOptions = {
@@ -28,6 +31,7 @@ export type UpdateOptions = {
 type CocogenProjectConfig = {
   lang: "ts" | "dotnet" | "rest";
   tsp: string;
+  inputFormat: "csv" | "json" | "yaml" | "custom";
   cocogenVersion?: string;
 };
 
@@ -221,11 +225,17 @@ function getGeneratorVersion(): string {
   return "0.0.0";
 }
 
-function projectConfigContents(outDir: string, tspPath: string, lang: CocogenProjectConfig["lang"]): string {
+function projectConfigContents(
+  outDir: string,
+  tspPath: string,
+  lang: CocogenProjectConfig["lang"],
+  inputFormat: CocogenProjectConfig["inputFormat"]
+): string {
   const rel = path.relative(outDir, path.resolve(tspPath)).replaceAll(path.sep, "/");
   const config: CocogenProjectConfig = {
     lang,
     tsp: rel || "./schema.tsp",
+    inputFormat,
     cocogenVersion: getGeneratorVersion(),
   };
   return JSON.stringify(config, null, 2) + "\n";
@@ -249,6 +259,10 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
   }
 
   const parsed = JSON.parse(raw) as Partial<CocogenProjectConfig>;
+  const inputFormat = parsed.inputFormat ?? "csv";
+  if (inputFormat !== "csv" && inputFormat !== "json" && inputFormat !== "yaml" && inputFormat !== "custom") {
+    throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
+  }
   if ((parsed.lang !== "ts" && parsed.lang !== "dotnet" && parsed.lang !== "rest") || typeof parsed.tsp !== "string") {
     throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
   }
@@ -256,6 +270,7 @@ async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProje
     config: {
       lang: parsed.lang,
       tsp: parsed.tsp,
+      inputFormat,
       ...(parsed.cocogenVersion ? { cocogenVersion: parsed.cocogenVersion } : {}),
     },
   };
@@ -394,9 +409,9 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
 
     const principalExpression =
       p.type === "principal"
-        ? buildTsPrincipalExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        ? buildTsPrincipalExpression(p.personEntity?.fields ?? null, p.source)
         : p.type === "principalCollection"
-        ? buildTsPrincipalCollectionExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        ? buildTsPrincipalCollectionExpression(p.personEntity?.fields ?? null, p.source)
         : null;
 
     const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
@@ -410,7 +425,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       ? principalExpression
       : personEntity
       ? personEntity
-      : `${parser}(readSourceValue(row, ${JSON.stringify(p.source.csvHeaders)}))`;
+      : `${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`;
 
     const validationMetadata = {
       name: p.name,
@@ -438,9 +453,9 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
   });
 
   const idProperty = ir.properties.find((p) => p.name === ir.item.idPropertyName);
-  const idRawHeaders = idProperty?.personEntity?.fields[0]?.source.csvHeaders ?? idProperty?.source.csvHeaders ?? [];
-  const idRawExpression = idRawHeaders.length
-    ? `parseString(readSourceValue(row, ${JSON.stringify(idRawHeaders)}))`
+  const idRawSource = idProperty?.personEntity?.fields[0]?.source ?? idProperty?.source;
+  const idRawExpression = idRawSource
+    ? `parseString(readSourceValue(row, ${buildSourceLiteral(idRawSource)}))`
     : '""';
 
   const usesPrincipal = ir.properties.some(
@@ -489,9 +504,19 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
 
   await writeFile(
     path.join(outDir, "src", "datasource", "row.ts"),
-    await renderTemplate("ts/src/generated/row.ts.ejs", {}),
+    await renderTemplate("ts/src/generated/row.ts.ejs", {
+      inputFormat: ir.connection.inputFormat,
+    }),
     "utf8"
   );
+
+  if (ir.connection.inputFormat !== "csv") {
+    await writeFile(
+      path.join(outDir, "src", "datasource", "inputPath.ts"),
+      await renderTemplate("ts/src/datasource/inputPath.ts.ejs", {}),
+      "utf8"
+    );
+  }
 
   await writeFile(
     path.join(outDir, "src", schemaFolderName, "constants.ts"),
@@ -501,6 +526,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       connectionName: ir.connection.connectionName ?? null,
       connectionId: ir.connection.connectionId ?? null,
       connectionDescription: ir.connection.connectionDescription ?? null,
+      inputFormat: ir.connection.inputFormat,
       profileSourceWebUrl: ir.connection.profileSource?.webUrl ?? null,
       profileSourceDisplayName: ir.connection.profileSource?.displayName ?? null,
       profileSourcePriority: ir.connection.profileSource?.priority ?? null,
@@ -709,8 +735,24 @@ function formatCsDocSummary(doc: string): string[] {
 
 type PersonEntityField = {
   path: string;
-  source: { csvHeaders: string[] };
+  source: { csvHeaders: string[]; jsonPath?: string };
 };
+
+type SourceDescriptor = { csvHeaders: string[]; jsonPath?: string };
+
+function buildSourceLiteral(source: SourceDescriptor): string {
+  if (source.jsonPath && source.jsonPath.trim().length > 0) {
+    return JSON.stringify(source.jsonPath);
+  }
+  return JSON.stringify(source.csvHeaders);
+}
+
+function buildCsSourceLiteral(source: SourceDescriptor): string {
+  if (source.jsonPath && source.jsonPath.trim().length > 0) {
+    return JSON.stringify(source.jsonPath);
+  }
+  return `new[] { ${source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
+}
 
 type TsPersonEntityTypeInfo = {
   alias: string;
@@ -749,8 +791,8 @@ function buildObjectTree(fields: PersonEntityField[]): Record<string, unknown> {
 
 function buildTsPersonEntityExpression(
   fields: PersonEntityField[],
-  valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `parseString(readSourceValue(row, ${headersLiteral}))`,
+  valueExpressionBuilder: (sourceLiteral: string) => string = (sourceLiteral) =>
+    `parseString(readSourceValue(row, ${sourceLiteral}))`,
   typeInfo: TsPersonEntityTypeInfo | null,
   typeMap: TsPersonEntityTypeMap
 ): string {
@@ -768,8 +810,8 @@ function buildTsPersonEntityExpression(
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
-        const headers = JSON.stringify(field.source.csvHeaders);
-        return `${childIndent}${JSON.stringify(key)}: ${valueExpressionBuilder(headers)}`;
+        const sourceLiteral = buildSourceLiteral(field.source);
+        return `${childIndent}${JSON.stringify(key)}: ${valueExpressionBuilder(sourceLiteral)}`;
       }
 
       const propType = info?.properties.get(key) ?? null;
@@ -791,8 +833,8 @@ ${indent}}`;
 
 function buildTsPersonEntityCollectionExpression(
   fields: PersonEntityField[],
-  collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `parseStringCollection(readSourceValue(row, ${headersLiteral}))`,
+  collectionExpressionBuilder: (sourceLiteral: string) => string = (sourceLiteral) =>
+    `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
   typeInfo: TsPersonEntityTypeInfo | null,
   typeMap: TsPersonEntityTypeMap
 ): string {
@@ -830,12 +872,12 @@ ${indent}}`;
   if (fields.length === 1) {
     const tree = buildObjectTree(fields);
     const field = fields[0]!;
-    const headers = JSON.stringify(field.source.csvHeaders);
+    const sourceLiteral = buildSourceLiteral(field.source);
     const rendered = renderNode(tree, 0, "value", typeInfo);
     const typed = typeInfo ? `(${rendered} as ${typeInfo.alias})` : rendered;
     const typedIndented = indentLines(typed, indentUnit.repeat(4));
 
-    return `${collectionExpressionBuilder(headers)}
+    return `${collectionExpressionBuilder(sourceLiteral)}
   ${indentUnit.repeat(2)}.map((value) => JSON.stringify(\n${typedIndented}\n${indentUnit.repeat(2)}))`;
   }
 
@@ -844,8 +886,8 @@ ${indent}}`;
   const fieldLines = fields.map((field, index) => {
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
-    const headers = JSON.stringify(field.source.csvHeaders);
-    return `${bodyIndent}const ${varName} = ${collectionExpressionBuilder(headers)};`;
+    const sourceLiteral = buildSourceLiteral(field.source);
+    return `${bodyIndent}const ${varName} = ${collectionExpressionBuilder(sourceLiteral)};`;
   });
 
   const renderNodeMany = (
@@ -886,8 +928,8 @@ ${closeIndent}}`;
 
 function buildPrincipalFieldEntries(
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[]
-): Array<{ key: string; headersLiteral: string }> {
+  fallbackSource: SourceDescriptor
+): Array<{ key: string; source: SourceDescriptor }> {
   if (fields && fields.length > 0) {
     return fields
       .map((field) => {
@@ -895,17 +937,17 @@ function buildPrincipalFieldEntries(
         const key = rawKey === "userPrincipalName" ? "upn" : rawKey;
         return {
           key,
-          headersLiteral: JSON.stringify(field.source.csvHeaders),
+          source: field.source,
         };
       })
-      .filter((entry) => entry.headersLiteral.length > 2 && entry.key.length > 0);
+      .filter((entry) => entry.key.length > 0);
   }
 
-  if (fallbackHeaders.length > 0) {
+  if (fallbackSource.jsonPath || fallbackSource.csvHeaders.length > 0) {
     return [
       {
         key: "upn",
-        headersLiteral: JSON.stringify([fallbackHeaders[0]!]),
+        source: fallbackSource,
       },
     ];
   }
@@ -915,10 +957,11 @@ function buildPrincipalFieldEntries(
 
 function buildTsPrincipalExpression(
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[]
+  fallbackSource: SourceDescriptor
 ): string {
-  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders).map(
-    (entry) => `  ${JSON.stringify(entry.key)}: parseString(readSourceValue(row, ${entry.headersLiteral}))`
+  const entries = buildPrincipalFieldEntries(fields, fallbackSource).map(
+    (entry) =>
+      `  ${JSON.stringify(entry.key)}: parseString(readSourceValue(row, ${buildSourceLiteral(entry.source)}))`
   );
 
   return `({\n  "@odata.type": "microsoft.graph.externalConnectors.principal"${entries.length ? ",\n" + entries.join(",\n") : ""}\n})`;
@@ -926,9 +969,9 @@ function buildTsPrincipalExpression(
 
 function buildCsPrincipalExpression(
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[]
+  fallbackSource: SourceDescriptor
 ): string {
-  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  const entries = buildPrincipalFieldEntries(fields, fallbackSource);
   const knownMap = new Map<string, string>([
     ["upn", "Upn"],
     ["userPrincipalName", "Upn"],
@@ -944,12 +987,12 @@ function buildCsPrincipalExpression(
   const additionalDataEntries: string[] = [];
 
   for (const entry of entries) {
-    const headers = `new[] { ${JSON.parse(entry.headersLiteral).map((h: string) => JSON.stringify(h)).join(", ")} }`;
+    const sourceLiteral = buildCsSourceLiteral(entry.source);
     const propertyName = knownMap.get(entry.key);
     if (propertyName) {
-      knownAssignments.push(`    ${propertyName} = RowParser.ParseString(row, ${headers}),`);
+      knownAssignments.push(`    ${propertyName} = RowParser.ParseString(row, ${sourceLiteral}),`);
     } else {
-      additionalDataEntries.push(`        [${JSON.stringify(entry.key)}] = RowParser.ParseString(row, ${headers}),`);
+      additionalDataEntries.push(`        [${JSON.stringify(entry.key)}] = RowParser.ParseString(row, ${sourceLiteral}),`);
     }
   }
 
@@ -974,13 +1017,14 @@ function buildCsPrincipalExpression(
 
 function buildTsPrincipalCollectionExpression(
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[]
+  fallbackSource: SourceDescriptor
 ): string {
-  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  const entries = buildPrincipalFieldEntries(fields, fallbackSource);
   if (entries.length === 0) return "[]";
 
   const fieldLines = entries.map(
-    (entry, index) => `  const field${index} = parseStringCollection(readSourceValue(row, ${entry.headersLiteral}));`
+    (entry, index) =>
+      `  const field${index} = parseStringCollection(readSourceValue(row, ${buildSourceLiteral(entry.source)}));`
   );
   const lengthVars = entries.length
     ? `  const lengths = [${entries.map((_, index) => `field${index}.length`).join(", ")}];`
@@ -995,14 +1039,14 @@ function buildTsPrincipalCollectionExpression(
 
 function buildCsPrincipalCollectionExpression(
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[]
+  fallbackSource: SourceDescriptor
 ): string {
-  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  const entries = buildPrincipalFieldEntries(fields, fallbackSource);
   if (entries.length === 0) return "new List<Principal>()";
 
   const fieldLines = entries.map((entry, index) => {
-    const headers = `new[] { ${JSON.parse(entry.headersLiteral).map((h: string) => JSON.stringify(h)).join(", ")} }`;
-    return `        var field${index} = RowParser.ParseStringCollection(row, ${headers});`;
+    const sourceLiteral = buildCsSourceLiteral(entry.source);
+    return `        var field${index} = RowParser.ParseStringCollection(row, ${sourceLiteral});`;
   });
 
   const knownMap = new Map<string, string>([
@@ -1155,8 +1199,8 @@ function buildCsPersonEntityObjectExpression(
 
 function buildCsPersonEntityExpression(
   fields: PersonEntityField[],
-  valueExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `RowParser.ParseString(row, ${headersLiteral})`,
+  valueExpressionBuilder: (sourceLiteral: string) => string = (sourceLiteral) =>
+    `RowParser.ParseString(row, ${sourceLiteral})`,
   typeInfo: CsPersonEntityTypeInfo | null,
   typeMap: CsPersonEntityTypeMap
 ): string {
@@ -1164,8 +1208,8 @@ function buildCsPersonEntityExpression(
   const objectExpression = buildCsPersonEntityObjectExpression(
     fields,
     (field) => {
-      const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-      return valueExpressionBuilder(headers);
+      const sourceLiteral = buildCsSourceLiteral(field.source);
+      return valueExpressionBuilder(sourceLiteral);
     },
     typeInfo,
     typeMap,
@@ -1177,8 +1221,8 @@ function buildCsPersonEntityExpression(
 
 function buildCsPersonEntityCollectionExpression(
   fields: PersonEntityField[],
-  collectionExpressionBuilder: (headersLiteral: string) => string = (headersLiteral) =>
-    `RowParser.ParseStringCollection(row, ${headersLiteral})`,
+  collectionExpressionBuilder: (sourceLiteral: string) => string = (sourceLiteral) =>
+    `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
   typeInfo: CsPersonEntityTypeInfo | null,
   typeMap: CsPersonEntityTypeMap
 ): string {
@@ -1187,16 +1231,16 @@ function buildCsPersonEntityCollectionExpression(
   if (fields.length === 1) {
     const tree = buildObjectTree(fields);
     const field = fields[0]!;
-    const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-        const objectExpression = buildCsPersonEntityObjectExpression(
-          fields,
-          () => "value",
-          typeInfo,
-          typeMap,
-          3
-        );
+    const sourceLiteral = buildCsSourceLiteral(field.source);
+    const objectExpression = buildCsPersonEntityObjectExpression(
+      fields,
+      () => "value",
+      typeInfo,
+      typeMap,
+      3
+    );
 
-    return `${collectionExpressionBuilder(headers)}
+    return `${collectionExpressionBuilder(sourceLiteral)}
                 .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${objectExpression}\n${indentUnit.repeat(3)}))
             .ToList()`;
   }
@@ -1206,8 +1250,8 @@ function buildCsPersonEntityCollectionExpression(
   const fieldLines = fields.map((field, index) => {
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
-    const headers = `new[] { ${field.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
-    return `        var ${varName} = ${collectionExpressionBuilder(headers)};`;
+    const sourceLiteral = buildCsSourceLiteral(field.source);
+    return `        var ${varName} = ${collectionExpressionBuilder(sourceLiteral)};`;
   });
 
   const fieldVars = [...fieldVarByPath.values()];
@@ -1358,7 +1402,7 @@ function applyCsValidationExpression(
     maxValue?: number;
   },
   expression: string,
-  csvHeadersLiteral: string
+  sourceLiteral: string
 ): string {
   const stringConstraints = buildCsStringConstraintsLiteral(prop);
   const numberConstraints = buildCsNumberConstraintsLiteral(prop);
@@ -1372,14 +1416,14 @@ function applyCsValidationExpression(
         : expression;
     case "dateTime":
       if (!stringConstraints.hasAny) return expression;
-      return `RowParser.ParseDateTime(Validation.ValidateString(${nameLiteral}, RowParser.ReadValue(row, ${csvHeadersLiteral}), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format}))`;
+      return `RowParser.ParseDateTime(Validation.ValidateString(${nameLiteral}, RowParser.ReadValue(row, ${sourceLiteral}), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format}))`;
     case "stringCollection":
       return stringConstraints.hasAny
         ? `Validation.ValidateStringCollection(${nameLiteral}, ${expression}, ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format})`
         : expression;
     case "dateTimeCollection":
       if (!stringConstraints.hasAny) return expression;
-        return `Validation.ValidateStringCollection(${nameLiteral}, RowParser.ParseStringCollection(RowParser.ReadValue(row, ${csvHeadersLiteral})), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format}).Select(value => RowParser.ParseDateTime(value)).ToList()`;
+        return `Validation.ValidateStringCollection(${nameLiteral}, RowParser.ParseStringCollection(RowParser.ReadValue(row, ${sourceLiteral})), ${stringConstraints.minLength}, ${stringConstraints.maxLength}, ${stringConstraints.pattern}, ${stringConstraints.format}).Select(value => RowParser.ParseDateTime(value)).ToList()`;
     case "int64":
       return numberConstraints.hasAny
         ? `Validation.ValidateInt64(${nameLiteral}, ${expression}, ${numberConstraints.minValue}, ${numberConstraints.maxValue})`
@@ -1424,6 +1468,7 @@ function sampleValueForHeader(header: string, type?: PropertyType): string {
   if (lower.includes("employee")) return "E123";
   if (lower.includes("upn") || lower.includes("userprincipal")) return "user@contoso.com";
   if (lower.includes("email")) return "user@contoso.com";
+  if (lower.includes("url") || lower.includes("website")) return "https://example.com";
   if (lower.includes("phone")) return "+1 555 0100";
   if (lower.includes("name")) return "Ada Lovelace";
   if (lower.includes("skill")) return "TypeScript;Python";
@@ -1456,10 +1501,10 @@ function sampleValueForPrincipalKey(key: string, index = 0): string {
 
 function buildSamplePrincipalObject(
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[],
+  fallbackSource: SourceDescriptor,
   index = 0
 ): Record<string, unknown> {
-  const entries = buildPrincipalFieldEntries(fields, fallbackHeaders);
+  const entries = buildPrincipalFieldEntries(fields, fallbackSource);
   const keys = entries.length > 0 ? entries.map((entry) => entry.key) : ["upn"];
   const principal: Record<string, unknown> = {
     "@odata.type": "microsoft.graph.externalConnectors.principal",
@@ -1472,11 +1517,11 @@ function buildSamplePrincipalObject(
 
 function buildSamplePrincipalCollection(
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[]
+  fallbackSource: SourceDescriptor
 ): Array<Record<string, unknown>> {
   return [
-    buildSamplePrincipalObject(fields, fallbackHeaders, 0),
-    buildSamplePrincipalObject(fields, fallbackHeaders, 1),
+    buildSamplePrincipalObject(fields, fallbackSource, 0),
+    buildSamplePrincipalObject(fields, fallbackSource, 1),
   ];
 }
 
@@ -1543,7 +1588,7 @@ function exampleValueForPayload(example: unknown, type: PropertyType): unknown {
 function samplePayloadValueForType(
   type: PropertyType,
   fields: PersonEntityField[] | null,
-  fallbackHeaders: string[]
+  fallbackSource: SourceDescriptor
 ): unknown {
   switch (type) {
     case "boolean":
@@ -1563,9 +1608,9 @@ function samplePayloadValueForType(
     case "dateTimeCollection":
       return ["2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z"];
     case "principal":
-      return buildSamplePrincipalObject(fields, fallbackHeaders, 0);
+      return buildSamplePrincipalObject(fields, fallbackSource, 0);
     case "principalCollection":
-      return buildSamplePrincipalCollection(fields, fallbackHeaders);
+      return buildSamplePrincipalCollection(fields, fallbackSource);
     case "string":
     default:
       return "sample";
@@ -1598,7 +1643,7 @@ function buildRestItemPayload(ir: ConnectorIr, itemId: string): Record<string, u
         samplePayloadValueForType(
           prop.type,
           prop.personEntity ? prop.personEntity.fields : null,
-          prop.source.csvHeaders
+          prop.source
         );
       properties[prop.name] = value;
     }
@@ -1682,6 +1727,260 @@ function buildSampleCsv(ir: ConnectorIr): string {
   const headerLine = headers.map(csvEscape).join(",");
   const valueLine = headers.map((h) => csvEscape(valueByHeader.get(h) ?? "sample")).join(",");
   return `${headerLine}\n${valueLine}\n`;
+}
+
+type JsonPathStep =
+  | { type: "prop"; key: string }
+  | { type: "index"; index: number };
+
+function jsonPathToSteps(path: string): JsonPathStep[] {
+  const trimmed = path.trim();
+  if (!trimmed) return [];
+
+  let raw = trimmed;
+  if (raw.startsWith("$")) {
+    raw = raw.slice(1);
+    if (raw.startsWith(".")) raw = raw.slice(1);
+  }
+
+  const splitSegments = (value: string): string[] => {
+    const segments: string[] = [];
+    let current = "";
+    let bracketDepth = 0;
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let escaped = false;
+
+    for (const char of value) {
+      if (escaped) {
+        current += char;
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        current += char;
+        escaped = true;
+        continue;
+      }
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        current += char;
+        continue;
+      }
+      if (char === '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        current += char;
+        continue;
+      }
+      if (!inSingleQuote && !inDoubleQuote) {
+        if (char === "[") {
+          bracketDepth += 1;
+        } else if (char === "]") {
+          bracketDepth = Math.max(0, bracketDepth - 1);
+        } else if (char === "." && bracketDepth === 0) {
+          if (current.length > 0) segments.push(current);
+          current = "";
+          continue;
+        }
+      }
+      current += char;
+    }
+
+    if (current.length > 0) segments.push(current);
+    return segments.filter(Boolean);
+  };
+
+  const findClosingBracket = (value: string, start: number): number => {
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let escaped = false;
+    for (let i = start + 1; i < value.length; i += 1) {
+      const char = value[i]!;
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        continue;
+      }
+      if (char === '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        continue;
+      }
+      if (!inSingleQuote && !inDoubleQuote && char === "]") return i;
+    }
+    return -1;
+  };
+
+  const parseBracketContent = (rawContent: string): JsonPathStep[] => {
+    const content = rawContent.trim();
+    if (!content) return [];
+    if (content === "*") return [{ type: "index", index: 0 }];
+    const quoted = content.match(/^['"](.*)['"]$/);
+    if (quoted) {
+      const key = quoted[1] ?? "";
+      return key ? [{ type: "prop", key }] : [];
+    }
+    const index = Number.parseInt(content, 10);
+    if (!Number.isNaN(index)) return [{ type: "index", index }];
+    return [{ type: "prop", key: content }];
+  };
+
+  const parseSegment = (segment: string): JsonPathStep[] => {
+    const steps: JsonPathStep[] = [];
+    let cursor = segment;
+
+    if (cursor.startsWith("[")) {
+      while (cursor.startsWith("[")) {
+        const close = findClosingBracket(cursor, 0);
+        if (close === -1) break;
+        const content = cursor.slice(1, close);
+        steps.push(...parseBracketContent(content));
+        cursor = cursor.slice(close + 1);
+      }
+      if (cursor.length > 0) {
+        steps.push({ type: "prop", key: cursor });
+      }
+      return steps;
+    }
+
+    const match = cursor.match(/^[A-Za-z_][A-Za-z0-9_]*/);
+    if (match) {
+      steps.push({ type: "prop", key: match[0] });
+      cursor = cursor.slice(match[0].length);
+    } else if (cursor.length > 0) {
+      steps.push({ type: "prop", key: cursor });
+      return steps;
+    }
+
+    while (cursor.startsWith("[")) {
+      const close = findClosingBracket(cursor, 0);
+      if (close === -1) break;
+      const content = cursor.slice(1, close);
+      steps.push(...parseBracketContent(content));
+      cursor = cursor.slice(close + 1);
+    }
+
+    return steps;
+  };
+
+  return splitSegments(raw).flatMap(parseSegment);
+}
+
+function setNestedValue(target: Record<string, unknown>, steps: JsonPathStep[], value: unknown): void {
+  if (steps.length === 0) return;
+  let cursor: unknown = target;
+  for (let i = 0; i < steps.length; i += 1) {
+    const step = steps[i]!;
+    const isLast = i === steps.length - 1;
+    const next = steps[i + 1];
+
+    if (step.type === "prop") {
+      if (typeof cursor !== "object" || cursor === null) return;
+      const container = cursor as Record<string, unknown>;
+      if (isLast) {
+        container[step.key] = value;
+        return;
+      }
+      if (next?.type === "index") {
+        if (!Array.isArray(container[step.key])) {
+          container[step.key] = [];
+        }
+        cursor = container[step.key];
+      } else {
+        if (!container[step.key] || typeof container[step.key] !== "object" || Array.isArray(container[step.key])) {
+          container[step.key] = {};
+        }
+        cursor = container[step.key];
+      }
+      continue;
+    }
+
+    if (!Array.isArray(cursor)) return;
+    const index = Math.max(0, step.index);
+    while (cursor.length <= index) {
+      cursor.push({});
+    }
+    if (isLast) {
+      cursor[index] = value;
+      return;
+    }
+    if (next?.type === "index") {
+      if (!Array.isArray(cursor[index])) {
+        cursor[index] = [];
+      }
+    } else if (!cursor[index] || typeof cursor[index] !== "object" || Array.isArray(cursor[index])) {
+      cursor[index] = {};
+    }
+    cursor = cursor[index];
+  }
+}
+
+function sampleJsonValueForType(type: PropertyType): unknown {
+  switch (type) {
+    case "boolean":
+      return true;
+    case "int64":
+      return 123;
+    case "double":
+      return 1.23;
+    case "dateTime":
+      return "2024-01-01T00:00:00Z";
+    case "stringCollection":
+      return ["alpha", "beta"];
+    case "int64Collection":
+      return [1, 2];
+    case "doubleCollection":
+      return [1.1, 2.2];
+    case "dateTimeCollection":
+      return ["2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z"];
+    case "principal":
+      return "user@contoso.com";
+    case "principalCollection":
+      return ["user@contoso.com", "user2@contoso.com"];
+    case "string":
+    default:
+      return "sample";
+  }
+}
+
+function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
+  const item: Record<string, unknown> = {};
+
+  for (const prop of ir.properties) {
+    if (prop.personEntity) {
+      for (const field of prop.personEntity.fields) {
+        const path = field.source.jsonPath ?? field.source.csvHeaders[0] ?? field.path;
+        const steps = jsonPathToSteps(path);
+        const header = [...steps].reverse().find((step) => step.type === "prop")?.key ?? field.path;
+        const sampleValue = sampleValueForHeader(header, prop.type);
+        setNestedValue(item, steps, sampleValue);
+      }
+      continue;
+    }
+
+    const path = prop.source.jsonPath ?? prop.source.csvHeaders[0] ?? prop.name;
+    const steps = jsonPathToSteps(path);
+    const exampleValue = exampleValueForPayload(prop.example, prop.type);
+    const value = exampleValue ?? sampleJsonValueForType(prop.type);
+    setNestedValue(item, steps, value);
+  }
+
+  return item;
+}
+
+function buildSampleJson(ir: ConnectorIr): string {
+  return JSON.stringify([buildSampleItem(ir)], null, 2) + "\n";
+}
+
+function buildSampleYaml(ir: ConnectorIr): string {
+  const yaml = stringifyYaml([buildSampleItem(ir)]);
+  return yaml.endsWith("\n") ? yaml : `${yaml}\n`;
 }
 
 type PeopleGraphFieldTemplate = {
@@ -2319,7 +2618,7 @@ async function writeGeneratedDotnet(
   const itemTypeName = toCsIdentifier(ir.item.typeName);
   const properties = ir.properties.map((p) => {
     const parseFn = toCsParseFunction(p.type);
-    const csvHeadersLiteral = `new[] { ${p.source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
+    const sourceLiteral = buildCsSourceLiteral(p.source);
     const isCollection = p.type === "stringCollection";
     const nameLiteral = JSON.stringify(p.name);
     const csStringConstraints = buildCsStringConstraintsLiteral(p);
@@ -2346,9 +2645,9 @@ async function writeGeneratedDotnet(
     const noSource = Boolean(p.source.noSource);
     const principalExpression =
       p.type === "principal"
-        ? buildCsPrincipalExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        ? buildCsPrincipalExpression(p.personEntity?.fields ?? null, p.source)
         : p.type === "principalCollection"
-        ? buildCsPrincipalCollectionExpression(p.personEntity?.fields ?? null, p.source.csvHeaders)
+        ? buildCsPrincipalCollectionExpression(p.personEntity?.fields ?? null, p.source)
         : null;
     const transformExpression = needsManualEntity
       ? `throw new NotImplementedException("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement in PropertyTransform.cs.")`
@@ -2370,7 +2669,7 @@ async function writeGeneratedDotnet(
               ? `Validation.ValidateString(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
               : base;
           }, personEntityTypeInfo, peopleProfileTypeInfoByName)
-      : `${parseFn}(row, ${csvHeadersLiteral})`;
+      : `${parseFn}(row, ${sourceLiteral})`;
 
     const validationMetadata = {
       name: p.name,
@@ -2385,15 +2684,16 @@ async function writeGeneratedDotnet(
 
     const validatedExpression = needsManualEntity || noSource || personEntity || p.type === "principal" || p.type === "principalCollection"
       ? transformExpression
-      : applyCsValidationExpression(validationMetadata, transformExpression, csvHeadersLiteral);
+      : applyCsValidationExpression(validationMetadata, transformExpression, sourceLiteral);
 
     return {
       name: p.name,
       csName: toCsPropertyName(p.name, itemTypeName, usedPropertyNames),
       csType: toCsType(p.type),
       csvHeaders: p.source.csvHeaders,
-      csvHeadersLiteral,
+      csvHeadersLiteral: sourceLiteral,
       isCollection,
+      source: p.source,
       personEntity,
       parseFn,
       transformExpression: validatedExpression,
@@ -2477,11 +2777,10 @@ async function writeGeneratedDotnet(
     .join("\n");
 
   const itemIdProperty = properties.find((p) => p.name === ir.item.idPropertyName);
-  const idRawHeadersDotnet =
-    itemIdProperty?.personEntity?.fields[0]?.source.csvHeaders ?? itemIdProperty?.csvHeaders ?? [];
-  const idRawHeadersLiteral = `new[] { ${idRawHeadersDotnet.map((h) => JSON.stringify(h)).join(", ")} }`;
-  const idRawExpressionDotnet = idRawHeadersDotnet.length
-    ? `RowParser.ParseString(row, ${idRawHeadersLiteral})`
+  const idRawSourceDotnet =
+    itemIdProperty?.personEntity?.fields[0]?.source ?? itemIdProperty?.source;
+  const idRawExpressionDotnet = idRawSourceDotnet
+    ? `RowParser.ParseString(row, ${buildCsSourceLiteral(idRawSourceDotnet)})`
     : "string.Empty";
   const constructorArgs = [
     ...properties.map((p) => `(${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row)`),
@@ -2560,6 +2859,7 @@ async function writeGeneratedDotnet(
       connectionId: ir.connection.connectionId ?? null,
       connectionName: ir.connection.connectionName ?? null,
       connectionDescription: ir.connection.connectionDescription ?? null,
+      inputFormat: ir.connection.inputFormat,
       profileSourceWebUrl: ir.connection.profileSource?.webUrl ?? null,
       profileSourceDisplayName: ir.connection.profileSource?.displayName ?? null,
       profileSourcePriority: ir.connection.profileSource?.priority ?? null,
@@ -2584,6 +2884,7 @@ async function writeGeneratedDotnet(
     path.join(outDir, "Datasource", "RowParser.cs"),
     await renderTemplate("dotnet/Generated/RowParser.cs.ejs", {
       namespaceName,
+      inputFormat: ir.connection.inputFormat,
     }),
     "utf8"
   );
@@ -2809,7 +3110,7 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
     throw new Error(`This project is '${config.lang}'. Use cocogen generate/update for that language.`);
   }
 
-  const ir = await loadIrFromTypeSpec(tspPath);
+  const ir = await loadIrFromTypeSpec(tspPath, { inputFormat: config.inputFormat });
   if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
     throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
   }
@@ -2821,7 +3122,11 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
   const schemaFolderName = toTsSchemaFolderName(ir.connection.connectionName);
   await writeGeneratedTs(outDir, ir, schemaFolderName);
   if (options.tspPath) {
-    await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, tspPath, "ts"), "utf8");
+    await writeFile(
+      path.join(outDir, COCOGEN_CONFIG_FILE),
+      projectConfigContents(outDir, tspPath, "ts", config.inputFormat),
+      "utf8"
+    );
   }
 
   return { outDir, ir };
@@ -2838,7 +3143,7 @@ export async function updateDotnetProject(
     throw new Error(`This project is '${config.lang}'. Use cocogen generate/update for that language.`);
   }
 
-  const ir = await loadIrFromTypeSpec(tspPath);
+  const ir = await loadIrFromTypeSpec(tspPath, { inputFormat: config.inputFormat });
   if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
     throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
   }
@@ -2852,7 +3157,11 @@ export async function updateDotnetProject(
   const schemaNamespace = `${namespaceName}.${schemaFolderName}`;
   await writeGeneratedDotnet(outDir, ir, namespaceName, schemaFolderName, schemaNamespace);
   if (options.tspPath) {
-    await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, tspPath, "dotnet"), "utf8");
+    await writeFile(
+      path.join(outDir, COCOGEN_CONFIG_FILE),
+      projectConfigContents(outDir, tspPath, "dotnet", config.inputFormat),
+      "utf8"
+    );
   }
 
   return { outDir, ir };
@@ -2867,7 +3176,7 @@ export async function updateRestProject(options: UpdateOptions): Promise<{ outDi
     throw new Error(`This project is '${config.lang}'. Use cocogen generate/update for that language.`);
   }
 
-  const ir = await loadIrFromTypeSpec(tspPath);
+  const ir = await loadIrFromTypeSpec(tspPath, { inputFormat: config.inputFormat });
   if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
     throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
   }
@@ -2878,7 +3187,11 @@ export async function updateRestProject(options: UpdateOptions): Promise<{ outDi
 
   await writeRestFiles(outDir, ir);
   if (options.tspPath) {
-    await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, tspPath, "rest"), "utf8");
+    await writeFile(
+      path.join(outDir, COCOGEN_CONFIG_FILE),
+      projectConfigContents(outDir, tspPath, "rest", config.inputFormat),
+      "utf8"
+    );
   }
 
   return { outDir, ir };
@@ -2900,7 +3213,7 @@ export async function initRestProject(options: InitOptions): Promise<{ outDir: s
   const outDir = path.resolve(options.outDir);
   await ensureEmptyDir(outDir, Boolean(options.force));
 
-  const ir = await loadIrFromTypeSpec(options.tspPath);
+  const ir = await loadIrFromTypeSpec(options.tspPath, { inputFormat: options.inputFormat });
   if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
     throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
   }
@@ -2911,7 +3224,11 @@ export async function initRestProject(options: InitOptions): Promise<{ outDir: s
 
   const copiedTspPath = path.join(outDir, "schema.tsp");
   await copyFile(path.resolve(options.tspPath), copiedTspPath);
-  await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, copiedTspPath, "rest"), "utf8");
+  await writeFile(
+    path.join(outDir, COCOGEN_CONFIG_FILE),
+    projectConfigContents(outDir, copiedTspPath, "rest", ir.connection.inputFormat),
+    "utf8"
+  );
 
   await writeRestFiles(outDir, ir);
   return { outDir, ir };
@@ -2921,7 +3238,7 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
   const outDir = path.resolve(options.outDir);
   await ensureEmptyDir(outDir, Boolean(options.force));
 
-  const ir = await loadIrFromTypeSpec(options.tspPath);
+  const ir = await loadIrFromTypeSpec(options.tspPath, { inputFormat: options.inputFormat });
   if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
     throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
   }
@@ -2942,6 +3259,7 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
     await renderTemplate("ts/package.json.ejs", {
       projectName,
       isPeopleConnector: ir.connection.contentCategory === "people",
+      inputFormat: ir.connection.inputFormat,
     }),
     "utf8"
   );
@@ -2975,12 +3293,17 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
       isPeopleConnector: ir.connection.contentCategory === "people",
       itemTypeName: ir.item.typeName,
       schemaFolderName,
+      inputFormat: ir.connection.inputFormat,
     }),
     "utf8"
   );
   const copiedTspPath = path.join(outDir, "schema.tsp");
   await copyFile(path.resolve(options.tspPath), copiedTspPath);
-  await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, copiedTspPath, "ts"), "utf8");
+  await writeFile(
+    path.join(outDir, COCOGEN_CONFIG_FILE),
+    projectConfigContents(outDir, copiedTspPath, "ts", ir.connection.inputFormat),
+    "utf8"
+  );
 
   const propertiesObjectLines = ir.properties
     .flatMap((p) => {
@@ -3004,6 +3327,7 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
       isPeopleConnector: ir.connection.contentCategory === "people",
       itemTypeName: ir.item.typeName,
       schemaFolderName,
+      inputFormat: ir.connection.inputFormat,
     }),
     "utf8"
   );
@@ -3015,16 +3339,51 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
     }),
     "utf8"
   );
-  await writeFile(
-    path.join(outDir, "src", "datasource", "csvItemSource.ts"),
-    await renderTemplate("ts/src/datasource/csvItemSource.ts.ejs", {
-      itemTypeName: ir.item.typeName,
-      schemaFolderName,
-    }),
-    "utf8"
-  );
+  if (ir.connection.inputFormat === "json") {
+    await writeFile(
+      path.join(outDir, "src", "datasource", "jsonItemSource.ts"),
+      await renderTemplate("ts/src/datasource/jsonItemSource.ts.ejs", {
+        itemTypeName: ir.item.typeName,
+        schemaFolderName,
+      }),
+      "utf8"
+    );
+  } else if (ir.connection.inputFormat === "yaml") {
+    await writeFile(
+      path.join(outDir, "src", "datasource", "yamlItemSource.ts"),
+      await renderTemplate("ts/src/datasource/yamlItemSource.ts.ejs", {
+        itemTypeName: ir.item.typeName,
+        schemaFolderName,
+      }),
+      "utf8"
+    );
+  } else if (ir.connection.inputFormat === "custom") {
+    await writeFile(
+      path.join(outDir, "src", "datasource", "customItemSource.ts"),
+      await renderTemplate("ts/src/datasource/customItemSource.ts.ejs", {
+        itemTypeName: ir.item.typeName,
+        schemaFolderName,
+      }),
+      "utf8"
+    );
+  } else {
+    await writeFile(
+      path.join(outDir, "src", "datasource", "csvItemSource.ts"),
+      await renderTemplate("ts/src/datasource/csvItemSource.ts.ejs", {
+        itemTypeName: ir.item.typeName,
+        schemaFolderName,
+      }),
+      "utf8"
+    );
+  }
 
-  await writeFile(path.join(outDir, "data.csv"), buildSampleCsv(ir), "utf8");
+  if (ir.connection.inputFormat === "json") {
+    await writeFile(path.join(outDir, "data.json"), buildSampleJson(ir), "utf8");
+  } else if (ir.connection.inputFormat === "yaml") {
+    await writeFile(path.join(outDir, "data.yaml"), buildSampleYaml(ir), "utf8");
+  } else if (ir.connection.inputFormat === "csv") {
+    await writeFile(path.join(outDir, "data.csv"), buildSampleCsv(ir), "utf8");
+  }
 
   await writeGeneratedTs(outDir, ir, schemaFolderName);
 
@@ -3043,7 +3402,7 @@ export async function initDotnetProject(
   const outDir = path.resolve(options.outDir);
   await ensureEmptyDir(outDir, Boolean(options.force));
 
-  const ir = await loadIrFromTypeSpec(options.tspPath);
+  const ir = await loadIrFromTypeSpec(options.tspPath, { inputFormat: options.inputFormat });
   if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
     throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
   }
@@ -3065,6 +3424,7 @@ export async function initDotnetProject(
     await renderTemplate("dotnet/project.csproj.ejs", {
       graphApiVersion: ir.connection.graphApiVersion,
       userSecretsId: randomUUID(),
+      inputFormat: ir.connection.inputFormat,
     }),
     "utf8"
   );
@@ -3091,6 +3451,7 @@ export async function initDotnetProject(
       itemTypeName: ir.item.typeName,
       isPeopleConnector: ir.connection.contentCategory === "people",
       graphApiVersion: ir.connection.graphApiVersion,
+      inputFormat: ir.connection.inputFormat,
     }),
     "utf8"
   );
@@ -3104,18 +3465,55 @@ export async function initDotnetProject(
     }),
     "utf8"
   );
+  if (ir.connection.inputFormat === "json") {
+    await writeFile(
+      path.join(outDir, "Datasource", "JsonItemSource.cs"),
+      await renderTemplate("dotnet/Datasource/JsonItemSource.cs.ejs", {
+        namespaceName,
+        schemaNamespace,
+        itemTypeName: ir.item.typeName,
+      }),
+      "utf8"
+    );
+  } else if (ir.connection.inputFormat === "yaml") {
+    await writeFile(
+      path.join(outDir, "Datasource", "YamlItemSource.cs"),
+      await renderTemplate("dotnet/Datasource/YamlItemSource.cs.ejs", {
+        namespaceName,
+        schemaNamespace,
+        itemTypeName: ir.item.typeName,
+      }),
+      "utf8"
+    );
+  } else if (ir.connection.inputFormat === "custom") {
+    await writeFile(
+      path.join(outDir, "Datasource", "CustomItemSource.cs"),
+      await renderTemplate("dotnet/Datasource/CustomItemSource.cs.ejs", {
+        namespaceName,
+        schemaNamespace,
+        itemTypeName: ir.item.typeName,
+      }),
+      "utf8"
+    );
+  } else {
+    await writeFile(
+      path.join(outDir, "Datasource", "CsvItemSource.cs"),
+      await renderTemplate("dotnet/Datasource/CsvItemSource.cs.ejs", {
+        namespaceName,
+        schemaNamespace,
+        itemTypeName: ir.item.typeName,
+      }),
+      "utf8"
+    );
+  }
 
-  await writeFile(
-    path.join(outDir, "Datasource", "CsvItemSource.cs"),
-    await renderTemplate("dotnet/Datasource/CsvItemSource.cs.ejs", {
-      namespaceName,
-      schemaNamespace,
-      itemTypeName: ir.item.typeName,
-    }),
-    "utf8"
-  );
-
-  await writeFile(path.join(outDir, "data.csv"), buildSampleCsv(ir), "utf8");
+  if (ir.connection.inputFormat === "json") {
+    await writeFile(path.join(outDir, "data.json"), buildSampleJson(ir), "utf8");
+  } else if (ir.connection.inputFormat === "yaml") {
+    await writeFile(path.join(outDir, "data.yaml"), buildSampleYaml(ir), "utf8");
+  } else if (ir.connection.inputFormat === "csv") {
+    await writeFile(path.join(outDir, "data.csv"), buildSampleCsv(ir), "utf8");
+  }
 
   await writeFile(
     path.join(outDir, "appsettings.json"),
@@ -3144,13 +3542,18 @@ export async function initDotnetProject(
       isPeopleConnector: ir.connection.contentCategory === "people",
       itemTypeName: ir.item.typeName,
       schemaFolderName,
+      inputFormat: ir.connection.inputFormat,
     }),
     "utf8"
   );
 
   const copiedTspPath = path.join(outDir, "schema.tsp");
   await copyFile(path.resolve(options.tspPath), copiedTspPath);
-  await writeFile(path.join(outDir, COCOGEN_CONFIG_FILE), projectConfigContents(outDir, copiedTspPath, "dotnet"), "utf8");
+  await writeFile(
+    path.join(outDir, COCOGEN_CONFIG_FILE),
+    projectConfigContents(outDir, copiedTspPath, "dotnet", ir.connection.inputFormat),
+    "utf8"
+  );
 
   await writeGeneratedDotnet(outDir, ir, namespaceName, schemaFolderName, schemaNamespace);
 

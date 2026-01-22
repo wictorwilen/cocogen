@@ -29,8 +29,8 @@ for example_name in "${required_examples[@]}"; do
   fi
 done
 
-printf "| Example | Lang | Generate | Build | Dry-run |\n" > "$REPORT_PATH"
-printf "| --- | --- | --- | --- | --- |\n" >> "$REPORT_PATH"
+printf "| Example | Format | Lang | Generate | Build | Dry-run |\n" > "$REPORT_PATH"
+printf "| --- | --- | --- | --- | --- | --- |\n" >> "$REPORT_PATH"
 
 run_step() {
   local label="$1"
@@ -55,6 +55,12 @@ run_step() {
   fi
 }
 
+if [[ -n "${INPUT_FORMATS:-}" ]]; then
+  read -r -a input_formats <<< "${INPUT_FORMATS}"
+else
+  input_formats=("csv" "json" "yaml")
+fi
+
 for tsp in "$EXAMPLES_DIR"/*.tsp; do
   base="$(basename "$tsp" .tsp)"
 
@@ -64,27 +70,29 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
   fi
 
   preview=(--use-preview-features)
-  out_ts="$TMP_DIR/${base}-ts"
-  out_dotnet="$TMP_DIR/${base}-dotnet"
-
   printf "Running %s...\n" "$base"
 
-  gen_ts_status="$(run_step "${base}-ts-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_ts" --lang ts --force "${preview[@]}")"
-  build_ts_status="$(run_step "${base}-ts-install" "$out_ts" npm install --no-audit --no-fund)"
-  if [[ "$build_ts_status" == "ok" ]]; then
-    build_ts_status="$(run_step "${base}-ts-build" "$out_ts" npm run build)"
-  fi
-  dry_ts_status="$(run_step "${base}-ts-dry" "$out_ts" node "dist/cli.js" ingest --dry-run)"
+  for input_format in "${input_formats[@]}"; do
+    out_ts="$TMP_DIR/${base}-ts-${input_format}"
+    out_dotnet="$TMP_DIR/${base}-dotnet-${input_format}"
 
-  printf "| %s | ts | %s | %s | %s |\n" "$base" "$gen_ts_status" "$build_ts_status" "$dry_ts_status" >> "$REPORT_PATH"
+    gen_ts_status="$(run_step "${base}-ts-${input_format}-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_ts" --lang ts --force --data-format "$input_format" "${preview[@]}")"
+    build_ts_status="$(run_step "${base}-ts-${input_format}-install" "$out_ts" npm install --no-audit --no-fund)"
+    if [[ "$build_ts_status" == "ok" ]]; then
+      build_ts_status="$(run_step "${base}-ts-${input_format}-build" "$out_ts" npm run build)"
+    fi
+    dry_ts_status="$(run_step "${base}-ts-${input_format}-dry" "$out_ts" node "dist/cli.js" ingest --dry-run)"
 
-  gen_dotnet_status="$(run_step "${base}-dotnet-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force "${preview[@]}")"
-  build_dotnet_status="$(run_step "${base}-dotnet-build" "$out_dotnet" dotnet build)"
-  dry_dotnet_status="$(run_step "${base}-dotnet-dry" "$out_dotnet" dotnet run -- ingest --dry-run)"
+    printf "| %s | %s | ts | %s | %s | %s |\n" "$base" "$input_format" "$gen_ts_status" "$build_ts_status" "$dry_ts_status" >> "$REPORT_PATH"
 
-  printf "| %s | dotnet | %s | %s | %s |\n" "$base" "$gen_dotnet_status" "$build_dotnet_status" "$dry_dotnet_status" >> "$REPORT_PATH"
+    gen_dotnet_status="$(run_step "${base}-dotnet-${input_format}-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force --data-format "$input_format" "${preview[@]}")"
+    build_dotnet_status="$(run_step "${base}-dotnet-${input_format}-build" "$out_dotnet" dotnet build)"
+    dry_dotnet_status="$(run_step "${base}-dotnet-${input_format}-dry" "$out_dotnet" dotnet run -- ingest --dry-run)"
 
-  printf "Report updated: %s\n" "$REPORT_PATH"
+    printf "| %s | %s | dotnet | %s | %s | %s |\n" "$base" "$input_format" "$gen_dotnet_status" "$build_dotnet_status" "$dry_dotnet_status" >> "$REPORT_PATH"
+
+    printf "Report updated: %s\n" "$REPORT_PATH"
+  done
 
 done
 

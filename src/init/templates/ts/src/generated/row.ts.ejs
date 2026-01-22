@@ -1,6 +1,12 @@
 /**
  * Row value parsing helpers used by generated transforms.
  */
+<% if (inputFormat !== "csv") { -%>
+import { JSONPath } from "jsonpath-plus";
+import { normalizeJsonPath } from "./inputPath.js";
+<% } -%>
+
+type SourceKey = string | string[];
 /** Parse any row value into a string (empty when nullish). */
 function parseString(value: unknown): string {
   if (value === undefined || value === null) return "";
@@ -30,18 +36,38 @@ function splitCollection(value: unknown): string[] {
 
 /** Parse a string collection from a row value. */
 function parseStringCollection(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((entry) => parseString(entry)).filter((entry) => entry.length > 0);
+  }
   return splitCollection(value);
 }
 
 /** Parse a number collection from a row value. */
 function parseNumberCollection(value: unknown): number[] {
+  if (Array.isArray(value)) {
+    return value.map((entry) => parseNumber(entry));
+  }
   return splitCollection(value).map((s) => parseNumber(s));
 }
 
-/** Read a value from a row using the first matching header. */
-function readSourceValue(row: Record<string, unknown>, headers: string[]): unknown {
-  if (headers.length === 0) return "";
-  return row[headers[0]];
+/** Read a value from a row using CSV headers or JSONPath. */
+function readSourceValue(row: Record<string, unknown>, source: SourceKey): unknown {
+  if (Array.isArray(source)) {
+    if (source.length === 0) return "";
+    return row[source[0]!];
+  }
+  <% if (inputFormat === "csv") { -%>
+  return "";
+  <% } else { -%>
+  const path = normalizeJsonPath(source);
+  if (!path) return "";
+  try {
+    const result = JSONPath({ path, json: row, wrap: false });
+    return result ?? "";
+  } catch {
+    return "";
+  }
+  <% } -%>
 }
 
 export {

@@ -1,0 +1,53 @@
+// Default JSON datasource implementation.
+using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
+
+using <%= schemaNamespace %>;
+using ItemModel = <%= schemaNamespace %>.<%= itemTypeName %>;
+
+namespace <%= namespaceName %>.Datasource;
+
+/// <summary>
+/// JSON-based datasource. Expects an array of objects or an object with an items array.
+/// </summary>
+public sealed class JsonItemSource : IItemSource<ItemModel>
+{
+    private readonly string _path;
+
+    public JsonItemSource(string path)
+    {
+        _path = path;
+    }
+
+    public async IAsyncEnumerable<ItemModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var raw = await File.ReadAllTextAsync(_path, cancellationToken);
+        var root = JsonNode.Parse(raw) ?? throw new InvalidOperationException("JSON input could not be parsed.");
+        var items = ResolveItems(root);
+
+        foreach (var item in items)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (item is not JsonObject)
+            {
+                throw new InvalidOperationException("JSON input items must be objects.");
+            }
+            yield return FromRow.Parse(item);
+        }
+    }
+
+    private static JsonArray ResolveItems(JsonNode root)
+    {
+        if (root is JsonArray array)
+        {
+            return array;
+        }
+
+        if (root is JsonObject obj && obj["items"] is JsonArray items)
+        {
+            return items;
+        }
+
+        throw new InvalidOperationException("JSON input must be an array or an object with an 'items' array.");
+    }
+}

@@ -104,7 +104,7 @@ cocogen --help
 | --- | --- | --- |
 | `init` | Create a starter TypeSpec file | `--out <path>`, `--kind <content\|people>`, `--prompt`, `--force` |
 | `validate` | Validate a TypeSpec schema | `--tsp <path>`, `--json`, `--use-preview-features` |
-| `generate` | Generate a runnable connector project | `--tsp <path>`, `--out <dir>`, `--lang <ts\|dotnet\|rest>`, `--name <name>`, `--force`, `--use-preview-features` |
+| `generate` | Generate a runnable connector project | `--tsp <path>`, `--out <dir>`, `--lang <ts\|dotnet\|rest>`, `--name <name>`, `--data-format <csv\|json\|yaml\|custom>`, `--force`, `--use-preview-features` |
 | `update` | Regenerate TypeSpec-derived code in a generated project | `--out <dir>`, `--tsp <path>`, `--use-preview-features` |
 | `emit` | Emit cocogen IR as JSON | `--tsp <path>`, `--out <path>`, `--use-preview-features` |
 
@@ -136,6 +136,7 @@ npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector
 Notes:
 - `cocogen` will fail fast if the schema is invalid.
 - Beta features require `--use-preview-features`.
+- Use `--data-format custom` to emit a stub datasource for custom backends.
 
 ### Update generated code after changing TypeSpec
 

@@ -28,6 +28,7 @@ const baseIr: ConnectorIr = {
     connectionName: "123 People",
     connectionId: "peopleconnector",
     connectionDescription: "People connector",
+    inputFormat: "csv",
     profileSource: {
       webUrl: "https://example.com/people",
       displayName: "Example People Source",

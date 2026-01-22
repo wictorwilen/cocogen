@@ -101,6 +101,12 @@ Reference:
 Notes:
 - `people` enables people connector validation rules.
 
+Input format is selected at generation time via the CLI:
+
+- `cocogen generate --data-format csv|json|yaml|custom`
+
+When the input format is `json`, `yaml`, or `custom`, `@coco.source(...)` values are interpreted as JSONPath (RFC 9535).
+
 ### `@coco.profileSource({ webUrl, displayName, priority? })`
 
 People connectors only. Attach to the same model as `@coco.item()`.
@@ -230,7 +236,7 @@ This is useful to satisfy Graph naming constraints:
 
 ### `@coco.source(...)`
 
-Maps a schema property to one or more source fields (CSV headers).
+Maps a schema property to one or more source fields (CSV headers or JSONPath).
 
 Examples:
 
@@ -246,9 +252,11 @@ displayName: string;
 
 Notes:
 - When omitted, the CSV header is assumed to match the schema property name.
-- Use `@coco.noSource` when a property has no CSV source mapping.
+- When the generator input format is `json`, `yaml`, or `custom`, the `from` value is treated as a JSONPath (RFC 9535).
+  - You can still use dot notation (for example `details.role`), which is normalized to `$.details.role`.
+- Use `@coco.noSource` when a property has no source mapping.
 - This mapping is source-only and does not change the Graph schema name; use `@coco.name("...")` for schema naming.
-- Multi-column source transforms (merge/compose) are not supported yet; preprocess your CSV or wait for a future version.
+- Multi-column source transforms (merge/compose) are not supported yet; preprocess your data or wait for a future version.
 
 ### `@coco.noSource`
 
@@ -258,12 +266,13 @@ Use this when the value is computed in your custom datasource or in a `PropertyT
 
 ### `@coco.source(from, to?)`
 
-Maps a CSV header to a destination property or people-entity field.
+Maps a source path (CSV header or JSONPath) to a destination property or people-entity field.
 
 Notes:
-- For people entity mappings, `to` is recommended and should be the entity JSON path. If you omit it, cocogen will skip defaults and you must build JSON yourself in generated transforms/overrides.
+- For people entity mappings, `to` is recommended and should be the entity JSON path. You may use dot notation (for example `detail.role`) or JSONPath (for example `$.detail.role`).
+  If you omit `to`, cocogen will skip defaults and you must build JSON yourself in generated transforms/overrides.
 - For non-people connectors, omit `to` (equivalent to `@coco.source("header")`).
-- For `coco.Principal` and `coco.Principal[]`, use `to` to map CSV headers to principal properties (for example `@coco.source("manager", "upn")`).
+- For `coco.Principal` and `coco.Principal[]`, use `to` to map source paths to principal properties (for example `@coco.source("manager", "upn")`).
 - For people connectors, any property with a people label should define at least one `@coco.source(..., to)` mapping; otherwise validation warns and you must implement the mapping manually.
 
 ### People entity fields with `@coco.source(..., to)`

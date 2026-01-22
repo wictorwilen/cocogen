@@ -12,6 +12,8 @@ export const connectionId: string | null = <%= JSON.stringify(connectionId) %>;
 /** Default connection ID, if provided in TypeSpec. */
 export const connectionDescription: string | null = <%= JSON.stringify(connectionDescription) %>;
 /** Default connection description, if provided in TypeSpec. */
+export const inputFormat: "csv" | "json" | "yaml" = <%= JSON.stringify(inputFormat) %>;
+/** Input format selected during generation. */
 export const profileSourceWebUrl: string | null = <%= JSON.stringify(profileSourceWebUrl) %>;
 /** Default profile source URL for people connectors. */
 export const profileSourceDisplayName: string | null = <%= JSON.stringify(profileSourceDisplayName) %>;

@@ -10,6 +10,7 @@ function baseIr(): ConnectorIr {
       connectionName: "Test connector",
       connectionId: "testconnection",
       connectionDescription: "Test connector",
+      inputFormat: "csv",
     },
     item: {
       typeName: "Item",

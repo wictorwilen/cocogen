@@ -54,6 +54,7 @@ export type CocogenSearchFlags = {
 
 export type CocogenSourceSettings = {
   csv?: string;
+  jsonPath?: string;
 };
 
 export type CocogenPersonEntityField = {

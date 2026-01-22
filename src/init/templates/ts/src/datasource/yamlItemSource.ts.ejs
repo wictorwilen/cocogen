@@ -1,0 +1,37 @@
+/**
+ * YAML datasource implementation.
+ */
+import { readFile } from "node:fs/promises";
+import { parse } from "yaml";
+
+import type { <%= itemTypeName %> } from "../<%= schemaFolderName %>/model.js";
+import type { ItemSource } from "./itemSource.js";
+import { fromRow } from "../<%= schemaFolderName %>/fromRow.js";
+
+const resolveItems = (payload: unknown): unknown[] => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    const candidate = (payload as { items?: unknown[] }).items;
+    if (Array.isArray(candidate)) return candidate;
+  }
+  throw new Error("YAML input must be an array or an object with an 'items' array.");
+};
+
+/**
+ * YAML-based datasource. Expects an array of objects or an object with an items array.
+ */
+export class YamlItemSource implements ItemSource<<%= itemTypeName %>> {
+  constructor(private readonly filePath: string) {}
+
+  async *getItems(): AsyncIterable<<%= itemTypeName %>> {
+    const raw = await readFile(this.filePath, "utf8");
+    const parsed = parse(raw) as unknown;
+    const items = resolveItems(parsed);
+    for (const item of items) {
+      if (!item || typeof item !== "object") {
+        throw new Error("YAML input items must be objects.");
+      }
+      yield fromRow(item as Record<string, unknown>);
+    }
+  }
+}

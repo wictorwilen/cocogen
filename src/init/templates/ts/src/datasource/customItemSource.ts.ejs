@@ -1,0 +1,16 @@
+/**
+ * Custom datasource placeholder.
+ * Replace this implementation with your own data access logic.
+ */
+import type { <%= itemTypeName %> } from "../<%= schemaFolderName %>/model.js";
+import type { ItemSource } from "./itemSource.js";
+
+export class CustomItemSource implements ItemSource<<%= itemTypeName %>> {
+  constructor(private readonly sourceHint?: string) {}
+
+  async *getItems(): AsyncIterable<<%= itemTypeName %>> {
+    throw new Error(
+      "Custom input format selected. Replace CustomItemSource with your own ItemSource implementation."
+    );
+  }
+}

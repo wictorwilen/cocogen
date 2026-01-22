@@ -8,8 +8,8 @@ import type { ConnectorIr } from "../../src/ir.js";
 
 function baseIr(): ConnectorIr {
   return {
-    connection: { graphApiVersion: "v1.0" },
-    item: { typeName: "Item", idPropertyName: "id" },
+    connection: { graphApiVersion: "v1.0", inputFormat: "csv" },
+    item: { typeName: "Item", idPropertyName: "id", idEncoding: "slug" },
     properties: [
       {
         name: "id",

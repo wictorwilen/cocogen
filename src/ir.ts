@@ -27,6 +27,7 @@ export type ConnectorIr = {
     connectionName?: string;
     connectionId?: string;
     connectionDescription?: string;
+    inputFormat: "csv" | "json" | "yaml" | "custom";
     profileSource?: {
       webUrl: string;
       displayName: string;
@@ -79,11 +80,13 @@ export type ConnectorIr = {
         path: string;
         source: {
           csvHeaders: string[];
+          jsonPath?: string;
         };
       }>;
     };
     source: {
       csvHeaders: string[];
+      jsonPath?: string;
       explicit?: boolean;
       noSource?: boolean;
     };

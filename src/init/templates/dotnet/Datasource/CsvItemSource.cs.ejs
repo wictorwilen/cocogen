@@ -40,7 +40,7 @@ public sealed class CsvItemSource : IItemSource<ItemModel>
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var row = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
             foreach (var header in csv.HeaderRecord ?? Array.Empty<string>())
             {
                 row[header] = csv.GetField(header);

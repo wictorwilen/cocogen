@@ -1,0 +1,58 @@
+// Default YAML datasource implementation.
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using YamlDotNet.Serialization;
+
+using <%= schemaNamespace %>;
+using ItemModel = <%= schemaNamespace %>.<%= itemTypeName %>;
+
+namespace <%= namespaceName %>.Datasource;
+
+/// <summary>
+/// YAML-based datasource. Expects an array of objects or an object with an items array.
+/// </summary>
+public sealed class YamlItemSource : IItemSource<ItemModel>
+{
+    private readonly string _path;
+
+    public YamlItemSource(string path)
+    {
+        _path = path;
+    }
+
+    public async IAsyncEnumerable<ItemModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var raw = await File.ReadAllTextAsync(_path, cancellationToken);
+        var deserializer = new DeserializerBuilder().Build();
+        var yamlObject = deserializer.Deserialize<object>(raw);
+        var json = JsonSerializer.Serialize(yamlObject);
+        var root = JsonNode.Parse(json) ?? throw new InvalidOperationException("YAML input could not be parsed.");
+        var items = ResolveItems(root);
+
+        foreach (var item in items)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (item is not JsonObject)
+            {
+                throw new InvalidOperationException("YAML input items must be objects.");
+            }
+            yield return FromRow.Parse(item);
+        }
+    }
+
+    private static JsonArray ResolveItems(JsonNode root)
+    {
+        if (root is JsonArray array)
+        {
+            return array;
+        }
+
+        if (root is JsonObject obj && obj["items"] is JsonArray items)
+        {
+            return items;
+        }
+
+        throw new InvalidOperationException("YAML input must be an array or an object with an 'items' array.");
+    }
+}
