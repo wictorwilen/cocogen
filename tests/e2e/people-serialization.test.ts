@@ -76,6 +76,8 @@ describe("people label serialization (e2e)", () => {
         "  }",
         "};",
         "assertThrows(() => serializePersonName({}), 'personName');",
+        "assertThrows(() => serializePersonName({ id: 'should-not-send' }), 'personName');",
+        "assertThrows(() => serializePersonName({ createdDateTime: '2024-01-01T00:00:00Z' }), 'personName');",
         "assertThrows(() => serializePersonEmails(['not-json']), 'personEmails');",
         "console.log('ok');",
       ].join("\n"),
@@ -114,5 +116,6 @@ describe("people label serialization (e2e)", () => {
 
     const payload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(payload).toContain("non-empty JSON string");
+    expect(payload).toContain("read-only");
   });
 });

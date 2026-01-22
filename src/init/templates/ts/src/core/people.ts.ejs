@@ -77,6 +77,16 @@ export function validate<%= type.alias %>(value: unknown, fieldPath: string): <%
   if (!isRecord(value)) {
     throw new Error(`${fieldPath} must be an object.`);
   }
+<% if (type.alias === "ItemFacet") { -%>
+  if ((value as UnknownObject)["id"] !== undefined) {
+    throw new Error(fieldPath + ".id is read-only and must not be provided.");
+  }
+  for (const key of ["createdBy", "createdDateTime", "lastModifiedBy", "lastModifiedDateTime", "source", "sources"]) {
+    if ((value as UnknownObject)[key] !== undefined) {
+      throw new Error(fieldPath + "." + key + " is read-only and must not be provided.");
+    }
+  }
+<% } -%>
 <% for (const field of type.fields) { -%>
   const <%= field.varName %> = (value as UnknownObject)[<%= JSON.stringify(field.name) %>];
   if (<%= field.varName %> === undefined || <%= field.varName %> === null) {

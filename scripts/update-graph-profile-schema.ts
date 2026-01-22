@@ -153,6 +153,7 @@ const main = async (): Promise<void> => {
 
   const addBaseTypes = (name: string): void => {
     const entry = findTypeByName(entityIndex, name);
+    if (entry.name === "itemFacet") return;
     if (!entry.baseType) return;
     const baseName = entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop();
     if (!baseName) return;
@@ -169,7 +170,9 @@ const main = async (): Promise<void> => {
   const types = Array.from(graphTypeNames).map((graphName) => {
     const entry = findTypeByName(entityIndex, graphName);
     const baseType = entry.baseType
-      ? entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop()
+      ? entry.name === "itemFacet"
+        ? undefined
+        : entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop()
       : undefined;
     const properties = collectProperties(entityIndex, entry).map((prop) => ({
       name: prop.name,

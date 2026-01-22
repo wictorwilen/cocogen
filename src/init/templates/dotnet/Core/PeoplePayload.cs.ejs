@@ -35,6 +35,20 @@ public static class PeoplePayload
 <% } -%>
     };
 
+    private static readonly HashSet<string> ItemFacetTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+<% for (const typeName of itemFacetTypeNames ?? []) { -%>
+        <%= JSON.stringify(typeName) %>,
+<% } -%>
+    };
+
+    private static readonly string[] ItemFacetReadOnlyFields =
+    {
+<% for (const field of itemFacetReadOnlyFields ?? []) { -%>
+        <%= JSON.stringify(field) %>,
+<% } -%>
+    };
+
     public static string? SerializeStringLabel(string label, string? value, string propertyName)
     {
         if (value is null) return value;
@@ -45,6 +59,10 @@ public static class PeoplePayload
         }
         var definition = GetDefinition(label, PeoplePayloadKind.String, propertyName);
         var element = ParseJsonObject(label, value, propertyName);
+        if (ItemFacetTypes.Contains(definition.GraphTypeName))
+        {
+            EnsureItemFacetReadOnlyFields(definition.Label, element, propertyName);
+        }
         ValidateRequiredFields(definition, element, propertyName);
         return value;
     }
@@ -69,6 +87,10 @@ public static class PeoplePayload
             }
 
             var element = ParseJsonObject(label, value, propertyName);
+            if (ItemFacetTypes.Contains(definition.GraphTypeName))
+            {
+                EnsureItemFacetReadOnlyFields(definition.Label, element, propertyName);
+            }
             ValidateRequiredFields(definition, element, propertyName);
         }
 
@@ -118,6 +140,18 @@ public static class PeoplePayload
             {
                 throw new InvalidOperationException(
                     $"People label '{definition.Label}' on property '{propertyName}' is missing required field '{required}'.");
+            }
+        }
+    }
+
+    private static void EnsureItemFacetReadOnlyFields(string label, JsonElement element, string propertyName)
+    {
+        foreach (var field in ItemFacetReadOnlyFields)
+        {
+            if (element.TryGetProperty(field, out _))
+            {
+                throw new InvalidOperationException(
+                    $"People label '{label}' on property '{propertyName}' cannot include '{field}' because it is read-only.");
             }
         }
     }

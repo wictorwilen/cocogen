@@ -756,6 +756,11 @@ function buildTsPersonEntityExpression(
 ): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "  ";
+  const indentLines = (text: string, prefix: string): string =>
+    text
+      .split("\n")
+      .map((line) => `${prefix}${line}`)
+      .join("\n");
 
   const renderNode = (node: Record<string, unknown>, level: number, info: TsPersonEntityTypeInfo | null): string => {
     const indent = indentUnit.repeat(level);
@@ -778,9 +783,10 @@ ${entries.join(",\n")}
 ${indent}}`;
   };
 
-  const rendered = renderNode(tree, 2, typeInfo);
+  const rendered = renderNode(tree, 0, typeInfo);
   const typed = typeInfo ? `(${rendered} as ${typeInfo.alias})` : rendered;
-  return `JSON.stringify(\n${indentUnit.repeat(2)}${typed}\n${indentUnit.repeat(2)})`;
+  const typedIndented = indentLines(typed, indentUnit.repeat(3));
+  return `JSON.stringify(\n${typedIndented}\n${indentUnit.repeat(2)})`;
 }
 
 function buildTsPersonEntityCollectionExpression(
@@ -791,6 +797,13 @@ function buildTsPersonEntityCollectionExpression(
   typeMap: TsPersonEntityTypeMap
 ): string {
   const indentUnit = "  ";
+  const bodyIndent = "      ";
+  const closeIndent = "    ";
+  const indentLines = (text: string, prefix: string): string =>
+    text
+      .split("\n")
+      .map((line) => `${prefix}${line}`)
+      .join("\n");
   const renderNode = (
     node: Record<string, unknown>,
     level: number,
@@ -818,11 +831,12 @@ ${indent}}`;
     const tree = buildObjectTree(fields);
     const field = fields[0]!;
     const headers = JSON.stringify(field.source.csvHeaders);
-    const rendered = renderNode(tree, 2, "value", typeInfo);
+    const rendered = renderNode(tree, 0, "value", typeInfo);
     const typed = typeInfo ? `(${rendered} as ${typeInfo.alias})` : rendered;
+    const typedIndented = indentLines(typed, indentUnit.repeat(4));
 
     return `${collectionExpressionBuilder(headers)}
-  .map((value) => JSON.stringify(\n${indentUnit.repeat(2)}${typed}\n${indentUnit.repeat(2)}))`;
+  ${indentUnit.repeat(2)}.map((value) => JSON.stringify(\n${typedIndented}\n${indentUnit.repeat(2)}))`;
   }
 
   const tree = buildObjectTree(fields);
@@ -831,36 +845,43 @@ ${indent}}`;
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
     const headers = JSON.stringify(field.source.csvHeaders);
-    return `  const ${varName} = ${collectionExpressionBuilder(headers)};`;
+    return `${bodyIndent}const ${varName} = ${collectionExpressionBuilder(headers)};`;
   });
 
-  const renderNodeMany = (node: Record<string, unknown>, info: TsPersonEntityTypeInfo | null): string => {
+  const renderNodeMany = (
+    node: Record<string, unknown>,
+    info: TsPersonEntityTypeInfo | null,
+    level: number
+  ): string => {
+    const entryIndent = indentUnit.repeat(level);
+    const closeIndent = indentUnit.repeat(Math.max(0, level - 1));
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const varName = fieldVarByPath.get(field.path) ?? "";
-        return `${indentUnit.repeat(2)}${JSON.stringify(key)}: getValue(${varName}, index)`;
+        return `${entryIndent}${JSON.stringify(key)}: getValue(${varName}, index)`;
       }
       const propType = info?.properties.get(key) ?? null;
       const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
-      const renderedChild = renderNodeMany(value as Record<string, unknown>, nestedType);
+      const renderedChild = renderNodeMany(value as Record<string, unknown>, nestedType, level + 1);
       const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
-      return `${indentUnit.repeat(2)}${JSON.stringify(key)}: ${typedChild}`;
+      return `${entryIndent}${JSON.stringify(key)}: ${typedChild}`;
     });
     return `{
 ${entries.join(",\n")}
-${indentUnit}}`;
+${closeIndent}}`;
   };
 
   const fieldVars = [...fieldVarByPath.values()].join(", ");
   const lengthVars = fieldVars
-    ? `const lengths = [${fieldVars}].map((value) => value.length);`
-    : "const lengths = [0];";
+    ? `${bodyIndent}const lengths = [${fieldVars}].map((value) => value.length);`
+    : `${bodyIndent}const lengths = [0];`;
 
-  const renderedMany = renderNodeMany(tree, typeInfo);
+  const renderedMany = renderNodeMany(tree, typeInfo, 1);
   const typedMany = typeInfo ? `(${renderedMany} as ${typeInfo.alias})` : renderedMany;
+  const typedManyIndented = indentLines(typedMany, `${bodyIndent}${indentUnit}${indentUnit}`);
 
-  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return \"\";\n    if (values.length === 1) return values[0] ?? \"\";\n    return values[index] ?? \"\";\n  };\n  const results: string[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push(JSON.stringify(\n      ${typedMany}\n    ));\n  }\n  return results;\n})()`;
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return \"\";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return values[index] ?? \"\";\n${bodyIndent}};\n${bodyIndent}const results: string[] = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(JSON.stringify(\n${typedManyIndented}\n${bodyIndent}${indentUnit}));\n${bodyIndent}}\n${bodyIndent}return results;\n${closeIndent}})()`;
 }
 
 function buildPrincipalFieldEntries(
@@ -2202,12 +2223,14 @@ async function writeGeneratedDotnet(
     const properties = type.properties.map((prop) => {
       const resolved = resolveCsType(prop.type);
       const resolvedType = resolved.csType;
-      const nullableSuffix = prop.nullable ? "?" : "";
+      const isValueType = ["long", "double", "bool", "DateTimeOffset"].includes(resolvedType);
+      const nullable = prop.nullable || !isValueType;
+      const nullableSuffix = nullable ? "?" : "";
       return {
         name: prop.name,
         csName: toCsPascal(prop.name),
         csType: `${resolvedType}${nullableSuffix}`,
-        nullable: prop.nullable,
+        nullable,
       };
     });
     return {
@@ -2236,6 +2259,21 @@ async function writeGeneratedDotnet(
   const baseTypeNames = new Set(
     peopleProfileTypes.map((type) => type.baseType).filter((name): name is string => Boolean(name))
   );
+  const schemaBaseTypeByName = new Map(
+    graphProfileSchema.types.map((type) => [type.name, type.baseType])
+  );
+  const isItemFacetType = (typeName: string): boolean => {
+    if (typeName === "itemFacet") return true;
+    let current = schemaBaseTypeByName.get(typeName);
+    while (current) {
+      if (current === "itemFacet") return true;
+      current = schemaBaseTypeByName.get(current);
+    }
+    return false;
+  };
+  const itemFacetTypeNames = graphProfileSchema.types
+    .map((type) => type.name)
+    .filter((typeName) => isItemFacetType(typeName));
   const peopleProfileTypeInfoByName = new Map(
     peopleProfileTypes.map((type) => [
       type.csName,
@@ -2618,6 +2656,16 @@ async function writeGeneratedDotnet(
         peopleLabelDefinitions,
         peopleProfileTypes,
         baseTypeNames,
+        itemFacetTypeNames,
+        itemFacetReadOnlyFields: [
+          "id",
+          "createdBy",
+          "createdDateTime",
+          "lastModifiedBy",
+          "lastModifiedDateTime",
+          "source",
+          "sources",
+        ],
       }),
       "utf8"
     );

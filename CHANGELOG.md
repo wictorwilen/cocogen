@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Graph profile metadata now includes ItemFacet and derived base types for people connectors.
+- Read-only enforcement for ItemFacet server-generated fields in TS and .NET people payloads.
+- Per-file coverage thresholds with new tests for profile schema and label registry.
+
+### Changed
+- People payload AdditionalData now uses nullable value types in .NET for safer serialization.
+- People entity transforms now emit consistent indentation in generated TypeScript output.
+
+### Fixed
+- People payload serialization now rejects ItemFacet id ingestion and server-generated fields.
+- Nested people graph types now map cleanly without JsonElement/Record fallbacks.
+
 ## [1.0.26] - 2026-01-22
 
 ### Added

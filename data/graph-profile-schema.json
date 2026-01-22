@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-22T07:16:33.485Z",
+  "generatedAt": "2026-01-22T07:43:46.142Z",
   "graphVersion": "beta",
   "types": [
     {
@@ -526,7 +526,6 @@
       "name": "itemFacet",
       "fullName": "microsoft.graph.itemFacet",
       "namespace": "microsoft.graph",
-      "baseType": "entity",
       "properties": [
         {
           "name": "allowedAudiences",
@@ -575,21 +574,6 @@
         }
       ],
       "required": []
-    },
-    {
-      "name": "entity",
-      "fullName": "microsoft.graph.entity",
-      "namespace": "microsoft.graph",
-      "properties": [
-        {
-          "name": "id",
-          "type": "Edm.String",
-          "nullable": false
-        }
-      ],
-      "required": [
-        "id"
-      ]
     }
   ],
   "aliases": {
