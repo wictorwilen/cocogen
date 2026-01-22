@@ -372,7 +372,7 @@ The generated CLIs currently target a single connection via configuration. Multi
 - Package name: `@wictorwilen/cocogen`.
 - TypeSpec conventions: no existing conventions to preserve.
 - Experiences: only Search/Copilot.
-- Auth: app-only or managed credentials (no device code).
+- Auth: device code (public client), app-only, or managed credentials.
 - ACL: simple only.
 - Generator behavior: read-only TypeSpec input; provide feedback.
 - CSV: “standard-ish” defaults.

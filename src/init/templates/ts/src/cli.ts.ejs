@@ -4,7 +4,7 @@
 import "dotenv/config";
 
 import { Command } from "commander";
-import { ClientSecretCredential, ManagedIdentityCredential } from "@azure/identity";
+import { ClientSecretCredential, DeviceCodeCredential, ManagedIdentityCredential } from "@azure/identity";
 
 import type { <%= itemTypeName %> } from "./<%= schemaFolderName %>/model.js";
 import {
@@ -101,27 +101,40 @@ function buildItemSource(path: string): ItemSource<<%= itemTypeName %>> {
   return new <%= inputFormat === "json" ? "JsonItemSource" : inputFormat === "yaml" ? "YamlItemSource" : inputFormat === "custom" ? "CustomItemSource" : "CsvItemSource" %>(path);
 }
 
+let useDeviceCode = false;
+
 async function getAccessToken(): Promise<string> {
   const tenantId = process.env.TENANT_ID;
   const clientId = process.env.CLIENT_ID;
   const clientSecret = process.env.CLIENT_SECRET;
 
-  if (!tenantId && !clientId && !clientSecret) {
-    const managedIdentityClientId = process.env.MANAGED_IDENTITY_CLIENT_ID;
-    const managedIdentity = managedIdentityClientId
-      ? new ManagedIdentityCredential(managedIdentityClientId)
-      : new ManagedIdentityCredential();
-    const token = await managedIdentity.getToken("https://graph.microsoft.com/.default");
+  if (useDeviceCode) {
+    if (!tenantId || !clientId) {
+      throw new Error("TENANT_ID and CLIENT_ID must be set to use device code flow.");
+    }
+    const token = await new DeviceCodeCredential({
+      tenantId,
+      clientId,
+      userPromptCallback: (info) => {
+        console.log(info.message);
+      },
+    }).getToken("https://graph.microsoft.com/.default");
     if (!token?.token) throw new Error("Failed to acquire access token");
     return token.token;
   }
 
-  if (!tenantId || !clientId || !clientSecret) {
-    throw new Error("TENANT_ID, CLIENT_ID, and CLIENT_SECRET must all be set, or unset to use managed identity.");
+  if (tenantId && clientId && clientSecret) {
+    const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    const token = await credential.getToken("https://graph.microsoft.com/.default");
+    if (!token?.token) throw new Error("Failed to acquire access token");
+    return token.token;
   }
 
-  const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
-  const token = await credential.getToken("https://graph.microsoft.com/.default");
+  const managedIdentityClientId = process.env.MANAGED_IDENTITY_CLIENT_ID;
+  const managedIdentity = managedIdentityClientId
+    ? new ManagedIdentityCredential(managedIdentityClientId)
+    : new ManagedIdentityCredential();
+  const token = await managedIdentity.getToken("https://graph.microsoft.com/.default");
   if (!token?.token) throw new Error("Failed to acquire access token");
   return token.token;
 }
@@ -244,6 +257,12 @@ program
   .command("delete")
   .description("Delete the connection (and profile source for people connectors)")
   .action(() => deleteConnection());
+
+program.option("--device-code", "Use device code flow (delegated auth)");
+
+program.hook("preAction", (thisCommand) => {
+  useDeviceCode = Boolean(thisCommand.opts().deviceCode);
+});
 
 program.parseAsync(process.argv).catch((e) => {
   console.error("error:", e instanceof Error ? e.message : String(e));

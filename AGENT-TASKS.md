@@ -36,11 +36,14 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Document public client requirement for device code auth ✅
+- Note delegated permissions requirement for device code auth ✅
 - Bump System.CommandLine to 2.0.2 in .NET templates ✅
 - Align .NET CLI template with System.CommandLine 2.x APIs ✅
 - Fix JsonPath.Net 2.x array match handling in .NET JSON/YAML ingestion ✅
 - Stop JSON/YAML collection parsing from using CSV-style splitting ✅
 - Add JSONPath validation and regression tests ✅
+- Add device code flag + auth precedence for TS/.NET templates ✅
 - Bump JsonPath.Net dependency for generated .NET projects ✅
 - Added REST output (.http files) for connection/schema/profile source/ingest ✅
 - Decoupled .NET core from concrete item models via generic payload adapter ✅

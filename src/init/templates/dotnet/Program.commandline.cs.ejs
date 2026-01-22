@@ -95,40 +95,43 @@ string ProfileSourcePriority()
 /// <summary>
 /// Create an app-only credential for Microsoft Graph.
 /// </summary>
-TokenCredential CreateCredential()
+TokenCredential CreateCredential(bool useDeviceCode)
 {
     var tenantId = configuration["AzureAd:TenantId"];
     var clientId = configuration["AzureAd:ClientId"];
     var clientSecret = configuration["AzureAd:ClientSecret"];
+    var managedIdentityClientId = configuration["AzureAd:ManagedIdentityClientId"];
 
-    if (string.IsNullOrWhiteSpace(tenantId)
-        && string.IsNullOrWhiteSpace(clientId)
-        && string.IsNullOrWhiteSpace(clientSecret))
+    if (useDeviceCode)
     {
-        var managedIdentityClientId = configuration["AzureAd:ManagedIdentityClientId"];
-        return string.IsNullOrWhiteSpace(managedIdentityClientId)
-            ? new ManagedIdentityCredential()
-            : new ManagedIdentityCredential(managedIdentityClientId);
+        if (string.IsNullOrWhiteSpace(tenantId) || string.IsNullOrWhiteSpace(clientId))
+            throw new InvalidOperationException("AzureAd:TenantId and AzureAd:ClientId must be set to use device code flow.");
+
+        return new DeviceCodeCredential((DeviceCodeInfo info, CancellationToken _) =>
+        {
+            Console.WriteLine(info.Message);
+            return Task.CompletedTask;
+        }, tenantId, clientId);
     }
 
-    if (string.IsNullOrWhiteSpace(tenantId)
-        || string.IsNullOrWhiteSpace(clientId)
-        || string.IsNullOrWhiteSpace(clientSecret))
+    if (!string.IsNullOrWhiteSpace(tenantId)
+        && !string.IsNullOrWhiteSpace(clientId)
+        && !string.IsNullOrWhiteSpace(clientSecret))
     {
-        throw new InvalidOperationException(
-            "AzureAd settings are incomplete. Set TenantId, ClientId, and ClientSecret, or clear them to use managed identity."
-        );
+        return new ClientSecretCredential(tenantId, clientId, clientSecret);
     }
 
-    return new ClientSecretCredential(tenantId, clientId, clientSecret);
+    return string.IsNullOrWhiteSpace(managedIdentityClientId)
+        ? new ManagedIdentityCredential()
+        : new ManagedIdentityCredential(managedIdentityClientId);
 }
 
 /// <summary>
 /// Create a Graph client configured for the selected API version.
 /// </summary>
-GraphServiceClient CreateGraphClient()
+GraphServiceClient CreateGraphClient(bool useDeviceCode)
 {
-    var credential = CreateCredential();
+    var credential = CreateCredential(useDeviceCode);
     var graph = new GraphServiceClient(credential, new[] { "https://graph.microsoft.com/.default" });
     graph.RequestAdapter.BaseUrl = SchemaConstants.GraphBaseUrl;
     return graph;
@@ -153,10 +156,10 @@ ConnectorCore<ItemModel> BuildConnectorCore(GraphServiceClient? graph, TokenCred
 /// <summary>
 /// Provision the connection and schema (then profile source for people connectors).
 /// </summary>
-async Task ProvisionAsync()
+async Task ProvisionAsync(bool useDeviceCode)
 {
-    var graph = CreateGraphClient();
-    var credential = CreateCredential();
+    var graph = CreateGraphClient(useDeviceCode);
+    var credential = CreateCredential(useDeviceCode);
     var connectionId = ConnectionId();
     var core = BuildConnectorCore(graph, credential, connectionId);
 
@@ -172,15 +175,15 @@ async Task ProvisionAsync()
 /// <summary>
 /// Ingest items from the configured input.
 /// </summary>
-async Task IngestAsync(string? inputPath, bool dryRun, int? limit, bool verbose, bool failFast)
+async Task IngestAsync(string? inputPath, bool dryRun, int? limit, bool verbose, bool failFast, bool useDeviceCode)
 {
     GraphServiceClient? graph = null;
     TokenCredential? credential = null;
     string connectionId = "dry-run";
     if (!dryRun)
     {
-        graph = CreateGraphClient();
-        credential = CreateCredential();
+        graph = CreateGraphClient(useDeviceCode);
+        credential = CreateCredential(useDeviceCode);
         connectionId = ConnectionId();
     }
 
@@ -196,10 +199,10 @@ async Task IngestAsync(string? inputPath, bool dryRun, int? limit, bool verbose,
 /// <summary>
 /// Delete the external connection.
 /// </summary>
-async Task DeleteConnectionAsync()
+async Task DeleteConnectionAsync(bool useDeviceCode)
 {
-    var graph = CreateGraphClient();
-    var credential = CreateCredential();
+    var graph = CreateGraphClient(useDeviceCode);
+    var credential = CreateCredential(useDeviceCode);
     var connectionId = ConnectionId();
     var core = BuildConnectorCore(graph, credential, connectionId);
 
@@ -212,13 +215,18 @@ var dryRunOption = new Option<bool>("--dry-run") { Description = "Build payloads
 var failFastOption = new Option<bool>("--fail-fast") { Description = "Abort on the first item failure" };
 var limitOption = new Option<int?>("--limit") { Description = "Limit number of items" };
 var verboseOption = new Option<bool>("--verbose") { Description = "Print payloads sent to Graph" };
+var deviceCodeOption = new Option<bool>("--device-code") { Description = "Use device code flow (delegated auth)" };
 
 var root = new RootCommand("Connector CLI generated by cocogen");
+root.Options.Add(deviceCodeOption);
 
 var provisionCommand = new Command("provision", "Create or update the connection and schema");
-provisionCommand.SetAction(async (parseResult, cancellationToken) => await ProvisionAsync());
+provisionCommand.Options.Add(deviceCodeOption);
+provisionCommand.SetAction(async (parseResult, cancellationToken) =>
+    await ProvisionAsync(parseResult.GetValue(deviceCodeOption)));
 
 var ingestCommand = new Command("ingest", "Ingest items from the configured input");
+ingestCommand.Options.Add(deviceCodeOption);
 ingestCommand.Options.Add(inputOption);
 ingestCommand.Options.Add(dryRunOption);
 ingestCommand.Options.Add(failFastOption);
@@ -231,11 +239,14 @@ ingestCommand.SetAction(async (parseResult, cancellationToken) =>
     var failFast = parseResult.GetValue(failFastOption);
     var limit = parseResult.GetValue(limitOption);
     var verbose = parseResult.GetValue(verboseOption);
-    await IngestAsync(input, dryRun, limit, verbose, failFast);
+    var useDeviceCode = parseResult.GetValue(deviceCodeOption);
+    await IngestAsync(input, dryRun, limit, verbose, failFast, useDeviceCode);
 });
 
 var deleteCommand = new Command("delete", "Delete the connection");
-deleteCommand.SetAction(async (parseResult, cancellationToken) => await DeleteConnectionAsync());
+deleteCommand.Options.Add(deviceCodeOption);
+deleteCommand.SetAction(async (parseResult, cancellationToken) =>
+    await DeleteConnectionAsync(parseResult.GetValue(deviceCodeOption)));
 
 root.Subcommands.Add(provisionCommand);
 root.Subcommands.Add(ingestCommand);
@@ -243,10 +254,12 @@ root.Subcommands.Add(deleteCommand);
 
 <% if (isPeopleConnector) { -%>
 var registerCommand = new Command("register-profile-source", "Register the connection as a profile source");
+registerCommand.Options.Add(deviceCodeOption);
 registerCommand.SetAction(async (parseResult, cancellationToken) =>
 {
-    var graph = CreateGraphClient();
-    var credential = CreateCredential();
+    var useDeviceCode = parseResult.GetValue(deviceCodeOption);
+    var graph = CreateGraphClient(useDeviceCode);
+    var credential = CreateCredential(useDeviceCode);
     var connectionId = ConnectionId();
     var core = BuildConnectorCore(graph, credential, connectionId);
     await core.ProvisionProfileSourceAsync();
