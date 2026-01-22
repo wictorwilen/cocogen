@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-22T07:43:46.142Z",
+  "generatedAt": "2026-01-22T09:24:27.019Z",
   "graphVersion": "beta",
   "types": [
     {
@@ -570,6 +570,431 @@
         {
           "name": "sources",
           "type": "Collection(graph.profileSourceAnnotation)",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "originTenantInfo",
+      "fullName": "microsoft.graph.originTenantInfo",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "originTenantId",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "originUserId",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "localeInfo",
+      "fullName": "microsoft.graph.localeInfo",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "locale",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personNamePronounciation",
+      "fullName": "microsoft.graph.personNamePronounciation",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "first",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "last",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "maiden",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "middle",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "relatedPerson",
+      "fullName": "microsoft.graph.relatedPerson",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "relationship",
+          "type": "graph.personRelationship",
+          "nullable": true
+        },
+        {
+          "name": "userId",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "userPrincipalName",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "positionDetail",
+      "fullName": "microsoft.graph.positionDetail",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "company",
+          "type": "graph.companyDetail",
+          "nullable": true
+        },
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "employeeId",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "employeeType",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "endMonthYear",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "jobTitle",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "layer",
+          "type": "Edm.Int32",
+          "nullable": true
+        },
+        {
+          "name": "level",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "role",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "secondaryJobTitle",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "secondaryRole",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "startMonthYear",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "summary",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "physicalAddress",
+      "fullName": "microsoft.graph.physicalAddress",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "city",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "countryOrRegion",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "postalCode",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "postOfficeBox",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "street",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "type",
+          "type": "graph.physicalAddressType",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "geoCoordinates",
+      "fullName": "microsoft.graph.geoCoordinates",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "altitude",
+          "type": "Edm.Double",
+          "nullable": true
+        },
+        {
+          "name": "latitude",
+          "type": "Edm.Double",
+          "nullable": true
+        },
+        {
+          "name": "longitude",
+          "type": "Edm.Double",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "companyDetail",
+      "fullName": "microsoft.graph.companyDetail",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "address",
+          "type": "graph.physicalAddress",
+          "nullable": true
+        },
+        {
+          "name": "companyCode",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "costCenter",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "department",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "division",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "officeLocation",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "pronunciation",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "secondaryDepartment",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "serviceInformation",
+      "fullName": "microsoft.graph.serviceInformation",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "name",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "itemBody",
+      "fullName": "microsoft.graph.itemBody",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "content",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "contentType",
+          "type": "graph.bodyType",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "identitySet",
+      "fullName": "microsoft.graph.identitySet",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "application",
+          "type": "graph.identity",
+          "nullable": true
+        },
+        {
+          "name": "device",
+          "type": "graph.identity",
+          "nullable": true
+        },
+        {
+          "name": "user",
+          "type": "graph.identity",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "inferenceData",
+      "fullName": "microsoft.graph.inferenceData",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "confidenceScore",
+          "type": "Edm.Double",
+          "nullable": true
+        },
+        {
+          "name": "userHasVerifiedAccuracy",
+          "type": "Edm.Boolean",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personDataSources",
+      "fullName": "microsoft.graph.personDataSources",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "type",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "profileSourceAnnotation",
+      "fullName": "microsoft.graph.profileSourceAnnotation",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "isDefaultSource",
+          "type": "Edm.Boolean",
+          "nullable": true
+        },
+        {
+          "name": "properties",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "sourceId",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "identity",
+      "fullName": "microsoft.graph.identity",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "id",
+          "type": "Edm.String",
           "nullable": true
         }
       ],

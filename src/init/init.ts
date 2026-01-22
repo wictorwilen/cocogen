@@ -1947,6 +1947,32 @@ function buildPeopleGraphTypes(ir: ConnectorIr): {
     }
   }
 
+  const schemaTypeByName = new Map(graphProfileSchema.types.map((type) => [type.name, type]));
+  const resolveReferencedGraphType = (propType: string): string | null => {
+    const collectionMatch = /^Collection\((.+)\)$/.exec(propType);
+    const elementType = collectionMatch ? collectionMatch[1]! : propType;
+    if (GRAPH_STRING_TYPES.has(elementType)) return null;
+    if (elementType.startsWith("Edm.")) return null;
+    const graphName = resolveGraphTypeName(elementType);
+    return graphName && schemaTypeByName.has(graphName) ? graphName : null;
+  };
+
+  let addedReference = true;
+  while (addedReference) {
+    addedReference = false;
+    for (const name of [...graphTypeNames]) {
+      const schemaType = schemaTypeByName.get(name);
+      if (!schemaType) continue;
+      for (const prop of schemaType.properties ?? []) {
+        const referenced = resolveReferencedGraphType(prop.type);
+        if (!referenced) continue;
+        if (graphTypeNames.has(referenced)) continue;
+        graphTypeNames.add(referenced);
+        addedReference = true;
+      }
+    }
+  }
+
   const derived = buildDerivedPeopleGraphTypes(ir);
   const aliases = buildPeopleGraphTypeAliases(derived);
 
@@ -2177,6 +2203,8 @@ async function writeGeneratedDotnet(
             return "string";
           case "Edm.Date":
             return "string";
+          case "Edm.Int32":
+            return "int";
           case "Edm.Int64":
             return "long";
           case "Edm.Double":
@@ -2206,6 +2234,8 @@ async function writeGeneratedDotnet(
         return { csType: "string", isCollection: false };
       case "Edm.Date":
         return { csType: "string", isCollection: false };
+      case "Edm.Int32":
+        return { csType: "int", isCollection: false };
       case "Edm.Int64":
         return { csType: "long", isCollection: false };
       case "Edm.Double":
@@ -2223,7 +2253,7 @@ async function writeGeneratedDotnet(
     const properties = type.properties.map((prop) => {
       const resolved = resolveCsType(prop.type);
       const resolvedType = resolved.csType;
-      const isValueType = ["long", "double", "bool", "DateTimeOffset"].includes(resolvedType);
+      const isValueType = ["int", "long", "double", "bool", "DateTimeOffset"].includes(resolvedType);
       const nullable = prop.nullable || !isValueType;
       const nullableSuffix = nullable ? "?" : "";
       return {

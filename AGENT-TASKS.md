@@ -59,3 +59,4 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Add nested TS people entity casts ✅
 - Enforce per-file coverage thresholds ✅
 - Fix TS people transform indentation ✅
+- Populate complex people graph types from metadata ✅

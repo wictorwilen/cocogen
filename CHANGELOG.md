@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Graph profile metadata now includes referenced complex types so nested people graph types are fully populated.
+
+### Fixed
+- C# people graph types now map Edm.Int32 scalars correctly.
+
 ## [1.0.27] - 2026-01-22
 
 ### Added

@@ -66,7 +66,8 @@ const buildEntityIndex = (schemas: any[]): Map<string, RawEntityType> => {
     const namespace = schema?.["@_Namespace"] ?? schema?.["@_namespace"];
     if (!namespace) continue;
     const entityTypes = toArray(schema?.EntityType ?? schema?.["edm:EntityType"]);
-    for (const entity of entityTypes) {
+    const complexTypes = toArray(schema?.ComplexType ?? schema?.["edm:ComplexType"]);
+    for (const entity of [...entityTypes, ...complexTypes]) {
       const name = entity?.["@_Name"] ?? entity?.["@_name"];
       if (!name) continue;
       const fullName = `${namespace}.${name}`;
@@ -104,6 +105,14 @@ const findTypeByName = (index: Map<string, RawEntityType>, name: string): RawEnt
   return preferred ?? matches[0];
 };
 
+const tryFindTypeByName = (index: Map<string, RawEntityType>, name: string): RawEntityType | undefined => {
+  const matches = Array.from(index.values()).filter((entry) => entry.name === name);
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0];
+  const preferred = matches.find((entry) => entry.namespace === "microsoft.graph");
+  return preferred ?? matches[0];
+};
+
 const collectProperties = (
   index: Map<string, RawEntityType>,
   entry: RawEntityType
@@ -126,6 +135,14 @@ const collectProperties = (
     ordered.push(prop);
   }
   return ordered;
+};
+
+const resolvePropertyTypeName = (typeName: string): string | null => {
+  const match = /^Collection\((.+)\)$/.exec(typeName);
+  const rawType = match ? match[1]! : typeName;
+  if (rawType.startsWith("Edm.")) return null;
+  const parts = rawType.split(".").filter(Boolean);
+  return parts.length ? parts[parts.length - 1]! : null;
 };
 
 const main = async (): Promise<void> => {
@@ -165,6 +182,25 @@ const main = async (): Promise<void> => {
 
   for (const name of [...graphTypeNames]) {
     addBaseTypes(name);
+  }
+
+  let addedReference = true;
+  while (addedReference) {
+    addedReference = false;
+    for (const name of [...graphTypeNames]) {
+      const entry = tryFindTypeByName(entityIndex, name);
+      if (!entry) continue;
+      const properties = collectProperties(entityIndex, entry);
+      for (const prop of properties) {
+        const referenced = resolvePropertyTypeName(prop.type);
+        if (!referenced) continue;
+        if (graphTypeNames.has(referenced)) continue;
+        if (!tryFindTypeByName(entityIndex, referenced)) continue;
+        graphTypeNames.add(referenced);
+        addBaseTypes(referenced);
+        addedReference = true;
+      }
+    }
   }
 
   const types = Array.from(graphTypeNames).map((graphName) => {
