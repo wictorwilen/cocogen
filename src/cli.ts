@@ -173,12 +173,14 @@ export async function main(argv: string[]): Promise<void> {
     .command("validate")
     .description("Validate a TypeSpec schema against connector constraints")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
-    .option("--data-format, --input-format <format>", "Data format (csv|json|yaml|custom)")
+    .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--json", "Output validation result as JSON", false)
     .action(async (options: { tsp: string; json: boolean; dataFormat?: string }) => {
       const spinner = shouldUseSpinner() ? ora("Validating TypeSpec...").start() : undefined;
       try {
-        const ir = await loadIrFromTypeSpec(options.tsp, { inputFormat: normalizeInputFormat(options.dataFormat) });
+        const ir = await loadIrFromTypeSpec(options.tsp, {
+          inputFormat: normalizeInputFormat(options.dataFormat),
+        });
         requirePreviewIfNeeded(ir, program.opts().usePreviewFeatures as boolean);
         const issues = validateIr(ir);
 
@@ -226,12 +228,14 @@ export async function main(argv: string[]): Promise<void> {
     .command("emit")
     .description("Emit cocogen IR as JSON (useful for debugging and CI)")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
-    .option("--data-format, --input-format <format>", "Data format (csv|json|yaml|custom)")
+    .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--out <path>", "Write IR JSON to a file instead of stdout")
     .action(async (options: { tsp: string; out?: string; dataFormat?: string }) => {
       const spinner = shouldUseSpinner() ? ora("Compiling TypeSpec...").start() : undefined;
       try {
-        const ir = await loadIrFromTypeSpec(options.tsp, { inputFormat: normalizeInputFormat(options.dataFormat) });
+        const ir = await loadIrFromTypeSpec(options.tsp, {
+          inputFormat: normalizeInputFormat(options.dataFormat),
+        });
         requirePreviewIfNeeded(ir, program.opts().usePreviewFeatures as boolean);
         const issues = validateIr(ir);
         const errors = issues.filter((i) => i.severity === "error");
@@ -305,10 +309,17 @@ export async function main(argv: string[]): Promise<void> {
     .requiredOption("--out <dir>", "Output directory")
     .option("--lang <lang>", "Target language (ts|dotnet|rest)", "ts")
     .option("--name <name>", "Project name (defaults to folder name)")
-    .option("--data-format, --input-format <format>", "Data format (csv|json|yaml|custom)")
+    .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--force", "Overwrite files in a non-empty output directory", false)
     .action(
-      async (options: { tsp: string; out: string; lang: string; name?: string; force: boolean; dataFormat?: string }) => {
+      async (options: {
+        tsp: string;
+        out: string;
+        lang: string;
+        name?: string;
+        force: boolean;
+        dataFormat?: string;
+      }) => {
         const spinner = shouldUseSpinner() ? ora("Generating project...").start() : undefined;
         try {
           const lang = options.lang === "dotnet" ? "dotnet" : options.lang === "rest" ? "rest" : "ts";

@@ -76,6 +76,8 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
     out_ts="$TMP_DIR/${base}-ts-${input_format}"
     out_dotnet="$TMP_DIR/${base}-dotnet-${input_format}"
 
+    rm -rf "$out_ts" "$out_dotnet"
+
     gen_ts_status="$(run_step "${base}-ts-${input_format}-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_ts" --lang ts --force --data-format "$input_format" "${preview[@]}")"
     build_ts_status="$(run_step "${base}-ts-${input_format}-install" "$out_ts" npm install --no-audit --no-fund)"
     if [[ "$build_ts_status" == "ok" ]]; then
