@@ -124,7 +124,7 @@ public static class PeoplePayload
 }
 
 <% for (const type of peopleProfileTypes) { -%>
-public sealed class <%= type.csName %>
+public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type.csName %><% if (type.baseType) { -%> : <%= type.baseType %><% } -%>
 {
 <% for (const prop of type.properties) { -%>
 <% if (prop.csType.endsWith("?")) { -%>

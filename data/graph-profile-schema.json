@@ -1,11 +1,12 @@
 {
-  "generatedAt": "2026-01-21T18:04:48.339Z",
+  "generatedAt": "2026-01-22T07:16:33.485Z",
   "graphVersion": "beta",
   "types": [
     {
       "name": "userAccountInformation",
       "fullName": "microsoft.graph.userAccountInformation",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "ageGroup",
@@ -44,6 +45,7 @@
       "name": "personName",
       "fullName": "microsoft.graph.personName",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "displayName",
@@ -107,6 +109,7 @@
       "name": "workPosition",
       "fullName": "microsoft.graph.workPosition",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "categories",
@@ -140,6 +143,7 @@
       "name": "itemAddress",
       "fullName": "microsoft.graph.itemAddress",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "detail",
@@ -163,6 +167,7 @@
       "name": "itemEmail",
       "fullName": "microsoft.graph.itemEmail",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "address",
@@ -188,6 +193,7 @@
       "name": "itemPhone",
       "fullName": "microsoft.graph.itemPhone",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "displayName",
@@ -213,6 +219,7 @@
       "name": "personAward",
       "fullName": "microsoft.graph.personAward",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "description",
@@ -251,6 +258,7 @@
       "name": "personCertification",
       "fullName": "microsoft.graph.personCertification",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "certificationId",
@@ -309,6 +317,7 @@
       "name": "projectParticipation",
       "fullName": "microsoft.graph.projectParticipation",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "categories",
@@ -357,6 +366,7 @@
       "name": "skillProficiency",
       "fullName": "microsoft.graph.skillProficiency",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "categories",
@@ -395,6 +405,7 @@
       "name": "webAccount",
       "fullName": "microsoft.graph.webAccount",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "description",
@@ -433,6 +444,7 @@
       "name": "personWebsite",
       "fullName": "microsoft.graph.personWebsite",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "categories",
@@ -466,6 +478,7 @@
       "name": "personAnnualEvent",
       "fullName": "microsoft.graph.personAnnualEvent",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "date",
@@ -489,6 +502,7 @@
       "name": "personAnnotation",
       "fullName": "microsoft.graph.personAnnotation",
       "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
       "properties": [
         {
           "name": "detail",
@@ -507,6 +521,75 @@
         }
       ],
       "required": []
+    },
+    {
+      "name": "itemFacet",
+      "fullName": "microsoft.graph.itemFacet",
+      "namespace": "microsoft.graph",
+      "baseType": "entity",
+      "properties": [
+        {
+          "name": "allowedAudiences",
+          "type": "graph.allowedAudiences",
+          "nullable": true
+        },
+        {
+          "name": "createdBy",
+          "type": "graph.identitySet",
+          "nullable": true
+        },
+        {
+          "name": "createdDateTime",
+          "type": "Edm.DateTimeOffset",
+          "nullable": true
+        },
+        {
+          "name": "inference",
+          "type": "graph.inferenceData",
+          "nullable": true
+        },
+        {
+          "name": "isSearchable",
+          "type": "Edm.Boolean",
+          "nullable": true
+        },
+        {
+          "name": "lastModifiedBy",
+          "type": "graph.identitySet",
+          "nullable": true
+        },
+        {
+          "name": "lastModifiedDateTime",
+          "type": "Edm.DateTimeOffset",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "graph.personDataSources",
+          "nullable": true
+        },
+        {
+          "name": "sources",
+          "type": "Collection(graph.profileSourceAnnotation)",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "entity",
+      "fullName": "microsoft.graph.entity",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "id",
+          "type": "Edm.String",
+          "nullable": false
+        }
+      ],
+      "required": [
+        "id"
+      ]
     }
   ],
   "aliases": {

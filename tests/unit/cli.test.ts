@@ -246,6 +246,62 @@ describe("cli", () => {
     expect(process.exitCode).toBe(1);
   });
 
+  test("prints update available when a newer version exists", async () => {
+    const originalTty = process.stderr.isTTY;
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ version: "9.9.9" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).toContain("update available");
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+    process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
+  });
+
+  test("skips prerelease updates when current is stable", async () => {
+    const originalTty = process.stderr.isTTY;
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ version: "1.0.25-alpha.1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { main } = await import("../../src/cli.js");
+    const stderr = await captureStderr(async () => {
+      await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+    });
+
+    expect(stderr).not.toContain("update available");
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+    process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
+  });
+
   test("update prints regeneration summary", async () => {
     updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
 

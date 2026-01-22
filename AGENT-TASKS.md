@@ -57,3 +57,4 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Derive missing people graph types from mappings ✅
 - Remove JsonElement/Record fallbacks in people graph types ✅
 - Add nested TS people entity casts ✅
+- Enforce per-file coverage thresholds ✅

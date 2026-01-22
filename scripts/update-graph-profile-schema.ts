@@ -29,6 +29,7 @@ const graphAliases: Record<string, string> = {
 const graphTypeNames = new Set(
   Object.values(labelTypeMap).map((typeName) => graphAliases[typeName] ?? typeName)
 );
+graphTypeNames.add("itemFacet");
 
 const toArray = <T>(value: T | T[] | undefined | null): T[] => {
   if (!value) return [];
@@ -150,8 +151,26 @@ const main = async (): Promise<void> => {
   }
   const entityIndex = buildEntityIndex(schemas);
 
+  const addBaseTypes = (name: string): void => {
+    const entry = findTypeByName(entityIndex, name);
+    if (!entry.baseType) return;
+    const baseName = entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop();
+    if (!baseName) return;
+    if (!graphTypeNames.has(baseName)) {
+      graphTypeNames.add(baseName);
+      addBaseTypes(baseName);
+    }
+  };
+
+  for (const name of [...graphTypeNames]) {
+    addBaseTypes(name);
+  }
+
   const types = Array.from(graphTypeNames).map((graphName) => {
     const entry = findTypeByName(entityIndex, graphName);
+    const baseType = entry.baseType
+      ? entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop()
+      : undefined;
     const properties = collectProperties(entityIndex, entry).map((prop) => ({
       name: prop.name,
       type: prop.type,
@@ -162,6 +181,7 @@ const main = async (): Promise<void> => {
       name: entry.name,
       fullName: entry.fullName,
       namespace: entry.namespace,
+      baseType,
       properties,
       required
     };

@@ -10,6 +10,7 @@ export type GraphProfileType = {
   name: string;
   fullName: string;
   namespace: string;
+  baseType?: string;
   properties: GraphProfileProperty[];
   required: string[];
 };

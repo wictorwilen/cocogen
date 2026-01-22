@@ -64,13 +64,16 @@ const normalizeCollectionValue = (
 };
 
 <% for (const type of graphTypes) { -%>
-export type <%= type.alias %> = {
+export type <%= type.alias %> = <%= type.baseAlias ? `${type.baseAlias} & ` : "" %>{
 <% for (const field of type.fields) { -%>
   <%= field.name %><%= field.optional ? "?" : "" %>: <%= field.optional ? `${field.tsType} | null` : field.tsType %>;
 <% } -%>
 };
 
 export function validate<%= type.alias %>(value: unknown, fieldPath: string): <%= type.alias %> {
+<% if (type.baseAlias) { -%>
+  validate<%= type.baseAlias %>(value, fieldPath);
+<% } -%>
   if (!isRecord(value)) {
     throw new Error(`${fieldPath} must be an object.`);
   }

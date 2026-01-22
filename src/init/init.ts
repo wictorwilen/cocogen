@@ -1678,6 +1678,7 @@ type PeopleGraphFieldTemplate = {
 type PeopleGraphTypeTemplate = {
   alias: string;
   fields: PeopleGraphFieldTemplate[];
+  baseAlias?: string;
 };
 
 type PeopleGraphTypeAlias = {
@@ -1910,6 +1911,20 @@ function buildPeopleGraphTypes(ir: ConnectorIr): {
   for (const def of PEOPLE_LABEL_DEFINITIONS.values()) {
     graphTypeNames.add(def.graphTypeName);
   }
+  graphTypeNames.add("itemFacet");
+
+  let added = true;
+  while (added) {
+    added = false;
+    for (const name of [...graphTypeNames]) {
+      const schemaType = getProfileType(name);
+      if (!schemaType?.baseType) continue;
+      if (!graphTypeNames.has(schemaType.baseType)) {
+        graphTypeNames.add(schemaType.baseType);
+        added = true;
+      }
+    }
+  }
 
   const derived = buildDerivedPeopleGraphTypes(ir);
   const aliases = buildPeopleGraphTypeAliases(derived);
@@ -1926,6 +1941,7 @@ function buildPeopleGraphTypes(ir: ConnectorIr): {
     return {
       alias: toTsIdentifier(typeName),
       fields,
+      ...(schemaType.baseType ? { baseAlias: toTsIdentifier(schemaType.baseType) } : {}),
     };
   });
 
@@ -2197,12 +2213,14 @@ async function writeGeneratedDotnet(
     return {
       name: type.name,
       csName: toCsPascal(type.name),
+      baseType: type.baseType ? toCsPascal(type.baseType) : null,
       properties,
     };
   });
   const derivedProfileTypes = peopleGraphTypesBundle.derived.map((type) => ({
     name: type.name,
     csName: type.csName,
+    baseType: null,
     properties: type.csProperties.map((prop) => ({
       name: prop.name,
       csName: prop.csName,
@@ -2210,7 +2228,14 @@ async function writeGeneratedDotnet(
       nullable: prop.nullable,
     })),
   }));
-  const peopleProfileTypes = [...baseProfileTypes, ...derivedProfileTypes];
+  const peopleProfileTypes = [...baseProfileTypes, ...derivedProfileTypes].sort((a, b) => {
+    if (a.csName === "ItemFacet") return -1;
+    if (b.csName === "ItemFacet") return 1;
+    return a.csName.localeCompare(b.csName);
+  });
+  const baseTypeNames = new Set(
+    peopleProfileTypes.map((type) => type.baseType).filter((name): name is string => Boolean(name))
+  );
   const peopleProfileTypeInfoByName = new Map(
     peopleProfileTypes.map((type) => [
       type.csName,
@@ -2592,6 +2617,7 @@ async function writeGeneratedDotnet(
         namespaceName,
         peopleLabelDefinitions,
         peopleProfileTypes,
+        baseTypeNames,
       }),
       "utf8"
     );
