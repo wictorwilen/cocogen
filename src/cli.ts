@@ -7,10 +7,12 @@ import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import pc from "picocolors";
 import ora from "ora";
+import type { Ora } from "ora";
 
 import { writeIrJson } from "./emit/emit.js";
 import { initDotnetProject, initRestProject, initTsProject, updateProject } from "./init/init.js";
 import { initStarterTsp } from "./tsp/init-tsp.js";
+import { normalizeInputFormat } from "./tsp/input-format.js";
 import { loadIrFromTypeSpec } from "./tsp/loader.js";
 import { validateIr, type ValidationIssue } from "./validate/validator.js";
 
@@ -23,28 +25,45 @@ function shouldShowBanner(): boolean {
 }
 
 type PackageInfo = { name?: string; version?: string };
+let cachedPackageInfo: PackageInfo | null | undefined;
 
 function readPackageInfo(): PackageInfo | null {
+  if (cachedPackageInfo !== undefined) return cachedPackageInfo;
   try {
     const dir = path.dirname(fileURLToPath(import.meta.url));
     const pkgPath = path.resolve(dir, "..", "package.json");
     const raw = readFileSync(pkgPath, "utf8");
-    return JSON.parse(raw) as PackageInfo;
+    cachedPackageInfo = JSON.parse(raw) as PackageInfo;
   } catch {
     // Ignore version lookup errors.
+    cachedPackageInfo = null;
   }
-  return null;
+  return cachedPackageInfo;
+}
+
+function getPackageVersion(): string {
+  const info = readPackageInfo();
+  const version = info?.version?.trim();
+  if (version) return version;
+  return "0.0.0";
 }
 
 function getVersionLabel(): string {
-  const info = readPackageInfo();
-  const version = info?.version?.trim();
-  if (version) return `v${version}`;
-  return "v0.0.0";
+  return `v${getPackageVersion()}`;
 }
 
 function shouldCheckForUpdates(): boolean {
   return !process.env.CI && Boolean(process.stderr.isTTY) && !process.env.COCOGEN_SKIP_UPDATE_CHECK;
+}
+
+function resolveRegistryUrl(): string | null {
+  const raw = process.env.NPM_CONFIG_REGISTRY ?? process.env.npm_config_registry;
+  if (raw && raw.trim().length > 0) {
+    const trimmed = raw.trim().replace(/\/+$/, "");
+    if (!trimmed.includes("registry.npmjs.org")) return null;
+    return trimmed;
+  }
+  return "https://registry.npmjs.org";
 }
 
 function normalizeVersion(version: string): { base: number[]; pre?: string } {
@@ -72,6 +91,8 @@ function compareVersions(left: string, right: string): number {
 
 async function checkForUpdates(): Promise<void> {
   if (!shouldCheckForUpdates()) return;
+  const registry = resolveRegistryUrl();
+  if (!registry) return;
   const info = readPackageInfo();
   const name = info?.name?.trim();
   const version = info?.version?.trim();
@@ -81,7 +102,7 @@ async function checkForUpdates(): Promise<void> {
   const timeout = setTimeout(() => controller.abort(), 750);
 
   try {
-    const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}/latest`, {
+    const response = await fetch(`${registry}/${encodeURIComponent(name)}/latest`, {
       signal: controller.signal,
       headers: { "accept": "application/json" },
     });
@@ -106,7 +127,7 @@ function printBanner(): void {
   const title = pc.bold(pc.cyan(`Welcome to cocogen (Copilot connector generator) ${getVersionLabel()}`));
   const subtitle = pc.dim("TypeSpec → Microsoft 365 Copilot connector scaffolding");
   const art = [
-    `${pc.cyan("  ██████╗")} ${pc.blue(" ██████╗ ")} ${pc.cyan(" ██████╗")} ${pc.blue(" ██████╗" )} ${pc.green(" ██████╗ ")} ${pc.magenta("███████╗")} ${pc.yellow(" ███╗   ██╗")}`,
+    `${pc.cyan("  ██████╗")} ${pc.blue(" ██████╗ ")} ${pc.cyan(" ██████╗")} ${pc.blue(" ██████╗ " )} ${pc.green(" ██████╗ ")} ${pc.magenta("███████╗")} ${pc.yellow(" ███╗   ██╗")}`,
     `${pc.cyan(" ██╔════╝")} ${pc.blue("██╔═══██╗")} ${pc.cyan("██╔════╝")} ${pc.blue("██╔═══██╗")} ${pc.green("██╔════╝ ")} ${pc.magenta("██╔════╝")} ${pc.yellow(" ████╗  ██║")}`,
     `${pc.cyan(" ██║     ")} ${pc.blue("██║   ██║")} ${pc.cyan("██║     ")} ${pc.blue("██║   ██║")} ${pc.green("██║  ███╗")} ${pc.magenta("█████╗  ")} ${pc.yellow(" ██╔██╗ ██║")}`,
     `${pc.cyan(" ██║     ")} ${pc.blue("██║   ██║")} ${pc.cyan("██║     ")} ${pc.blue("██║   ██║")} ${pc.green("██║   ██║")} ${pc.magenta("██╔══╝  ")} ${pc.yellow(" ██║╚██╗██║")}`,
@@ -121,6 +142,29 @@ function printBanner(): void {
 
 function shouldUseSpinner(): boolean {
   return !process.env.NO_COLOR && !isCiOrNoTty();
+}
+
+function handleCliError(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`${pc.red("error")}: ${message}\n`);
+  process.exitCode = 1;
+}
+
+type CommandRunnerOptions<T> = {
+  spinnerText?: string;
+  action: (spinner?: Ora) => Promise<T>;
+};
+
+async function runCommand<T>({ spinnerText, action }: CommandRunnerOptions<T>): Promise<void> {
+  const spinner = spinnerText && shouldUseSpinner() ? ora(spinnerText).start() : undefined;
+  try {
+    await action(spinner);
+  } catch (error: unknown) {
+    spinner?.stop();
+    handleCliError(error);
+    return;
+  }
+  if (spinner?.isSpinning) spinner.stop();
 }
 
 function printIssues(list: ValidationIssue[]): void {
@@ -143,13 +187,6 @@ function printIssues(list: ValidationIssue[]): void {
   printGroup("warnings", warnings, pc.yellow);
 }
 
-function normalizeInputFormat(raw?: string): "csv" | "json" | "yaml" | "custom" {
-  if (!raw) return "csv";
-  const value = raw.trim().toLowerCase();
-  if (value === "csv" || value === "json" || value === "yaml" || value === "custom") return value;
-  throw new Error("Invalid input format. Expected csv, json, yaml, or custom.");
-}
-
 export async function main(argv: string[]): Promise<void> {
   printBanner();
   await checkForUpdates();
@@ -159,7 +196,7 @@ export async function main(argv: string[]): Promise<void> {
   program
     .name("cocogen")
     .description("TypeSpec-driven Microsoft Copilot connector generator")
-    .version("0.0.0")
+    .version(getPackageVersion())
     .option("--verbose", "Enable verbose output", false)
     .option("--use-preview-features", "Allow Graph beta endpoints and SDKs", false);
 
@@ -176,8 +213,9 @@ export async function main(argv: string[]): Promise<void> {
     .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--json", "Output validation result as JSON", false)
     .action(async (options: { tsp: string; json: boolean; dataFormat?: string }) => {
-      const spinner = shouldUseSpinner() ? ora("Validating TypeSpec...").start() : undefined;
-      try {
+      await runCommand({
+        spinnerText: "Validating TypeSpec...",
+        action: async (spinner) => {
         const ir = await loadIrFromTypeSpec(options.tsp, {
           inputFormat: normalizeInputFormat(options.dataFormat),
         });
@@ -216,12 +254,8 @@ export async function main(argv: string[]): Promise<void> {
         printIssues(issues);
 
         process.exitCode = errors.length === 0 ? 0 : 1;
-      } catch (error: unknown) {
-        spinner?.stop();
-        const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`${pc.red("error")}: ${message}\n`);
-        process.exitCode = 1;
-      }
+        },
+      });
     });
 
   program
@@ -231,8 +265,9 @@ export async function main(argv: string[]): Promise<void> {
     .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
     .option("--out <path>", "Write IR JSON to a file instead of stdout")
     .action(async (options: { tsp: string; out?: string; dataFormat?: string }) => {
-      const spinner = shouldUseSpinner() ? ora("Compiling TypeSpec...").start() : undefined;
-      try {
+      await runCommand({
+        spinnerText: "Compiling TypeSpec...",
+        action: async (spinner) => {
         const ir = await loadIrFromTypeSpec(options.tsp, {
           inputFormat: normalizeInputFormat(options.dataFormat),
         });
@@ -255,12 +290,8 @@ export async function main(argv: string[]): Promise<void> {
           process.stdout.write(result);
         }
         process.exitCode = 0;
-      } catch (error: unknown) {
-        spinner?.stop();
-        const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`${pc.red("error")}: ${message}\n`);
-        process.exitCode = 1;
-      }
+          },
+        });
     });
 
   program
@@ -272,10 +303,9 @@ export async function main(argv: string[]): Promise<void> {
     .option("--force", "Overwrite existing file", false)
     .action(
       async (options: { out: string; kind: string; prompt: boolean; force: boolean }) => {
-        const spinner = !options.prompt && shouldUseSpinner()
-          ? ora("Creating starter TypeSpec...").start()
-          : undefined;
-        try {
+        const spinnerText = options.prompt ? undefined : "Creating starter TypeSpec...";
+        const runnerOptions: CommandRunnerOptions<void> = {
+          action: async (spinner) => {
           const kind = options.kind === "people" ? "people" : "content";
           const result = await initStarterTsp({
             outPath: options.out,
@@ -293,12 +323,12 @@ export async function main(argv: string[]): Promise<void> {
             process.stdout.write(`  ${pc.dim("note")}: re-run validate/generate with --use-preview-features\n`);
           }
           process.exitCode = 0;
-        } catch (error: unknown) {
-          spinner?.stop();
-          const message = error instanceof Error ? error.message : String(error);
-          process.stderr.write(`${pc.red("error")}: ${message}\n`);
-          process.exitCode = 1;
+          },
+        };
+        if (spinnerText) {
+          runnerOptions.spinnerText = spinnerText;
         }
+        await runCommand(runnerOptions);
       }
     );
 
@@ -320,8 +350,9 @@ export async function main(argv: string[]): Promise<void> {
         force: boolean;
         dataFormat?: string;
       }) => {
-        const spinner = shouldUseSpinner() ? ora("Generating project...").start() : undefined;
-        try {
+        await runCommand({
+          spinnerText: "Generating project...",
+          action: async (spinner) => {
           const lang = options.lang === "dotnet" ? "dotnet" : options.lang === "rest" ? "rest" : "ts";
           const usePreviewFeatures = program.opts().usePreviewFeatures as boolean;
           const inputFormat = normalizeInputFormat(options.dataFormat);
@@ -375,12 +406,8 @@ export async function main(argv: string[]): Promise<void> {
               : "open the .http files in your REST client";
           process.stdout.write(`  ${pc.dim("next")}: cd ${result.outDir} && ${nextCmd}\n`);
           process.exitCode = 0;
-        } catch (error: unknown) {
-          spinner?.stop();
-          const message = error instanceof Error ? error.message : String(error);
-          process.stderr.write(`${pc.red("error")}: ${message}\n`);
-          process.exitCode = 1;
-        }
+          },
+        });
       }
     );
 
@@ -390,8 +417,9 @@ export async function main(argv: string[]): Promise<void> {
     .requiredOption("--out <dir>", "Project directory (must contain cocogen.json)")
     .option("--tsp <path>", "Override TypeSpec entrypoint (also updates cocogen.json)")
     .action(async (options: { out: string; tsp?: string }) => {
-      const spinner = shouldUseSpinner() ? ora("Updating generated files...").start() : undefined;
-      try {
+      await runCommand({
+        spinnerText: "Updating generated files...",
+        action: async (spinner) => {
         const usePreviewFeatures = program.opts().usePreviewFeatures as boolean;
         const result = await updateProject({
           outDir: options.out,
@@ -414,12 +442,8 @@ export async function main(argv: string[]): Promise<void> {
           }
         }
         process.exitCode = 0;
-      } catch (error: unknown) {
-        spinner?.stop();
-        const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`${pc.red("error")}: ${message}\n`);
-        process.exitCode = 1;
-      }
+        },
+      });
     });
 
   await program.parseAsync(argv);
@@ -428,8 +452,6 @@ export async function main(argv: string[]): Promise<void> {
 if (process.env.COCOGEN_SKIP_AUTO_RUN !== "1") {
   // eslint-disable-next-line unicorn/prefer-top-level-await
   main(process.argv).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${pc.red("error")}: ${message}\n`);
-    process.exitCode = 1;
+    handleCliError(error);
   });
 }

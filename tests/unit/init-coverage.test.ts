@@ -288,4 +288,392 @@ describe("init coverage", () => {
     );
     expect(profileSource).toContain("Register profile source");
   });
+
+  test("initTsProject covers json/yaml/custom datasource branches", async () => {
+    const tspPath = await writeTempTspFile("@doc(\"coverage\") model Dummy { }");
+    const formats: Array<"json" | "yaml" | "custom"> = ["json", "yaml", "custom"];
+
+    for (const format of formats) {
+      const outDir = await writeTempDir(`cocogen-coverage-${format}-`);
+      mocks.loadIrMock.mockResolvedValue(withOverrides({
+        connection: {
+          inputFormat: format,
+          contentCategory: undefined,
+          connectionName: "Sample",
+          connectionDescription: "Sample",
+        },
+        item: {
+          typeName: "Item",
+          idPropertyName: "id",
+          idEncoding: "slug",
+          contentPropertyName: "body",
+        },
+        properties: [
+          {
+            name: "id",
+            type: "string",
+            labels: [],
+            aliases: [],
+            search: {},
+            source: { csvHeaders: [], jsonPath: "$.id" },
+          },
+          {
+            name: "body",
+            type: "string",
+            labels: [],
+            aliases: [],
+            search: {},
+            source: { csvHeaders: [], jsonPath: "$.body" },
+          },
+        ],
+      }));
+
+      const result = await initTsProject({
+        tspPath,
+        outDir,
+        projectName: `sample-${format}`,
+        usePreviewFeatures: false,
+        force: true,
+      });
+
+      expect(result.outDir).toBe(path.resolve(outDir));
+
+      const { access } = await import("node:fs/promises");
+      const dataPath = format === "json"
+        ? path.join(outDir, "data.json")
+        : format === "yaml"
+        ? path.join(outDir, "data.yaml")
+        : null;
+      if (dataPath) {
+        await access(dataPath);
+      }
+
+      const datasourcePath = format === "json"
+        ? path.join(outDir, "src", "datasource", "jsonItemSource.ts")
+        : format === "yaml"
+        ? path.join(outDir, "src", "datasource", "yamlItemSource.ts")
+        : path.join(outDir, "src", "datasource", "customItemSource.ts");
+      await access(datasourcePath);
+    }
+  });
+
+  test("initDotnetProject covers json datasource branch", async () => {
+    const tspPath = await writeTempTspFile("@doc(\"coverage\") model Dummy { }");
+    const outDir = await writeTempDir("cocogen-coverage-dotnet-json-");
+
+    mocks.loadIrMock.mockResolvedValue(withOverrides({
+      connection: {
+        inputFormat: "json",
+        contentCategory: undefined,
+        connectionName: "Sample",
+        connectionDescription: "Sample",
+      },
+      item: {
+        typeName: "Item",
+        idPropertyName: "id",
+        idEncoding: "slug",
+      },
+      properties: [
+        {
+          name: "id",
+          type: "string",
+          labels: [],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: [], jsonPath: "$.id" },
+        },
+        {
+          name: "active",
+          type: "boolean",
+          labels: [],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: [], jsonPath: "$.active" },
+        },
+      ],
+    }));
+
+    const result = await initDotnetProject({
+      tspPath,
+      outDir,
+      projectName: "sample-json",
+      usePreviewFeatures: false,
+      force: true,
+    });
+
+    expect(result.outDir).toBe(path.resolve(outDir));
+
+    const { access } = await import("node:fs/promises");
+    await access(path.join(outDir, "Datasource", "JsonItemSource.cs"));
+    await access(path.join(outDir, "data.json"));
+  });
+
+  test("initTsProject covers complex people json branches", async () => {
+    const tspPath = await writeTempTspFile("@doc(\"coverage\") model Dummy { }");
+    const outDir = await writeTempDir("cocogen-coverage-people-json-");
+
+    mocks.loadIrMock.mockResolvedValue(withOverrides({
+      connection: {
+        inputFormat: "json",
+        graphApiVersion: "beta",
+        contentCategory: "people",
+        connectionName: "People",
+        connectionDescription: "People",
+      },
+      item: {
+        typeName: "PersonProfile",
+        idPropertyName: "id",
+        idEncoding: "hash",
+        contentPropertyName: "bio",
+      },
+      properties: [
+        {
+          name: "id",
+          type: "string",
+          labels: ["personAccount"],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: [], jsonPath: "$.id" },
+          personEntity: {
+            entity: "userAccountInformation",
+            fields: [{ path: "userPrincipalName", source: { csvHeaders: [], jsonPath: "$.upn" } }],
+          },
+        },
+        {
+          name: "bio",
+          type: "string",
+          labels: [],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: [], jsonPath: "$.bio" },
+        },
+        {
+          name: "skills",
+          type: "stringCollection",
+          labels: ["personSkills"],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.skills" },
+          personEntity: {
+            entity: "skillProficiency",
+            fields: [
+              { path: "displayName", source: { csvHeaders: [], jsonPath: "$.skills" } },
+              { path: "proficiency", source: { csvHeaders: [], jsonPath: "$.skillLevel" } },
+            ],
+          },
+        },
+        {
+          name: "awards",
+          type: "stringCollection",
+          labels: ["personAwards"],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.awards" },
+          personEntity: {
+            entity: "personAward",
+            fields: [{ path: "displayName", source: { csvHeaders: [], jsonPath: "$.awards" } }],
+          },
+        },
+        {
+          name: "currentPosition",
+          type: "string",
+          labels: ["personCurrentPosition"],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.role" },
+          personEntity: {
+            entity: "workPosition",
+            fields: [
+              { path: "detail.role", source: { csvHeaders: [], jsonPath: "$.role" } },
+              { path: "detail.company.displayName", source: { csvHeaders: [], jsonPath: "$.company" } },
+              { path: "detail.jobTitle", source: { csvHeaders: [], jsonPath: "$.title" } },
+            ],
+          },
+        },
+        {
+          name: "manager",
+          type: "string",
+          labels: ["personManager"],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: [], jsonPath: "$.manager" },
+        },
+        {
+          name: "principal",
+          type: "principal",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.principal" },
+          personEntity: {
+            entity: "userAccountInformation",
+            fields: [{ path: "userPrincipalName", source: { csvHeaders: [], jsonPath: "$.principal" } }],
+          },
+        },
+        {
+          name: "principalCollection",
+          type: "principalCollection",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.principals" },
+        },
+        {
+          name: "notes",
+          type: "string",
+          labels: [],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: [], jsonPath: "$.notes", noSource: true },
+        },
+      ],
+    }));
+
+    const result = await initTsProject({
+      tspPath,
+      outDir,
+      projectName: "people-json",
+      usePreviewFeatures: true,
+      force: true,
+    });
+
+    expect(result.outDir).toBe(path.resolve(outDir));
+    const { access } = await import("node:fs/promises");
+    await access(path.join(outDir, "src", "datasource", "jsonItemSource.ts"));
+  });
+
+  test("initDotnetProject covers yaml datasource with diverse types", async () => {
+    const tspPath = await writeTempTspFile("@doc(\"coverage\") model Dummy { }");
+    const outDir = await writeTempDir("cocogen-coverage-dotnet-yaml-");
+
+    mocks.loadIrMock.mockResolvedValue(withOverrides({
+      connection: {
+        inputFormat: "yaml",
+        contentCategory: "content",
+        connectionName: "Content",
+        connectionDescription: "Content",
+      },
+      item: {
+        typeName: "Record",
+        idPropertyName: "id",
+        idEncoding: "slug",
+        contentPropertyName: "body",
+      },
+      properties: [
+        {
+          name: "id",
+          type: "string",
+          labels: [],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: [], jsonPath: "$.id" },
+        },
+        {
+          name: "title",
+          type: "string",
+          labels: ["title"],
+          aliases: ["headline"],
+          search: { searchable: true, retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.title" },
+        },
+        {
+          name: "active",
+          type: "boolean",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.active" },
+        },
+        {
+          name: "rating",
+          type: "double",
+          labels: [],
+          aliases: [],
+          search: { refinable: true },
+          minValue: 0,
+          maxValue: 5,
+          source: { csvHeaders: [], jsonPath: "$.rating" },
+        },
+        {
+          name: "count",
+          type: "int64",
+          labels: [],
+          aliases: [],
+          search: { refinable: true },
+          minValue: 0,
+          maxValue: 100,
+          source: { csvHeaders: [], jsonPath: "$.count" },
+        },
+        {
+          name: "tags",
+          type: "stringCollection",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.tags" },
+        },
+        {
+          name: "scores",
+          type: "doubleCollection",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.scores" },
+        },
+        {
+          name: "counts",
+          type: "int64Collection",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.counts" },
+        },
+        {
+          name: "createdAt",
+          type: "dateTime",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.createdAt" },
+        },
+        {
+          name: "updatedAt",
+          type: "dateTimeCollection",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.updatedAt" },
+        },
+        {
+          name: "principal",
+          type: "principal",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.principal" },
+        },
+        {
+          name: "principals",
+          type: "principalCollection",
+          labels: [],
+          aliases: [],
+          search: { retrievable: true },
+          source: { csvHeaders: [], jsonPath: "$.principals" },
+        },
+      ],
+    }));
+
+    const result = await initDotnetProject({
+      tspPath,
+      outDir,
+      projectName: "content-yaml",
+      usePreviewFeatures: true,
+      force: true,
+    });
+
+    expect(result.outDir).toBe(path.resolve(outDir));
+    const { access } = await import("node:fs/promises");
+    await access(path.join(outDir, "Datasource", "YamlItemSource.cs"));
+    await access(path.join(outDir, "data.yaml"));
+  });
 });

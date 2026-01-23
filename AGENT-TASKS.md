@@ -41,6 +41,17 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Improve .NET Graph error logging with HTTP status ✅
 - Improve TS Graph error logging with status + details ✅
 - Add start-of-operation logs for provision/delete flows ✅
+- Cache CLI package info + use real version ✅
+- Centralize input format parsing ✅
+- Extract JSONPath helpers into shared module ✅
+- Extract sample data helpers for init ✅
+- Extract shared init types + object tree ✅
+- Add shared CLI command runner helper ✅
+- Add sample-data unit tests ✅
+- Add JSONPath unit tests ✅
+- Skip update checks for custom npm registries ✅
+- Extract init naming helpers ✅
+- Extract project config helpers ✅
 - Bump System.CommandLine to 2.0.2 in .NET templates ✅
 - Align .NET CLI template with System.CommandLine 2.x APIs ✅
 - Fix JsonPath.Net 2.x array match handling in .NET JSON/YAML ingestion ✅

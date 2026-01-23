@@ -1,16 +1,35 @@
-import { readFileSync } from "node:fs";
 import { access, copyFile, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-import { stringify as stringifyYaml } from "yaml";
 
 import type { ConnectorIr, PropertyType } from "../ir.js";
 import { loadIrFromTypeSpec } from "../tsp/loader.js";
 import { PEOPLE_LABEL_DEFINITIONS, getPeopleLabelInfo, supportedPeopleLabels } from "../people/label-registry.js";
 import { graphProfileSchema, getProfileType, type GraphProfileProperty } from "../people/profile-schema.js";
 import { validateIr } from "../validate/validator.js";
+import {
+  toCsIdentifier,
+  toCsNamespace,
+  toCsPascal,
+  toCsPropertyName,
+  toCsType,
+  toSchemaFolderName,
+  toTsIdentifier,
+  toTsSchemaFolderName,
+  toTsType,
+} from "./naming.js";
+import { buildObjectTree } from "./object-tree.js";
+import { COCOGEN_CONFIG_FILE, type CocogenProjectConfig, loadProjectConfig, projectConfigContents } from "./project-config.js";
+import type { PersonEntityField, SourceDescriptor } from "./shared-types.js";
+import {
+  buildSampleCsv,
+  buildSampleJson,
+  buildSamplePersonEntityPayload,
+  buildSampleYaml,
+  exampleValueForPayload,
+  exampleValueForType,
+  samplePayloadValueForType,
+} from "./sample-data.js";
 import { renderTemplate } from "./template.js";
 
 export type InitOptions = {
@@ -28,15 +47,6 @@ export type UpdateOptions = {
   usePreviewFeatures?: boolean;
 };
 
-type CocogenProjectConfig = {
-  lang: "ts" | "dotnet" | "rest";
-  tsp: string;
-  inputFormat: "csv" | "json" | "yaml" | "custom";
-  cocogenVersion?: string;
-};
-
-const COCOGEN_CONFIG_FILE = "cocogen.json";
-
 async function removeIfExists(filePath: string): Promise<void> {
   try {
     await unlink(filePath);
@@ -44,120 +54,6 @@ async function removeIfExists(filePath: string): Promise<void> {
     const err = error as NodeJS.ErrnoException;
     if (err.code !== "ENOENT") throw error;
   }
-}
-
-function toTsType(type: PropertyType): string {
-  switch (type) {
-    case "string":
-      return "string";
-    case "boolean":
-      return "boolean";
-    case "int64":
-    case "double":
-      return "number";
-    case "dateTime":
-      return "string";
-    case "stringCollection":
-      return "string[]";
-    case "int64Collection":
-    case "doubleCollection":
-      return "number[]";
-    case "dateTimeCollection":
-      return "string[]";
-    case "principal":
-      return "Principal";
-    case "principalCollection":
-      return "Principal[]";
-    default:
-      return "unknown";
-  }
-}
-
-function toCsType(type: PropertyType): string {
-  switch (type) {
-    case "string":
-      return "string";
-    case "principal":
-      return "Principal";
-    case "principalCollection":
-      return "List<Principal>";
-    case "boolean":
-      return "bool";
-    case "int64":
-      return "long";
-    case "double":
-      return "double";
-    case "dateTime":
-      return "DateTimeOffset";
-    case "stringCollection":
-      return "List<string>";
-    case "int64Collection":
-      return "List<long>";
-    case "doubleCollection":
-      return "List<double>";
-    case "dateTimeCollection":
-      return "List<DateTimeOffset>";
-    default:
-      return "object";
-  }
-}
-
-function toCsIdentifier(name: string): string {
-  const parts = name.split(/[_\-\s]+/g).filter(Boolean);
-  const pascal = parts.map((p) => p.slice(0, 1).toUpperCase() + p.slice(1)).join("");
-  return pascal || "Item";
-}
-
-function toCsPascal(name: string): string {
-  if (!name) return "Value";
-  return name.slice(0, 1).toUpperCase() + name.slice(1);
-}
-
-function toCsPropertyName(name: string, itemTypeName: string, used: Set<string>): string {
-  const base = toCsIdentifier(name);
-  const forbidden = itemTypeName.toLowerCase();
-  let candidate = base.toLowerCase() === forbidden ? `${base}Value` : base;
-  let suffix = 1;
-  while (used.has(candidate.toLowerCase())) {
-    candidate = `${base}${suffix}`;
-    suffix += 1;
-  }
-  used.add(candidate.toLowerCase());
-  return candidate;
-}
-
-function toTsIdentifier(name: string): string {
-  const parts = name.split(/[^A-Za-z0-9]+/g).filter(Boolean);
-  if (parts.length === 0) return "Item";
-
-  const pascal = parts.map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)).join("");
-  const sanitized = pascal.replaceAll(/[^A-Za-z0-9_]/g, "_");
-  return /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
-}
-
-function toSchemaFolderName(connectionName: string | undefined): string {
-  const cleaned = (connectionName ?? "").trim();
-  if (!cleaned) return "Schema";
-  const candidate = toCsIdentifier(cleaned);
-  return candidate || "Schema";
-}
-
-function toTsSchemaFolderName(connectionName: string | undefined): string {
-  const cleaned = (connectionName ?? "").trim();
-  if (!cleaned) return "schema";
-  const candidate = toTsIdentifier(cleaned);
-  return candidate || "schema";
-}
-
-function toCsNamespace(projectName: string): string {
-  const cleaned = projectName
-    .replaceAll(/[^A-Za-z0-9_\.\-\s]/g, "")
-    .replaceAll(/[\-\s]+/g, "_")
-    .replaceAll(/\.+/g, ".")
-    .trim();
-
-  const parts = cleaned.split(".").filter(Boolean).map(toCsIdentifier);
-  return parts.length > 0 ? parts.join(".") : "Connector";
 }
 
 async function ensureEmptyDir(outDir: string, force: boolean): Promise<void> {
@@ -191,88 +87,6 @@ function schemaPayload(ir: ConnectorIr): unknown {
         isRefinable: p.search.refinable ?? undefined,
         isExactMatchRequired: p.search.exactMatchRequired ?? undefined,
       })),
-  };
-}
-
-function getGeneratorVersion(): string {
-  try {
-    const dir = path.dirname(fileURLToPath(import.meta.url));
-    const candidates = [
-      path.resolve(dir, "..", "package.json"),
-      path.resolve(dir, "..", "..", "package.json"),
-      path.resolve(dir, "..", "..", "..", "package.json"),
-      path.resolve(process.cwd(), "package.json"),
-    ];
-
-    for (const pkgPath of candidates) {
-      try {
-        const raw = readFileSync(pkgPath, "utf8");
-        const parsed = JSON.parse(raw) as { name?: string; version?: string };
-        const name = parsed.name?.trim();
-        if (name && name !== "@wictorwilen/cocogen" && name !== "cocogen") {
-          continue;
-        }
-        if (parsed.version && parsed.version.trim().length > 0) {
-          return parsed.version.trim();
-        }
-      } catch {
-        continue;
-      }
-    }
-  } catch {
-    // Ignore version lookup errors.
-  }
-  return "0.0.0";
-}
-
-function projectConfigContents(
-  outDir: string,
-  tspPath: string,
-  lang: CocogenProjectConfig["lang"],
-  inputFormat: CocogenProjectConfig["inputFormat"]
-): string {
-  const rel = path.relative(outDir, path.resolve(tspPath)).replaceAll(path.sep, "/");
-  const config: CocogenProjectConfig = {
-    lang,
-    tsp: rel || "./schema.tsp",
-    inputFormat,
-    cocogenVersion: getGeneratorVersion(),
-  };
-  return JSON.stringify(config, null, 2) + "\n";
-}
-
-async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProjectConfig }> {
-  const tryRead = async (fileName: string): Promise<string | undefined> => {
-    try {
-      return await readFile(path.join(outDir, fileName), "utf8");
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === "ENOENT") return undefined;
-      throw error;
-    }
-  };
-
-  const raw = await tryRead(COCOGEN_CONFIG_FILE);
-
-  if (!raw) {
-    throw new Error(`Missing ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
-  }
-
-  const parsed = JSON.parse(raw) as Partial<CocogenProjectConfig>;
-  const inputFormat = parsed.inputFormat ?? "csv";
-  if (inputFormat !== "csv" && inputFormat !== "json" && inputFormat !== "yaml" && inputFormat !== "custom") {
-    throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
-  }
-  if ((parsed.lang !== "ts" && parsed.lang !== "dotnet" && parsed.lang !== "rest") || typeof parsed.tsp !== "string") {
-    throw new Error(`Invalid ${COCOGEN_CONFIG_FILE}. Re-run cocogen generate or fix the file.`);
-  }
-  return {
-    config: {
-      lang: parsed.lang,
-      tsp: parsed.tsp,
-      inputFormat,
-      ...(parsed.cocogenVersion ? { cocogenVersion: parsed.cocogenVersion } : {}),
-    },
   };
 }
 
@@ -733,13 +547,6 @@ function formatCsDocSummary(doc: string): string[] {
   return ["/// <summary>", ...lines, "/// </summary>"];
 }
 
-type PersonEntityField = {
-  path: string;
-  source: { csvHeaders: string[]; jsonPath?: string };
-};
-
-type SourceDescriptor = { csvHeaders: string[]; jsonPath?: string };
-
 function buildSourceLiteral(source: SourceDescriptor): string {
   if (source.jsonPath && source.jsonPath.trim().length > 0) {
     return JSON.stringify(source.jsonPath);
@@ -760,34 +567,6 @@ type TsPersonEntityTypeInfo = {
 };
 
 type TsPersonEntityTypeMap = Map<string, TsPersonEntityTypeInfo>;
-
-function buildObjectTree(fields: PersonEntityField[]): Record<string, unknown> {
-  const root: Record<string, unknown> = {};
-
-  for (const field of fields) {
-    const parts = field.path.split(".").map((p) => p.trim()).filter(Boolean);
-    if (parts.length === 0) continue;
-
-    let cursor: Record<string, unknown> = root;
-    for (let i = 0; i < parts.length; i++) {
-      const key = parts[i]!;
-      if (i === parts.length - 1) {
-        cursor[key] = field;
-        continue;
-      }
-      const next = cursor[key];
-      if (typeof next === "object" && next && !Array.isArray(next) && !("path" in (next as object))) {
-        cursor = next as Record<string, unknown>;
-      } else {
-        const child: Record<string, unknown> = {};
-        cursor[key] = child;
-        cursor = child;
-      }
-    }
-  }
-
-  return root;
-}
 
 function buildTsPersonEntityExpression(
   fields: PersonEntityField[],
@@ -1273,41 +1052,6 @@ function buildCsPersonEntityCollectionExpression(
   return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${objectExpression}));\n        }\n        return results;\n    }).Invoke()`;
 }
 
-function csvEscape(value: string): string {
-  if (value.includes("\n") || value.includes("\r") || value.includes(",") || value.includes("\"")) {
-    return `"${value.replaceAll("\"", '""')}"`;
-  }
-  return value;
-}
-
-function sampleValueForType(type: PropertyType): string {
-  switch (type) {
-    case "boolean":
-      return "true";
-    case "int64":
-      return "123";
-    case "double":
-      return "1.23";
-    case "dateTime":
-      return "2024-01-01T00:00:00Z";
-    case "stringCollection":
-      return "alpha;beta";
-    case "int64Collection":
-      return "1;2";
-    case "doubleCollection":
-      return "1.1;2.2";
-    case "dateTimeCollection":
-      return "2024-01-01T00:00:00Z;2024-01-02T00:00:00Z";
-    case "principal":
-      return 'alice@contoso.com';
-    case "principalCollection":
-      return "alice@contoso.com;bob@contoso.com";
-    case "string":
-    default:
-      return "sample";
-  }
-}
-
 function buildTsStringConstraintsLiteral(prop: {
   minLength?: number;
   maxLength?: number;
@@ -1445,179 +1189,6 @@ function applyCsValidationExpression(
   }
 }
 
-function exampleValueForType(example: unknown, type: PropertyType): string | undefined {
-  if (example === undefined || example === null) return undefined;
-
-  if (type.endsWith("Collection")) {
-    if (Array.isArray(example)) {
-      return example.map((value) => (value === undefined || value === null ? "" : String(value))).join(";");
-    }
-    if (typeof example === "string") return example;
-    return JSON.stringify(example);
-  }
-
-  if (typeof example === "string") return example;
-  if (typeof example === "number" || typeof example === "boolean") return String(example);
-  return JSON.stringify(example);
-}
-
-function sampleValueForHeader(header: string, type?: PropertyType): string {
-  const lower = header.toLowerCase();
-  if (lower.includes("job title")) return "Software Engineer";
-  if (lower.includes("company")) return "Contoso";
-  if (lower.includes("employee")) return "E123";
-  if (lower.includes("upn") || lower.includes("userprincipal")) return "user@contoso.com";
-  if (lower.includes("email")) return "user@contoso.com";
-  if (lower.includes("url") || lower.includes("website")) return "https://example.com";
-  if (lower.includes("phone")) return "+1 555 0100";
-  if (lower.includes("level")) return "expert;intermediate";
-  if (lower.includes("skill")) return "TypeScript;Python";
-  if (lower.includes("proficiency")) return "advancedProfessional;expert";
-  if (lower.includes("name")) return "Ada Lovelace";
-  if (lower.includes("address")) return "1 Main St";
-  if (lower.includes("city")) return "Seattle";
-  if (lower.includes("country")) return "US";
-  if (lower.includes("note") || lower.includes("bio")) return "Sample profile note";
-  return type ? sampleValueForType(type) : "sample";
-}
-
-function sampleValueForPrincipalKey(key: string, index = 0): string {
-  const suffix = index > 0 ? index.toString() : "";
-  const email = `user${suffix}@contoso.com`;
-  switch (key) {
-    case "upn":
-    case "email":
-    case "externalId":
-      return email;
-    case "tenantId":
-    case "entraId":
-      return "00000000-0000-0000-0000-000000000000";
-    case "externalName":
-    case "entraDisplayName":
-      return suffix ? `Ada Lovelace ${suffix}` : "Ada Lovelace";
-    default:
-      return `sample-${key}`;
-  }
-}
-
-function buildSamplePrincipalObject(
-  fields: PersonEntityField[] | null,
-  fallbackSource: SourceDescriptor,
-  index = 0
-): Record<string, unknown> {
-  const entries = buildPrincipalFieldEntries(fields, fallbackSource);
-  const keys = entries.length > 0 ? entries.map((entry) => entry.key) : ["upn"];
-  const principal: Record<string, unknown> = {
-    "@odata.type": "microsoft.graph.externalConnectors.principal",
-  };
-  for (const key of keys) {
-    principal[key] = sampleValueForPrincipalKey(key, index);
-  }
-  return principal;
-}
-
-function buildSamplePrincipalCollection(
-  fields: PersonEntityField[] | null,
-  fallbackSource: SourceDescriptor
-): Array<Record<string, unknown>> {
-  return [
-    buildSamplePrincipalObject(fields, fallbackSource, 0),
-    buildSamplePrincipalObject(fields, fallbackSource, 1),
-  ];
-}
-
-function buildSamplePersonEntityObject(
-  fields: PersonEntityField[],
-  index = 0
-): Record<string, unknown> {
-  const tree = buildObjectTree(fields);
-  const valueByPath = new Map<string, string>();
-
-  for (const field of fields) {
-    const header = field.source.csvHeaders[0] ?? field.path;
-    const raw = sampleValueForHeader(header);
-    const values = raw.split(/\s*;\s*/).map((value) => value.trim()).filter(Boolean);
-    const value = values.length > 0
-      ? (values[index] ?? values[0] ?? "")
-      : raw;
-    valueByPath.set(field.path, value);
-  }
-
-  const renderNode = (node: Record<string, unknown>): Record<string, unknown> => {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(node)) {
-      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
-        const field = value as PersonEntityField;
-        result[key] = valueByPath.get(field.path) ?? "";
-      } else {
-        result[key] = renderNode(value as Record<string, unknown>);
-      }
-    }
-    return result;
-  };
-
-  return renderNode(tree);
-}
-
-function buildSamplePersonEntityPayload(
-  fields: PersonEntityField[],
-  isCollection: boolean
-): string | string[] {
-  if (!isCollection) {
-    return JSON.stringify(buildSamplePersonEntityObject(fields, 0));
-  }
-
-  const objects = [
-    buildSamplePersonEntityObject(fields, 0),
-    buildSamplePersonEntityObject(fields, 1),
-  ];
-  return objects.map((value) => JSON.stringify(value));
-}
-
-function exampleValueForPayload(example: unknown, type: PropertyType): unknown {
-  if (example === undefined || example === null) return undefined;
-  if (type.endsWith("Collection")) {
-    if (Array.isArray(example)) return example;
-    if (typeof example === "string") {
-      return example.split(/\s*;\s*/).map((value) => value.trim()).filter(Boolean);
-    }
-    return [String(example)];
-  }
-  return example;
-}
-
-function samplePayloadValueForType(
-  type: PropertyType,
-  fields: PersonEntityField[] | null,
-  fallbackSource: SourceDescriptor
-): unknown {
-  switch (type) {
-    case "boolean":
-      return true;
-    case "int64":
-      return 123;
-    case "double":
-      return 1.23;
-    case "dateTime":
-      return "2024-01-01T00:00:00Z";
-    case "stringCollection":
-      return ["alpha", "beta"];
-    case "int64Collection":
-      return [1, 2];
-    case "doubleCollection":
-      return [1.1, 2.2];
-    case "dateTimeCollection":
-      return ["2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z"];
-    case "principal":
-      return buildSamplePrincipalObject(fields, fallbackSource, 0);
-    case "principalCollection":
-      return buildSamplePrincipalCollection(fields, fallbackSource);
-    case "string":
-    default:
-      return "sample";
-  }
-}
-
 function buildRestConnectionPayload(ir: ConnectorIr): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     id: ir.connection.connectionId ?? "connection-id",
@@ -1670,365 +1241,6 @@ function buildRestItemPayload(ir: ConnectorIr, itemId: string): Record<string, u
 
   return payload;
 }
-
-function buildSampleCsv(ir: ConnectorIr): string {
-  const headers: string[] = [];
-  const seen = new Set<string>();
-  const addHeader = (header: string): void => {
-    if (seen.has(header)) return;
-    seen.add(header);
-    headers.push(header);
-  };
-
-  for (const prop of ir.properties) {
-    if (prop.personEntity) {
-      for (const field of prop.personEntity.fields) {
-        for (const header of field.source.csvHeaders) addHeader(header);
-      }
-      continue;
-    }
-
-    for (const header of prop.source.csvHeaders) addHeader(header);
-  }
-
-  const valueByHeader = new Map<string, string>();
-  for (const prop of ir.properties) {
-    if (prop.personEntity) {
-      const exampleValue = exampleValueForType(prop.example, prop.type);
-      if (exampleValue && prop.personEntity.fields.length === 1) {
-        const headers = prop.personEntity.fields[0]?.source.csvHeaders ?? [];
-        for (const header of headers) {
-          if (!valueByHeader.has(header)) valueByHeader.set(header, exampleValue);
-        }
-      }
-      for (const field of prop.personEntity.fields) {
-        for (const header of field.source.csvHeaders) {
-          if (valueByHeader.has(header)) continue;
-          if (
-            (prop.type === "principal" || prop.type === "principalCollection") &&
-            (field.path === "upn" || field.path === "userPrincipalName")
-          ) {
-            valueByHeader.set(header, sampleValueForType(prop.type));
-            continue;
-          }
-          valueByHeader.set(header, sampleValueForHeader(header));
-        }
-      }
-      continue;
-    }
-
-    const exampleValue = exampleValueForType(prop.example, prop.type);
-    for (const header of prop.source.csvHeaders) {
-      if (!valueByHeader.has(header)) {
-        valueByHeader.set(header, exampleValue ?? sampleValueForHeader(header, prop.type));
-      }
-    }
-  }
-
-  const headerLine = headers.map(csvEscape).join(",");
-  const valueLine = headers.map((h) => csvEscape(valueByHeader.get(h) ?? "sample")).join(",");
-  return `${headerLine}\n${valueLine}\n`;
-}
-
-type JsonPathStep =
-  | { type: "prop"; key: string }
-  | { type: "index"; index: number };
-
-function jsonPathToSteps(path: string): JsonPathStep[] {
-  const trimmed = path.trim();
-  if (!trimmed) return [];
-
-  let raw = trimmed;
-  if (raw.startsWith("$")) {
-    raw = raw.slice(1);
-    if (raw.startsWith(".")) raw = raw.slice(1);
-  }
-
-  const splitSegments = (value: string): string[] => {
-    const segments: string[] = [];
-    let current = "";
-    let bracketDepth = 0;
-    let inSingleQuote = false;
-    let inDoubleQuote = false;
-    let escaped = false;
-
-    for (const char of value) {
-      if (escaped) {
-        current += char;
-        escaped = false;
-        continue;
-      }
-      if (char === "\\") {
-        current += char;
-        escaped = true;
-        continue;
-      }
-      if (char === "'" && !inDoubleQuote) {
-        inSingleQuote = !inSingleQuote;
-        current += char;
-        continue;
-      }
-      if (char === '"' && !inSingleQuote) {
-        inDoubleQuote = !inDoubleQuote;
-        current += char;
-        continue;
-      }
-      if (!inSingleQuote && !inDoubleQuote) {
-        if (char === "[") {
-          bracketDepth += 1;
-        } else if (char === "]") {
-          bracketDepth = Math.max(0, bracketDepth - 1);
-        } else if (char === "." && bracketDepth === 0) {
-          if (current.length > 0) segments.push(current);
-          current = "";
-          continue;
-        }
-      }
-      current += char;
-    }
-
-    if (current.length > 0) segments.push(current);
-    return segments.filter(Boolean);
-  };
-
-  const findClosingBracket = (value: string, start: number): number => {
-    let inSingleQuote = false;
-    let inDoubleQuote = false;
-    let escaped = false;
-    for (let i = start + 1; i < value.length; i += 1) {
-      const char = value[i]!;
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (char === "\\") {
-        escaped = true;
-        continue;
-      }
-      if (char === "'" && !inDoubleQuote) {
-        inSingleQuote = !inSingleQuote;
-        continue;
-      }
-      if (char === '"' && !inSingleQuote) {
-        inDoubleQuote = !inDoubleQuote;
-        continue;
-      }
-      if (!inSingleQuote && !inDoubleQuote && char === "]") return i;
-    }
-    return -1;
-  };
-
-  const parseBracketContent = (rawContent: string): JsonPathStep[] => {
-    const content = rawContent.trim();
-    if (!content) return [];
-    if (content === "*") return [{ type: "index", index: 0 }];
-    const quoted = content.match(/^['"](.*)['"]$/);
-    if (quoted) {
-      const key = quoted[1] ?? "";
-      return key ? [{ type: "prop", key }] : [];
-    }
-    const index = Number.parseInt(content, 10);
-    if (!Number.isNaN(index)) return [{ type: "index", index }];
-    return [{ type: "prop", key: content }];
-  };
-
-  const parseSegment = (segment: string): JsonPathStep[] => {
-    const steps: JsonPathStep[] = [];
-    let cursor = segment;
-
-    if (cursor.startsWith("[")) {
-      while (cursor.startsWith("[")) {
-        const close = findClosingBracket(cursor, 0);
-        if (close === -1) break;
-        const content = cursor.slice(1, close);
-        steps.push(...parseBracketContent(content));
-        cursor = cursor.slice(close + 1);
-      }
-      if (cursor.length > 0) {
-        steps.push({ type: "prop", key: cursor });
-      }
-      return steps;
-    }
-
-    const match = cursor.match(/^[A-Za-z_][A-Za-z0-9_]*/);
-    if (match) {
-      steps.push({ type: "prop", key: match[0] });
-      cursor = cursor.slice(match[0].length);
-    } else if (cursor.length > 0) {
-      steps.push({ type: "prop", key: cursor });
-      return steps;
-    }
-
-    while (cursor.startsWith("[")) {
-      const close = findClosingBracket(cursor, 0);
-      if (close === -1) break;
-      const content = cursor.slice(1, close);
-      steps.push(...parseBracketContent(content));
-      cursor = cursor.slice(close + 1);
-    }
-
-    return steps;
-  };
-
-  return splitSegments(raw).flatMap(parseSegment);
-}
-
-function setNestedValue(target: Record<string, unknown>, steps: JsonPathStep[], value: unknown): void {
-  if (steps.length === 0) return;
-  let cursor: unknown = target;
-  for (let i = 0; i < steps.length; i += 1) {
-    const step = steps[i]!;
-    const isLast = i === steps.length - 1;
-    const next = steps[i + 1];
-
-    if (step.type === "prop") {
-      if (typeof cursor !== "object" || cursor === null) return;
-      const container = cursor as Record<string, unknown>;
-      if (isLast) {
-        container[step.key] = value;
-        return;
-      }
-      if (next?.type === "index") {
-        if (!Array.isArray(container[step.key])) {
-          container[step.key] = [];
-        }
-        cursor = container[step.key];
-      } else {
-        if (!container[step.key] || typeof container[step.key] !== "object" || Array.isArray(container[step.key])) {
-          container[step.key] = {};
-        }
-        cursor = container[step.key];
-      }
-      continue;
-    }
-
-    if (!Array.isArray(cursor)) return;
-    const index = Math.max(0, step.index);
-    while (cursor.length <= index) {
-      cursor.push({});
-    }
-    if (isLast) {
-      cursor[index] = value;
-      return;
-    }
-    if (next?.type === "index") {
-      if (!Array.isArray(cursor[index])) {
-        cursor[index] = [];
-      }
-    } else if (!cursor[index] || typeof cursor[index] !== "object" || Array.isArray(cursor[index])) {
-      cursor[index] = {};
-    }
-    cursor = cursor[index];
-  }
-}
-
-function setNestedObject(target: Record<string, unknown>, segments: string[], value: unknown): void {
-  if (segments.length === 0) return;
-  let cursor: Record<string, unknown> = target;
-  for (let i = 0; i < segments.length - 1; i += 1) {
-    const key = segments[i]!;
-    const existing = cursor[key];
-    if (!existing || typeof existing !== "object" || Array.isArray(existing)) {
-      cursor[key] = {};
-    }
-    cursor = cursor[key] as Record<string, unknown>;
-  }
-  cursor[segments[segments.length - 1]!] = value;
-}
-
-function sampleJsonValueForType(type: PropertyType): unknown {
-  switch (type) {
-    case "boolean":
-      return true;
-    case "int64":
-      return 123;
-    case "double":
-      return 1.23;
-    case "dateTime":
-      return "2024-01-01T00:00:00Z";
-    case "stringCollection":
-      return ["alpha", "beta"];
-    case "int64Collection":
-      return [1, 2];
-    case "doubleCollection":
-      return [1.1, 2.2];
-    case "dateTimeCollection":
-      return ["2024-01-01T00:00:00Z", "2024-01-02T00:00:00Z"];
-    case "principal":
-      return "user@contoso.com";
-    case "principalCollection":
-      return ["user@contoso.com", "user2@contoso.com"];
-    case "string":
-    default:
-      return "sample";
-  }
-}
-
-function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
-  const item: Record<string, unknown> = {};
-
-  for (const prop of ir.properties) {
-    if (prop.personEntity) {
-      const arrayGroups = new Map<string, Array<{ key: string; values: string[] }>>();
-
-      for (const field of prop.personEntity.fields) {
-        const path = field.source.jsonPath ?? field.source.csvHeaders[0] ?? field.path;
-        if (path.includes("[*]")) {
-          const [rootRaw = "", tailRaw = ""] = path.split("[*]");
-          const root = rootRaw.replace(/\.$/, "").replace(/^\$\.?/, "").trim();
-          const key = tailRaw.replace(/^\./, "").trim() || field.path;
-          const sampleValue = sampleValueForHeader(`${root}.${key}`, prop.type);
-          const values = sampleValue.split(";").map((value) => value.trim()).filter(Boolean);
-          const list = arrayGroups.get(root) ?? [];
-          list.push({ key, values: values.length > 0 ? values : [sampleValue] });
-          arrayGroups.set(root, list);
-          continue;
-        }
-
-        const steps = jsonPathToSteps(path);
-        const header = [...steps].reverse().find((step) => step.type === "prop")?.key ?? field.path;
-        const sampleValue = sampleValueForHeader(header, prop.type);
-        setNestedValue(item, steps, sampleValue);
-      }
-
-      for (const [root, fields] of arrayGroups) {
-        const lengths = fields.map((field) => field.values.length).filter((len) => len > 0);
-        const maxLen = lengths.length > 0 ? Math.max(...lengths) : 1;
-        const entries = Array.from({ length: maxLen }, (_, index) => {
-          const obj: Record<string, unknown> = {};
-          for (const field of fields) {
-            const value = field.values[index] ?? field.values[0] ?? "sample";
-            obj[field.key] = value;
-          }
-          return obj;
-        });
-        const segments = root.split(".").map((seg) => seg.trim()).filter(Boolean);
-        if (segments.length > 0) {
-          setNestedObject(item, segments, entries);
-        }
-      }
-      continue;
-    }
-
-    const path = prop.source.jsonPath ?? prop.source.csvHeaders[0] ?? prop.name;
-    const steps = jsonPathToSteps(path);
-    const exampleValue = exampleValueForPayload(prop.example, prop.type);
-    const value = exampleValue ?? sampleJsonValueForType(prop.type);
-    setNestedValue(item, steps, value);
-  }
-
-  return item;
-}
-
-function buildSampleJson(ir: ConnectorIr): string {
-  return JSON.stringify([buildSampleItem(ir)], null, 2) + "\n";
-}
-
-function buildSampleYaml(ir: ConnectorIr): string {
-  const yaml = stringifyYaml([buildSampleItem(ir)]);
-  return yaml.endsWith("\n") ? yaml : `${yaml}\n`;
-}
-
 type PeopleGraphFieldTemplate = {
   name: string;
   varName: string;

@@ -22,10 +22,11 @@ import {
   type Scalar,
   type Type,
 } from "@typespec/compiler";
-import { JSONPath } from "jsonpath-plus";
 
 import type { ConnectorIr, GraphApiVersion, PropertyType, SearchFlags } from "../ir.js";
 import { getPeopleLabelDefinition, type PersonEntityName } from "../people/label-registry.js";
+import { assertValidJsonPath, normalizeJsonPath } from "./jsonpath.js";
+import { normalizeInputFormat } from "./input-format.js";
 import {
   COCOGEN_STATE_CONNECTION_SETTINGS,
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
@@ -84,13 +85,6 @@ function getConnectionSettings(program: Program, itemModel: Model): CocogenConne
   return (program.stateMap(COCOGEN_STATE_CONNECTION_SETTINGS).get(itemModel) ?? {}) as CocogenConnectionSettings;
 }
 
-function resolveInputFormat(raw?: string): "csv" | "json" | "yaml" | "custom" {
-  if (!raw) return "csv";
-  const value = raw.trim().toLowerCase();
-  if (value === "csv" || value === "json" || value === "yaml" || value === "custom") return value;
-  throw new CocogenError("Invalid input format. Expected csv, json, yaml, or custom.");
-}
-
 function getSourcePathSyntax(inputFormat: "csv" | "json" | "yaml" | "custom"): SourcePathSyntax {
   return inputFormat === "csv" ? "csv" : "jsonpath";
 }
@@ -136,120 +130,6 @@ function normalizeSourceSettings(
   const csv = typeof settings === "string" ? settings : settings?.csv;
   const jsonPath = typeof settings === "string" ? settings : settings?.jsonPath;
 
-  const normalizeJsonPath = (value: string): string => {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-    if (trimmed.startsWith("$")) return trimmed;
-    if (trimmed.startsWith("[")) return `$${trimmed}`;
-    const splitSegments = (value: string): string[] => {
-      const segments: string[] = [];
-      let current = "";
-      let bracketDepth = 0;
-      let inSingleQuote = false;
-      let inDoubleQuote = false;
-      let escaped = false;
-
-      for (const char of value) {
-        if (escaped) {
-          current += char;
-          escaped = false;
-          continue;
-        }
-        if (char === "\\") {
-          current += char;
-          escaped = true;
-          continue;
-        }
-        if (char === "'" && !inDoubleQuote) {
-          inSingleQuote = !inSingleQuote;
-          current += char;
-          continue;
-        }
-        if (char === '"' && !inSingleQuote) {
-          inDoubleQuote = !inDoubleQuote;
-          current += char;
-          continue;
-        }
-        if (!inSingleQuote && !inDoubleQuote) {
-          if (char === "[") {
-            bracketDepth += 1;
-          } else if (char === "]") {
-            bracketDepth = Math.max(0, bracketDepth - 1);
-          } else if (char === "." && bracketDepth === 0) {
-            if (current.length > 0) segments.push(current);
-            current = "";
-            continue;
-          }
-        }
-        current += char;
-      }
-
-      if (current.length > 0) segments.push(current);
-      return segments.filter(Boolean);
-    };
-
-    const segments = splitSegments(trimmed);
-    if (segments.length === 0) return "";
-    const encoded = segments
-      .map((segment) => {
-        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(segment)) {
-          return `.${segment}`;
-        }
-        if (/^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]+\])+$/u.test(segment)) {
-          return `.${segment}`;
-        }
-        const escaped = segment.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-        return `['${escaped}']`;
-      })
-      .join("");
-    return `$${encoded}`;
-  };
-
-  const assertValidJsonPath = (value: string): void => {
-    if (!value || value.trim().length === 0) return;
-    let bracketDepth = 0;
-    let inSingleQuote = false;
-    let inDoubleQuote = false;
-    let escaped = false;
-    for (const char of value) {
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (char === "\\") {
-        escaped = true;
-        continue;
-      }
-      if (char === "'" && !inDoubleQuote) {
-        inSingleQuote = !inSingleQuote;
-        continue;
-      }
-      if (char === '"' && !inSingleQuote) {
-        inDoubleQuote = !inDoubleQuote;
-        continue;
-      }
-      if (!inSingleQuote && !inDoubleQuote) {
-        if (char === "[") bracketDepth += 1;
-        if (char === "]") bracketDepth -= 1;
-        if (bracketDepth < 0) {
-          throw new CocogenError(`Invalid JSONPath syntax '${value}'. Unbalanced brackets.`);
-        }
-      }
-    }
-    if (bracketDepth !== 0 || inSingleQuote || inDoubleQuote) {
-      throw new CocogenError(`Invalid JSONPath syntax '${value}'. Unbalanced brackets or quotes.`);
-    }
-    if (/\[\s*\]/u.test(value)) {
-      throw new CocogenError(`Invalid JSONPath syntax '${value}'. Empty bracket expression.`);
-    }
-    try {
-      JSONPath({ path: value, json: {}, wrap: false });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new CocogenError(`Invalid JSONPath syntax '${value}'. ${message}`);
-    }
-  };
-
   if (sourcePathSyntax === "jsonpath") {
     if (settings && typeof settings === "object" && "csv" in settings && settings.csv) {
       throw new CocogenError("@coco.source csv settings are not valid for jsonpath input. Use jsonPath or a string path.");
@@ -258,7 +138,7 @@ function normalizeSourceSettings(
     let path = typeof jsonPath === "string" ? jsonPath : "";
     if (!path && !noSource) path = fallbackName;
     const normalized = path ? normalizeJsonPath(path) : "";
-    if (normalized) assertValidJsonPath(normalized);
+    if (normalized) assertValidJsonPath(normalized, (message) => new CocogenError(message));
     return {
       csvHeaders: [],
       jsonPath: normalized,
@@ -552,7 +432,13 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
   const profileSource = getProfileSourceSettings(program, itemModel);
   const properties = [...itemModel.properties.values()];
   const itemDoc = getItemDoc(program, itemModel);
-  const inputFormat = resolveInputFormat(options.inputFormat);
+  let inputFormat: ReturnType<typeof normalizeInputFormat>;
+  try {
+    inputFormat = normalizeInputFormat(options.inputFormat);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CocogenError(message);
+  }
   const sourcePathSyntax = getSourcePathSyntax(inputFormat);
 
   const deprecatedProps = new Set(properties.filter((prop) => Boolean(getDeprecated(program, prop))));

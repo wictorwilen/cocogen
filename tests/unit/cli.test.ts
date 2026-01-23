@@ -670,6 +670,61 @@ describe("cli", () => {
     Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
   });
 
+  test("skips update check when custom npm registry is configured", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    process.env.NPM_CONFIG_REGISTRY = "https://registry.example.com";
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+    delete process.env.NPM_CONFIG_REGISTRY;
+  });
+
+  test("uses npm registry when configured explicitly", async () => {
+    vi.resetModules();
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    process.env.NPM_CONFIG_REGISTRY = "https://registry.npmjs.org/";
+    const originalTty = process.stderr.isTTY;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    const fetchMock = vi.fn(async () =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ version: "9.9.9" }),
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+
+    expect(fetchMock).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+    delete process.env.NPM_CONFIG_REGISTRY;
+  });
+
   test("ignores update check when registry responds non-ok", async () => {
     vi.resetModules();
     delete process.env.COCOGEN_SKIP_UPDATE_CHECK;

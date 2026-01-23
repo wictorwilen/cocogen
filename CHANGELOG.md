@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved .NET Graph error messages to include HTTP status codes.
 - Improved TS Graph error messages to include HTTP status text and parsed Graph error details.
 - Added start-of-operation console messages for provision/delete flows (TS + .NET).
+- CLI version output now reflects the package version.
+- Update checks now honor custom npm registry configuration.
 
 ## [1.0.31] - 2026-01-22
 ### Fixed
