@@ -86,7 +86,7 @@ Examples:
 ## Requirements
 - Node.js 22+ (the generator targets Node 22 LTS)
 - A TypeSpec schema file (`.tsp`)
-- Generated projects support managed identity (preferred), client secret, or device code auth (device code requires a public client app registration and delegated Graph permissions).
+- Generated projects support managed identity (preferred) or client secret auth.
 
 ## Install / Run
 No install needed:

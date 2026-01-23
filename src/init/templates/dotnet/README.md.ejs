@@ -34,13 +34,8 @@ This generated CLI currently targets a single connection ID from configuration. 
 
 ## Authentication
 The generated CLI uses the following order:
-1) `--device-code` flag (delegated auth; requires `AzureAd:TenantId` + `AzureAd:ClientId`)
-2) Client secret (`AzureAd:TenantId` + `AzureAd:ClientId` + `AzureAd:ClientSecret`)
-3) Managed identity (when no client secret is configured)
-
-Device code requires a public client app registration (Authentication → Mobile and desktop applications → enable public client flows) and delegated Graph permissions.
-
-To use device code flow (delegated), pass `--device-code` and provide `AzureAd:TenantId` + `AzureAd:ClientId`. This is intended for local/dev only.
+1) Client secret (`AzureAd:TenantId` + `AzureAd:ClientId` + `AzureAd:ClientSecret`)
+2) Managed identity (when no client secret is configured)
 
 To use client secret auth locally, set `AzureAd:TenantId`, `AzureAd:ClientId`, and `AzureAd:ClientSecret` in `appsettings.json`, environment variables, or user-secrets.
 

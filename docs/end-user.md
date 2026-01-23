@@ -178,11 +178,10 @@ node dist/cli.js ingest --input ./data.csv
 
 ### Authentication
 The generated CLI uses the following order:
-1) `--device-code` flag (delegated auth; requires `TENANT_ID` + `CLIENT_ID`)
-2) Client secret (`TENANT_ID` + `CLIENT_ID` + `CLIENT_SECRET`)
-3) Managed identity (when no client secret is configured)
+1) Client secret (`TENANT_ID` + `CLIENT_ID` + `CLIENT_SECRET`)
+2) Managed identity (when no client secret is configured)
 
-Device code requires a **public client** app registration (Authentication → Mobile and desktop applications → enable public client flows) and delegated Graph permissions. For local development with client secret, set `TENANT_ID`, `CLIENT_ID`, and `CLIENT_SECRET` in `.env`. For Azure hosting, leave those unset and (optionally) set `MANAGED_IDENTITY_CLIENT_ID` for user-assigned identities.
+For local development with client secret, set `TENANT_ID`, `CLIENT_ID`, and `CLIENT_SECRET` in `.env`. For Azure hosting, leave those unset and (optionally) set `MANAGED_IDENTITY_CLIENT_ID` for user-assigned identities.
 
 Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
@@ -220,11 +219,10 @@ dotnet run -- ingest --input ./data.csv
 
 ### Authentication
 The generated CLI uses the following order:
-1) `--device-code` flag (delegated auth; requires `AzureAd:TenantId` + `AzureAd:ClientId`)
-2) Client secret (`AzureAd:TenantId` + `AzureAd:ClientId` + `AzureAd:ClientSecret`)
-3) Managed identity (when no client secret is configured)
+1) Client secret (`AzureAd:TenantId` + `AzureAd:ClientId` + `AzureAd:ClientSecret`)
+2) Managed identity (when no client secret is configured)
 
-Device code requires a **public client** app registration (Authentication → Mobile and desktop applications → enable public client flows) and delegated Graph permissions. For local development with client secret, set the AzureAd settings in `appsettings.json`, environment variables, or user-secrets. For Azure hosting, leave the AzureAd settings empty and (optionally) set `AzureAd:ManagedIdentityClientId` for user-assigned identities.
+For local development with client secret, set the AzureAd settings in `appsettings.json`, environment variables, or user-secrets. For Azure hosting, leave the AzureAd settings empty and (optionally) set `AzureAd:ManagedIdentityClientId` for user-assigned identities.
 
 Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph

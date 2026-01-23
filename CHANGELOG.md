@@ -7,8 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
-- Added device code flow flag (`--device-code`) for delegated auth (TS + .NET).
-- Updated credential precedence to: device code → client secret → managed identity.
+- Updated credential precedence to: client secret → managed identity.
 - Improved .NET Graph error messages to include HTTP status codes.
 - Improved TS Graph error messages to include HTTP status text and parsed Graph error details.
 - Added start-of-operation console messages for provision/delete flows (TS + .NET).
