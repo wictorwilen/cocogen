@@ -68,6 +68,7 @@ export class ConnectorCore<Item> {
    * Ensure the external connection exists (create if missing).
    */
   async ensureConnection(options: ProvisionOptions): Promise<void> {
+    console.log("info: ensuring connection exists...");
     const payload: any = {
       id: options.connectionId,
       name: options.connectionName,
@@ -79,8 +80,8 @@ export class ConnectorCore<Item> {
     const createUrl = `${this.graphBaseUrl}/external/connections`;
     const create = await this.graphRequest("POST", createUrl, payload);
     if (!create.ok && create.status !== 409) {
-      const text = await create.text();
-      throw new Error(`Failed to create connection (HTTP ${create.status}): ${text}`);
+      const details = await readGraphError(create);
+      throw new Error(`Failed to create connection (HTTP ${formatStatus(create)}): ${details}`);
     }
   }
 
@@ -88,11 +89,12 @@ export class ConnectorCore<Item> {
    * Patch the external connection schema using the generated payload.
    */
   async patchSchema(connectionId: string): Promise<void> {
+    console.log("info: patching schema...");
     const schemaUrl = `${this.graphBaseUrl}/external/connections/${connectionId}/schema`;
     const res = await this.graphRequest("PATCH", schemaUrl, this.schemaPayload);
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to patch schema (HTTP ${res.status}): ${text}`);
+      const details = await readGraphError(res);
+      throw new Error(`Failed to patch schema (HTTP ${formatStatus(res)}): ${details}`);
     }
 
     await this.waitForSchemaReady(connectionId);
@@ -113,6 +115,7 @@ export class ConnectorCore<Item> {
     if (!this.profileSource) {
       throw new Error("Profile source settings are missing.");
     }
+    console.log("info: registering profile source...");
     await this.registerProfileSourceInternal(connectionId, this.profileSource);
   }
 
@@ -138,13 +141,15 @@ export class ConnectorCore<Item> {
    */
   async deleteConnection(connectionId: string): Promise<void> {
     if (this.profileSource) {
+      console.log("info: unregistering profile source...");
       await this.unregisterProfileSourceInternal(connectionId);
     }
 
+    console.log("info: deleting connection...");
     const res = await this.graphRequest("DELETE", `${this.graphBaseUrl}/external/connections/${connectionId}`);
     if (!res.ok && res.status !== 404) {
-      const text = await res.text();
-      throw new Error(`Failed to delete connection (HTTP ${res.status}): ${text}`);
+      const details = await readGraphError(res);
+      throw new Error(`Failed to delete connection (HTTP ${formatStatus(res)}): ${details}`);
     }
   }
 
@@ -169,8 +174,8 @@ export class ConnectorCore<Item> {
 
     const res = await this.graphRequest("PUT", url, payloadWithId);
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to ingest item '${itemId}' (HTTP ${res.status}): ${text}`);
+      const details = await readGraphError(res);
+      throw new Error(`Failed to ingest item '${itemId}' (HTTP ${formatStatus(res)}): ${details}`);
     }
   }
 
@@ -254,8 +259,8 @@ export class ConnectorCore<Item> {
   > {
     const res = await this.graphRequest("GET", `${this.graphBaseUrl}/admin/people/profilePropertySettings`);
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to list profile property settings (HTTP ${res.status}): ${text}`);
+      const details = await readGraphError(res);
+      throw new Error(`Failed to list profile property settings (HTTP ${formatStatus(res)}): ${details}`);
     }
     const json = (await res.json()) as {
       value?: Array<{ id?: string; name?: string; prioritizedSourceUrls?: string[] }>;
@@ -272,8 +277,8 @@ export class ConnectorCore<Item> {
   private async listProfileSources(): Promise<Array<{ sourceId: string }>> {
     const res = await this.graphRequest("GET", `${this.graphBaseUrl}/admin/people/profileSources`);
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to list profile sources (HTTP ${res.status}): ${text}`);
+      const details = await readGraphError(res);
+      throw new Error(`Failed to list profile sources (HTTP ${formatStatus(res)}): ${details}`);
     }
     const json = (await res.json()) as { value?: Array<{ sourceId?: string }> };
     return (json.value ?? [])
@@ -294,8 +299,8 @@ export class ConnectorCore<Item> {
 
       const create = await this.graphRequest("POST", `${this.graphBaseUrl}/admin/people/profileSources`, payload);
       if (!create.ok && create.status !== 409) {
-        const text = await create.text();
-        throw new Error(`Failed to register profile source (HTTP ${create.status}): ${text}`);
+        const details = await readGraphError(create);
+        throw new Error(`Failed to register profile source (HTTP ${formatStatus(create)}): ${details}`);
       }
     }
 
@@ -309,8 +314,8 @@ export class ConnectorCore<Item> {
         { prioritizedSourceUrls: [sourceUrl] }
       );
       if (!create.ok) {
-        const text = await create.text();
-        throw new Error(`Failed to create profile property setting (HTTP ${create.status}): ${text}`);
+        const details = await readGraphError(create);
+        throw new Error(`Failed to create profile property setting (HTTP ${formatStatus(create)}): ${details}`);
       }
       return;
     }
@@ -335,8 +340,8 @@ export class ConnectorCore<Item> {
       }
     );
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to update profile property setting ${precedence.id} (HTTP ${res.status}): ${text}`);
+      const details = await readGraphError(res);
+      throw new Error(`Failed to update profile property setting ${precedence.id} (HTTP ${formatStatus(res)}): ${details}`);
     }
   }
 
@@ -356,8 +361,8 @@ export class ConnectorCore<Item> {
           }
         );
         if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`Failed to update profile property setting ${precedence.id} (HTTP ${res.status}): ${text}`);
+          const details = await readGraphError(res);
+          throw new Error(`Failed to update profile property setting ${precedence.id} (HTTP ${formatStatus(res)}): ${details}`);
         }
       }
     }
@@ -367,8 +372,8 @@ export class ConnectorCore<Item> {
       `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`
     );
     if (!res.ok && res.status !== 404) {
-      const text = await res.text();
-      throw new Error(`Failed to delete profile source (HTTP ${res.status}): ${text}`);
+      const details = await readGraphError(res);
+      throw new Error(`Failed to delete profile source (HTTP ${formatStatus(res)}): ${details}`);
     }
   }
 
@@ -390,8 +395,8 @@ export class ConnectorCore<Item> {
     for (let attempt = 0; attempt < SCHEMA_POLL_MAX_ATTEMPTS; attempt++) {
       const res = await this.graphRequest("GET", schemaUrl);
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to read schema status (HTTP ${res.status}): ${text}`);
+        const details = await readGraphError(res);
+        throw new Error(`Failed to read schema status (HTTP ${formatStatus(res)}): ${details}`);
       }
       const json = (await res.json()) as { status?: { state?: string } | string };
       const state = typeof json.status === "string" ? json.status : json.status?.state;
@@ -445,4 +450,23 @@ function computeDelay(attempt: number, retryAfter: number | null): number {
 
 function shouldRetry(status: number): boolean {
   return status === 429 || status === 503 || status === 504;
+}
+
+function formatStatus(res: Response): string {
+  const text = res.statusText?.trim();
+  return text ? `${res.status} ${text}` : `${res.status}`;
+}
+
+async function readGraphError(res: Response): Promise<string> {
+  const text = await res.text();
+  if (!text) return "No response body.";
+  try {
+    const json = JSON.parse(text) as { error?: { code?: string; message?: string } };
+    const message = json?.error?.message;
+    const code = json?.error?.code;
+    if (message) return code ? `${code}: ${message}` : message;
+  } catch {
+    // ignore
+  }
+  return text;
 }

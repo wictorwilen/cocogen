@@ -38,6 +38,9 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 ## Recently done
 - Document public client requirement for device code auth ✅
 - Note delegated permissions requirement for device code auth ✅
+- Improve .NET Graph error logging with HTTP status ✅
+- Improve TS Graph error logging with status + details ✅
+- Add start-of-operation logs for provision/delete flows ✅
 - Bump System.CommandLine to 2.0.2 in .NET templates ✅
 - Align .NET CLI template with System.CommandLine 2.x APIs ✅
 - Fix JsonPath.Net 2.x array match handling in .NET JSON/YAML ingestion ✅

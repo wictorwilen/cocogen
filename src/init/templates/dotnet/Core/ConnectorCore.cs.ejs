@@ -67,7 +67,9 @@ public sealed class ConnectorCore<TItem>
     public async Task ProvisionAsync()
     {
         EnsureGraph();
+        Console.WriteLine("info: ensuring connection exists...");
         await EnsureConnectionAsync();
+        Console.WriteLine("info: patching schema...");
         await PatchSchemaAsync();
     }
 
@@ -80,6 +82,7 @@ public sealed class ConnectorCore<TItem>
             throw new InvalidOperationException("Profile source settings are missing.");
 
 <% if (isPeopleConnector) { -%>
+        Console.WriteLine("info: registering profile source...");
         await RegisterProfileSourceInternalAsync(_connectionId);
 <% } else { -%>
         throw new InvalidOperationException("Profile source registration is only supported for people connectors.");
@@ -96,6 +99,7 @@ public sealed class ConnectorCore<TItem>
         if (HasProfileSource())
         {
 <% if (isPeopleConnector) { -%>
+            Console.WriteLine("info: unregistering profile source...");
             await UnregisterProfileSourceInternalAsync(_connectionId);
 <% } else { -%>
             throw new InvalidOperationException("Profile source registration is only supported for people connectors.");
@@ -104,11 +108,16 @@ public sealed class ConnectorCore<TItem>
 
         try
         {
+            Console.WriteLine("info: deleting connection...");
             await _graph!.External.Connections[_connectionId].DeleteAsync();
         }
         catch (ApiException ex) when (IsStatus(ex, 404))
         {
             // Already deleted.
+        }
+        catch (ApiException ex)
+        {
+            throw new InvalidOperationException(BuildApiErrorMessage(ex, "DELETE connection"), ex);
         }
     }
 
@@ -311,7 +320,7 @@ public sealed class ConnectorCore<TItem>
                 int? status = getStatusCode?.Invoke(ex) ?? ex.ResponseStatusCode;
                 if (status is null || !ShouldRetry(status.Value) || attempt == MaxRetries)
                 {
-                    throw;
+                    throw new InvalidOperationException(BuildApiErrorMessage(ex, operation), ex);
                 }
 
                 var retryAfterMs = ParseRetryAfterMs(ex.ResponseHeaders);
@@ -357,6 +366,15 @@ public sealed class ConnectorCore<TItem>
         var exp = Math.Min(MaxDelayMs, BaseDelayMs * (int)Math.Pow(2, attempt));
         var jitter = Random.Shared.Next(0, 250);
         return Math.Min(MaxDelayMs, exp + jitter);
+    }
+
+    private static string BuildApiErrorMessage(ApiException ex, string operation)
+    {
+        var status = ex.ResponseStatusCode is int code ? code.ToString() : "unknown";
+        var message = string.IsNullOrWhiteSpace(ex.Message)
+            ? "Graph request failed."
+            : ex.Message.Trim();
+        return $"{operation} failed (HTTP {status}): {message}";
     }
 
     private const int MaxRetries = 6;
