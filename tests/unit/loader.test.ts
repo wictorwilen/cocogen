@@ -436,6 +436,34 @@ describe("loadIrFromTypeSpec", () => {
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/TypeSpec compilation failed/i);
   });
 
+  test("rejects CSV settings when using json input format", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        @coco.source({ csv: "id" })
+        title: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "json" })).rejects.toThrow(/jsonpath input/i);
+  });
+
+  test("rejects jsonPath settings when using csv input format", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        @coco.source({ jsonPath: "$.id" })
+        title: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "csv" })).rejects.toThrow(/not valid for CSV input/i);
+  });
+
   test("defaults graph API version to v1.0 when no category or principal", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

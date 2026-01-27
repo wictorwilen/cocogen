@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, test, afterEach } from "vitest";
+import { describe, expect, test, afterEach, vi } from "vitest";
 
 import {
   COCOGEN_CONFIG_FILE,
@@ -21,6 +21,22 @@ describe("project-config", () => {
     test("version matches semver pattern or is 0.0.0", () => {
       const version = getGeneratorVersion();
       expect(version).toMatch(/^\d+\.\d+\.\d+/);
+    });
+
+    test("falls back to 0.0.0 when package name does not match", async () => {
+      vi.resetModules();
+      vi.doMock("node:fs", async () => {
+        const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
+        return {
+          ...actual,
+          readFileSync: vi.fn().mockReturnValue(JSON.stringify({ name: "other-package", version: "9.9.9" })),
+        };
+      });
+
+      const mod = await import("../../src/init/project-config.js");
+      expect(mod.getGeneratorVersion()).toBe("0.0.0");
+
+      vi.resetModules();
     });
   });
 
@@ -76,6 +92,22 @@ describe("project-config", () => {
         await rm(tempDir, { recursive: true, force: true });
         tempDir = undefined;
       }
+    });
+
+    test("rethrows unexpected file system errors", async () => {
+      tempDir = await mkdtemp(path.join(tmpdir(), "cocogen-test-"));
+      vi.resetModules();
+      vi.doMock("node:fs/promises", async () => {
+        const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+        return {
+          ...actual,
+          readFile: vi.fn().mockRejectedValue(Object.assign(new Error("boom"), { code: "EACCES" })),
+        };
+      });
+
+      const mod = await import("../../src/init/project-config.js");
+      await expect(mod.loadProjectConfig(tempDir)).rejects.toThrow("boom");
+      vi.resetModules();
     });
 
     test("loads valid TypeScript config", async () => {

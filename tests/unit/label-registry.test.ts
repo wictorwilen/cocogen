@@ -1,6 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import {
+  PEOPLE_LABEL_DEFINITIONS,
   getBlockedPeopleLabel,
   getPeopleLabelDefinition,
   getPeopleLabelInfo,
@@ -87,5 +88,45 @@ describe("people label registry", () => {
     expect(getBlockedPeopleLabel("personColleagues")).toBeTruthy();
     expect(getBlockedPeopleLabel("personAlternateContacts")).toBeTruthy();
     expect(getBlockedPeopleLabel("personEmergencyContacts")).toBeTruthy();
+  });
+
+  test("getPeopleLabelInfo omits collection limit when constraint not present", () => {
+    const info = getPeopleLabelInfo("personNote");
+    expect(info.collectionLimit).toBeUndefined();
+  });
+
+  test("getPeopleLabelInfo defaults payload type when missing", () => {
+    const label = "customLabel";
+    const def = {
+      label,
+      payloadTypes: [],
+      graphTypeName: "userAccountInformation" as const,
+      planTypeName: "userAccountInformation",
+      schemaTypeName: "userAccountInformation",
+      schema: getPeopleLabelDefinition("personAccount")!.schema,
+      requiredFields: [],
+      constraints: {},
+    };
+    PEOPLE_LABEL_DEFINITIONS.set(label, def);
+    SUPPORTED_PEOPLE_LABELS.add(label);
+
+    const info = getPeopleLabelInfo(label);
+    expect(info.payloadType).toBe("string");
+
+    PEOPLE_LABEL_DEFINITIONS.delete(label);
+    SUPPORTED_PEOPLE_LABELS.delete(label);
+  });
+
+  test("module initialization throws when profile schema is missing", async () => {
+    vi.resetModules();
+    vi.doMock("../../src/people/profile-schema.js", () => ({
+      getProfilePlanTypeNameByLabel: () => undefined,
+      resolveProfileTypeName: () => undefined,
+      getProfileType: () => undefined,
+    }));
+
+    await expect(import("../../src/people/label-registry.js")).rejects.toThrow(/missing type/i);
+
+    vi.resetModules();
   });
 });

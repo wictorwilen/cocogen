@@ -302,6 +302,79 @@ describe("cli", () => {
     process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
   });
 
+  test("skips update check when npm registry does not match npmjs", async () => {
+    const originalStdoutTty = process.stdout.isTTY;
+    const originalStderrTty = process.stderr.isTTY;
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+    process.env.NPM_CONFIG_REGISTRY = "https://private.registry.test";
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    delete process.env.NPM_CONFIG_REGISTRY;
+    Object.defineProperty(process.stdout, "isTTY", { value: originalStdoutTty, configurable: true });
+    Object.defineProperty(process.stderr, "isTTY", { value: originalStderrTty, configurable: true });
+    process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
+  });
+
+  test("ignores update check when fetch responds non-ok", async () => {
+    const originalTty = process.stderr.isTTY;
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+
+    expect(fetchMock).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+    process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
+  });
+
+  test("update check swallows fetch errors", async () => {
+    const originalTty = process.stderr.isTTY;
+    delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+    delete process.env.CI;
+    Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
+
+    loadIrMock.mockResolvedValue(minimalIr);
+    validateIrMock.mockReturnValue([]);
+    writeIrJsonMock.mockResolvedValue("{}\n");
+
+    const fetchMock = vi.fn().mockRejectedValue(new Error("network down"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { main } = await import("../../src/cli.js");
+    await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
+
+    expect(fetchMock).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
+    process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
+  });
+
   test("update prints regeneration summary", async () => {
     updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
 

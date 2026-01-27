@@ -37,10 +37,14 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 
 ## Recently done
 - Simplify .NET JSON/YAML people collection transforms ✅
+- Fix nested string collections inside people arrays (TS + .NET) ✅
+- Add JSONPath wildcard array fallback in .NET RowParser ✅
+- Remove CS8601 warnings in .NET JSONPath match handling ✅
 - Add RowParser helper for JSON/YAML people array iteration ✅
 - Fix sample data JSONPath root '$' emission ✅
 - Remove .NET nullable warnings in JSONPath helper ✅
 - Add serialized source targets for custom JSON payloads ✅
+- Fix missing RelatedPerson imports in TS people transforms ✅
 - Add tests for @coco.source special JSONPath cases ✅
 - Fix people sample data arrays for nested JSONPath fields ✅
 - Stringify JSON/YAML object/array values in row parsing (TS + .NET) ✅

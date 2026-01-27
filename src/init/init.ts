@@ -144,7 +144,15 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       for (const [key, value] of Object.entries(node)) {
         if (typeof value === "object" && value && !Array.isArray(value) && !("path" in (value as PersonEntityField))) {
           const propType = info.properties.get(key) ?? null;
-          const nestedInfo = propType && !propType.endsWith("[]") ? peopleProfileTypeInfoByAlias.get(propType) ?? null : null;
+          if (propType?.endsWith("[]")) {
+            const elementType = propType.slice(0, -2);
+            const nestedInfo = peopleProfileTypeInfoByAlias.get(elementType) ?? null;
+            if (nestedInfo) {
+              visit(value as Record<string, unknown>, nestedInfo);
+            }
+            continue;
+          }
+          const nestedInfo = propType ? peopleProfileTypeInfoByAlias.get(propType) ?? null : null;
           if (nestedInfo) {
             visit(value as Record<string, unknown>, nestedInfo);
           }
@@ -701,6 +709,10 @@ ${closeIndent}}`;
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const sourceLiteral = buildSourceLiteral(field.source);
+        const propType = info?.properties.get(key) ?? null;
+        if (propType && propType.endsWith("[]")) {
+          return `${childIndent}${JSON.stringify(key)}: parseStringCollection(readSourceValue(row, ${sourceLiteral}))`;
+        }
         return `${childIndent}${JSON.stringify(key)}: ${valueExpressionBuilder(sourceLiteral)}`;
       }
 
@@ -742,6 +754,133 @@ function buildTsPersonEntityCollectionExpression(
       .split("\n")
       .map((line) => `${prefix}${line}`)
       .join("\n");
+
+  const collectFields = (node: Record<string, unknown>): PersonEntityField[] => {
+    const collected: PersonEntityField[] = [];
+    const visit = (value: Record<string, unknown>): void => {
+      for (const entry of Object.values(value)) {
+        if (typeof entry === "object" && entry && "path" in (entry as PersonEntityField)) {
+          collected.push(entry as PersonEntityField);
+          continue;
+        }
+        if (typeof entry === "object" && entry && !Array.isArray(entry)) {
+          visit(entry as Record<string, unknown>);
+        }
+      }
+    };
+    visit(node);
+    return collected;
+  };
+
+  const renderNodeForCollection = (
+    node: Record<string, unknown>,
+    level: number,
+    valueVar: string,
+    info: TsPersonEntityTypeInfo | null
+  ): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const propType = info?.properties.get(key) ?? null;
+        if (propType && propType.endsWith("[]")) {
+          return `${childIndent}${JSON.stringify(key)}: (${valueVar} ? [${valueVar}] : [])`;
+        }
+        return `${childIndent}${JSON.stringify(key)}: ${valueVar}`;
+      }
+      const propType = info?.properties.get(key) ?? null;
+      if (propType && propType.endsWith("[]")) {
+        const elementType = propType.slice(0, -2);
+        const elementInfo = typeMap.get(elementType) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, level + 1, elementInfo, elementType);
+        return `${childIndent}${JSON.stringify(key)}: ${renderedCollection}`;
+      }
+      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      const renderedChild = renderNodeForCollection(value as Record<string, unknown>, level + 1, valueVar, nestedType);
+      const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
+      return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
+    });
+    return `{
+${entries.join(",\n")}
+${indent}}`;
+  };
+
+  const renderNodeForCollectionMany = (
+    node: Record<string, unknown>,
+    info: TsPersonEntityTypeInfo | null,
+    level: number,
+    fieldVarByPath: Map<string, string>
+  ): string => {
+    const entryIndent = indentUnit.repeat(level);
+    const closeIndent = indentUnit.repeat(Math.max(0, level - 1));
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const field = value as PersonEntityField;
+        const varName = fieldVarByPath.get(field.path) ?? "";
+        const propType = info?.properties.get(key) ?? null;
+        if (propType && propType.endsWith("[]")) {
+          return `${entryIndent}${JSON.stringify(key)}: getCollectionValue(${varName}, index)`;
+        }
+        return `${entryIndent}${JSON.stringify(key)}: getValue(${varName}, index)`;
+      }
+      const propType = info?.properties.get(key) ?? null;
+      if (propType && propType.endsWith("[]")) {
+        const elementType = propType.slice(0, -2);
+        const elementInfo = typeMap.get(elementType) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, level + 1, elementInfo, elementType);
+        return `${entryIndent}${JSON.stringify(key)}: ${renderedCollection}`;
+      }
+      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, nestedType, level + 1, fieldVarByPath);
+      const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
+      return `${entryIndent}${JSON.stringify(key)}: ${typedChild}`;
+    });
+    return `{
+${entries.join(",\n")}
+${closeIndent}}`;
+  };
+
+  const renderCollectionNode = (
+    node: Record<string, unknown>,
+    level: number,
+    elementInfo: TsPersonEntityTypeInfo | null,
+    elementType: string | null
+  ): string => {
+    const indent = indentUnit.repeat(level);
+    const bodyIndent = indentUnit.repeat(level + 1);
+    const collected = collectFields(node);
+    if (collected.length === 0) return "undefined";
+
+    if (!elementInfo && elementType === "string") {
+      const sourceLiteral = buildSourceLiteral(collected[0]!.source);
+      return `(() => {\n${bodyIndent}const values = parseStringCollection(readSourceValue(row, ${sourceLiteral}));\n${bodyIndent}return values.length > 0 ? values : undefined;\n${indent}})()`;
+    }
+
+    if (collected.length === 1) {
+      const field = collected[0]!;
+      const sourceLiteral = buildSourceLiteral(field.source);
+      const rendered = renderNodeForCollection(node, level + 1, "value", elementInfo);
+      const typed = elementInfo ? `(${rendered} as ${elementInfo.alias})` : rendered;
+      return `(() => {\n${bodyIndent}const values = parseStringCollection(readSourceValue(row, ${sourceLiteral}));\n${bodyIndent}if (values.length === 0) return undefined;\n${bodyIndent}return values.map((value) => ${typed});\n${indent}})()`;
+    }
+
+    const fieldVarByPath = new Map<string, string>();
+    const fieldLines = collected.map((field, index) => {
+      const varName = `field${index}`;
+      fieldVarByPath.set(field.path, varName);
+      const sourceLiteral = buildSourceLiteral(field.source);
+      return `${bodyIndent}const ${varName} = parseStringCollection(readSourceValue(row, ${sourceLiteral}));`;
+    });
+    const fieldVars = [...fieldVarByPath.values()].join(", ");
+    const lengthVars = fieldVars
+      ? `${bodyIndent}const lengths = [${fieldVars}].map((value) => value.length);`
+      : `${bodyIndent}const lengths = [0];`;
+    const rendered = renderNodeForCollectionMany(node, elementInfo, level + 2, fieldVarByPath);
+    const typed = elementInfo ? `(${rendered} as ${elementInfo.alias})` : rendered;
+
+    return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}if (maxLen === 0) return undefined;\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return "";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? "";\n${bodyIndent}${indentUnit}return values[index] ?? "";\n${bodyIndent}};\n${bodyIndent}const getCollectionValue = (values: string[], index: number): string[] => {\n${bodyIndent}${indentUnit}if (values.length === 0) return [];\n${bodyIndent}${indentUnit}if (values.length === 1) return [values[0] ?? ""];\n${bodyIndent}${indentUnit}return index < values.length ? [values[index] ?? ""] : [];\n${bodyIndent}};\n${bodyIndent}const results: Array<${elementInfo ? elementInfo.alias : "unknown"}> = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(${typed});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}})()`;
+  };
+
   const renderNode = (
     node: Record<string, unknown>,
     level: number,
@@ -752,10 +891,20 @@ function buildTsPersonEntityCollectionExpression(
     const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const propType = info?.properties.get(key) ?? null;
+        if (propType && propType.endsWith("[]")) {
+          return `${childIndent}${JSON.stringify(key)}: (${valueVar} ? [${valueVar}] : [])`;
+        }
         return `${childIndent}${JSON.stringify(key)}: ${valueVar}`;
       }
       const propType = info?.properties.get(key) ?? null;
-      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      if (propType && propType.endsWith("[]")) {
+        const elementType = propType.slice(0, -2);
+        const elementInfo = typeMap.get(elementType) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, level + 1, elementInfo, elementType);
+        return `${childIndent}${JSON.stringify(key)}: ${renderedCollection}`;
+      }
+      const nestedType = propType ? typeMap.get(propType) ?? null : null;
       const renderedChild = renderNode(value as Record<string, unknown>, level + 1, valueVar, nestedType);
       const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
       return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
@@ -797,9 +946,19 @@ ${indent}}`;
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const varName = fieldVarByPath.get(field.path) ?? "";
+        const propType = info?.properties.get(key) ?? null;
+        if (propType && propType.endsWith("[]")) {
+          return `${entryIndent}${JSON.stringify(key)}: getCollectionValue(${varName}, index)`;
+        }
         return `${entryIndent}${JSON.stringify(key)}: getValue(${varName}, index)`;
       }
       const propType = info?.properties.get(key) ?? null;
+      if (propType && propType.endsWith("[]")) {
+        const elementType = propType.slice(0, -2);
+        const elementInfo = typeMap.get(elementType) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, level + 1, elementInfo, elementType);
+        return `${entryIndent}${JSON.stringify(key)}: ${renderedCollection}`;
+      }
       const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
       const renderedChild = renderNodeMany(value as Record<string, unknown>, nestedType, level + 1);
       const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
@@ -819,7 +978,7 @@ ${closeIndent}}`;
   const typedMany = typeInfo ? `(${renderedMany} as ${typeInfo.alias})` : renderedMany;
   const typedManyIndented = indentLines(typedMany, `${bodyIndent}${indentUnit}${indentUnit}`);
 
-  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return \"\";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return values[index] ?? \"\";\n${bodyIndent}};\n${bodyIndent}const results: string[] = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(JSON.stringify(\n${typedManyIndented}\n${bodyIndent}${indentUnit}));\n${bodyIndent}}\n${bodyIndent}return results;\n${closeIndent}})()`;
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return \"\";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return values[index] ?? \"\";\n${bodyIndent}};\n${bodyIndent}const getCollectionValue = (values: string[], index: number): string[] => {\n${bodyIndent}${indentUnit}if (values.length === 0) return [];\n${bodyIndent}${indentUnit}if (values.length === 1) return [values[0] ?? \"\"];\n${bodyIndent}${indentUnit}return index < values.length ? [values[index] ?? \"\"] : [];\n${bodyIndent}};\n${bodyIndent}const results: string[] = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(JSON.stringify(\n${typedManyIndented}\n${bodyIndent}${indentUnit}));\n${bodyIndent}}\n${bodyIndent}return results;\n${closeIndent}})()`;
 }
 
 function buildPrincipalFieldEntries(
@@ -1025,7 +1184,11 @@ function buildCsPersonEntityObjectExpression(
   fieldValueBuilder: (field: PersonEntityField) => string,
   typeInfo: CsPersonEntityTypeInfo | null,
   typeMap: CsPersonEntityTypeMap,
-  indentLevel = 2
+  indentLevel = 2,
+  fieldCollectionValueBuilder: (field: PersonEntityField) => string = (field) => {
+    const sourceLiteral = buildCsSourceLiteral(field.source);
+    return `RowParser.ParseStringCollection(row, ${sourceLiteral})`;
+  }
 ): string {
   const tree = buildObjectTree(fields);
   const indentUnit = "    ";
@@ -1063,9 +1226,20 @@ function buildCsPersonEntityObjectExpression(
     const childIndent = indentUnit.repeat(level + 1);
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const propType = info?.properties.get(key)?.csType ?? null;
+        const listElement = propType ? extractListElementType(propType) : null;
+        if (listElement === "string") {
+          return `${childIndent}[${JSON.stringify(key)}] = new List<string> { ${valueVar} }`;
+        }
         return `${childIndent}[${JSON.stringify(key)}] = ${valueVar}`;
       }
       const propType = info?.properties.get(key)?.csType ?? null;
+      const listElement = propType ? extractListElementType(propType) : null;
+      if (listElement) {
+        const elementInfo = typeMap.get(listElement) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, propType ?? "", level + 1, elementInfo);
+        return `${childIndent}[${JSON.stringify(key)}] = ${renderedCollection}`;
+      }
       const nestedType = propType ? typeMap.get(propType.replace("?", "")) ?? null : null;
       const renderedChild = renderNodeForCollection(value as Record<string, unknown>, level + 1, valueVar, nestedType);
       return `${childIndent}[${JSON.stringify(key)}] = ${renderedChild}`;
@@ -1103,9 +1277,20 @@ function buildCsPersonEntityObjectExpression(
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const varName = fieldVarByPath.get(field.path) ?? "";
+        const propType = info?.properties.get(key)?.csType ?? null;
+        const listElement = propType ? extractListElementType(propType) : null;
+        if (listElement === "string") {
+          return `${childIndent}[${JSON.stringify(key)}] = GetCollectionValue(${varName}, index)`;
+        }
         return `${childIndent}[${JSON.stringify(key)}] = GetValue(${varName}, index)`;
       }
       const propType = info?.properties.get(key)?.csType ?? null;
+      const listElement = propType ? extractListElementType(propType) : null;
+      if (listElement) {
+        const elementInfo = typeMap.get(listElement) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, propType ?? "", level + 1, elementInfo);
+        return `${childIndent}[${JSON.stringify(key)}] = ${renderedCollection}`;
+      }
       const nestedType = propType ? typeMap.get(propType.replace("?", "")) ?? null : null;
       const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, level + 1, nestedType, fieldVarByPath);
       return `${childIndent}[${JSON.stringify(key)}] = ${renderedChild}`;
@@ -1123,7 +1308,17 @@ function buildCsPersonEntityObjectExpression(
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
         const varName = fieldVarByPath.get(field.path) ?? "";
+        const listElement = extractListElementType(propInfo.csType);
+        if (listElement === "string") {
+          return `${childIndent}${propInfo.csName} = GetCollectionValue(${varName}, index)`;
+        }
         return `${childIndent}${propInfo.csName} = GetValue(${varName}, index)`;
+      }
+      const listElement = extractListElementType(propInfo.csType);
+      if (listElement) {
+        const elementInfo = typeMap.get(listElement) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, propInfo.csType, level + 1, elementInfo);
+        return `${childIndent}${propInfo.csName} = ${renderedCollection}`;
       }
       const nestedType = typeMap.get(propInfo.csType.replace("?", "")) ?? null;
       const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, level + 1, nestedType, fieldVarByPath);
@@ -1172,7 +1367,7 @@ function buildCsPersonEntityObjectExpression(
 
     const objectExpression = renderNodeForCollectionMany(node, level + 1, elementInfo, fieldVarByPath);
 
-    return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${fieldLines.join("\n")}\n${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return \"\";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? \"\") : \"\";\n${bodyIndent}}\n${lengthLines}\n${bodyIndent}if (maxLen == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}for (var index = 0; index < maxLen; index++)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
+    return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${fieldLines.join("\n")}\n${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return \"\";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? \"\") : \"\";\n${bodyIndent}}\n${bodyIndent}List<string> GetCollectionValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return new List<string>();\n${bodyIndent}${indentUnit}if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n${bodyIndent}${indentUnit}return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n${bodyIndent}}\n${lengthLines}\n${bodyIndent}if (maxLen == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}for (var index = 0; index < maxLen; index++)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
   };
 
   const renderDictionary = (
@@ -1185,6 +1380,11 @@ function buildCsPersonEntityObjectExpression(
     const entries = Object.entries(node).map(([key, value]) => {
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const field = value as PersonEntityField;
+        const info = parentInfo?.properties.get(key);
+        const listElement = info ? extractListElementType(info.csType) : null;
+        if (listElement === "string") {
+          return `${childIndent}[${JSON.stringify(key)}] = ${fieldCollectionValueBuilder(field)}`;
+        }
         return `${childIndent}[${JSON.stringify(key)}] = ${fieldValueBuilder(field)}`;
       }
       const info = parentInfo?.properties.get(key);
@@ -1223,6 +1423,13 @@ function buildCsPersonEntityObjectExpression(
       const propInfo = info.properties.get(key)!;
       const listElement = extractListElementType(propInfo.csType);
       if (listElement) {
+        if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+          const field = value as PersonEntityField;
+          if (listElement === "string") {
+            return `${childIndent}${propInfo.csName} = ${fieldCollectionValueBuilder(field)}`;
+          }
+          return `${childIndent}${propInfo.csName} = ${fieldValueBuilder(field)}`;
+        }
         const nestedType = typeMap.get(listElement) ?? null;
         const renderedValue = renderCollectionNode(value as Record<string, unknown>, propInfo.csType, level + 1, nestedType);
         return `${childIndent}${propInfo.csName} = ${renderedValue}`;
@@ -1316,7 +1523,13 @@ function buildCsPersonEntityCollectionExpression(
         },
         typeInfo,
         typeMap,
-        2
+        2,
+        (field) => {
+          const relative = common.relativeByPath.get(field.path) ?? "";
+          return relative
+            ? `RowParser.ParseStringCollection(entry, ${JSON.stringify(relative)})`
+            : "RowParser.ParseStringCollection(entry)";
+        }
       );
 
       return `new Func<List<string>>(() =>\n    {\n        var results = new List<string>();\n        foreach (var entry in RowParser.ReadArrayEntries(row, ${JSON.stringify(common.root)}))\n        {\n            results.Add(JsonSerializer.Serialize(${objectExpression}));\n        }\n        return results;\n    }).Invoke()`;
@@ -1332,7 +1545,8 @@ function buildCsPersonEntityCollectionExpression(
       () => "value",
       typeInfo,
       typeMap,
-      3
+      3,
+      () => "new List<string> { value }"
     );
 
     return `${collectionExpressionBuilder(sourceLiteral)}
@@ -1362,10 +1576,14 @@ function buildCsPersonEntityCollectionExpression(
     },
     typeInfo,
     typeMap,
-    2
+    2,
+    (field) => {
+      const varName = fieldVarByPath.get(field.path) ?? "";
+      return `GetCollectionValue(${varName}, index)`;
+    }
   );
 
-  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${objectExpression}));\n        }\n        return results;\n    }).Invoke()`;
+  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n        List<string> GetCollectionValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return new List<string>();\n            if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n            return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${objectExpression}));\n        }\n        return results;\n    }).Invoke()`;
 }
 
 function buildTsStringConstraintsLiteral(prop: {

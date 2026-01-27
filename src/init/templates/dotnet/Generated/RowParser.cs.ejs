@@ -73,6 +73,29 @@ public static class RowParser
             {
                 yield return entry;
             }
+            yield break;
+        }
+
+        var trimmed = jsonPath.Trim();
+        if (trimmed.EndsWith("[*]", StringComparison.Ordinal))
+        {
+            var parentPath = trimmed[..^3];
+            var parentValue = ReadValue(row, parentPath);
+            if (parentValue is JsonArray parentArray)
+            {
+                foreach (var entry in parentArray)
+                {
+                    if (entry is not null) yield return entry;
+                }
+                yield break;
+            }
+            if (parentValue is JsonElement parentElement && parentElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in parentElement.EnumerateArray())
+                {
+                    yield return entry;
+                }
+            }
         }
     }
 <% } -%>
@@ -419,13 +442,13 @@ public static class RowParser
             {
                 if (match?.Value is null)
                 {
-                    array.Add(CoalesceNode(null));
+                    array.Add(JsonValue.Create(string.Empty)!);
                     continue;
                 }
                 if (match.Value is JsonValue jsonValue && jsonValue.TryGetValue<JsonElement>(out var elementValue))
                 {
                     var parsed = JsonNode.Parse(elementValue.GetRawText());
-                    array.Add(CoalesceNode(parsed ?? JsonValue.Create(elementValue.GetRawText())));
+                    array.Add(CoalesceNode(parsed ?? JsonValue.Create(elementValue.GetRawText()) ?? JsonValue.Create(string.Empty)));
                     continue;
                 }
                 if (match.Value is JsonValue jsonScalar)
@@ -438,7 +461,7 @@ public static class RowParser
                     array.Add(CoalesceNode(nodeValue));
                     continue;
                 }
-                array.Add(CoalesceNode(JsonValue.Create(match.Value)));
+                array.Add(CoalesceNode(JsonValue.Create(match.Value) ?? JsonValue.Create(string.Empty)));
             }
             return array;
         }
@@ -507,7 +530,9 @@ public static class RowParser
             switch (step.Kind)
             {
                 case JsonPathStepKind.Property:
-                    parts.Add("['" + step.Value.Replace("'", "\\'", StringComparison.Ordinal) + "']");
+                    parts.Add("[\"" + step.Value
+                        .Replace("\\", "\\\\", StringComparison.Ordinal)
+                        .Replace("\"", "\\\"", StringComparison.Ordinal) + "\"]");
                     break;
                 case JsonPathStepKind.Index:
                     parts.Add("[" + step.Index.ToString(CultureInfo.InvariantCulture) + "]");

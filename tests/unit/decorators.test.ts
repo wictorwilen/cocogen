@@ -156,4 +156,15 @@ describe("TypeSpec decorators", () => {
 
     $source(context, {} as ModelProperty, "ignored");
   });
+
+  test("$source rejects serialized targets with person entity mapping", () => {
+    const program = createProgram();
+    const context = createContext(program);
+    const target = { kind: "ModelProperty", name: "title" } as ModelProperty;
+    const serializedModel = { kind: "Model" } as Model;
+
+    expect(() => $source(context, target, "source", { serialized: serializedModel, to: "path" })).toThrow(
+      /serialized targets cannot include a 'to' path/i
+    );
+  });
 });
