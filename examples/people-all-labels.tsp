@@ -41,7 +41,7 @@ model PeopleAllLabelsProfile {
   @coco.source("job title", "detail.jobTitle")
   @coco.source("company", "detail.company.displayName")
   @coco.source("employee id", "detail.employeeId")
-  @coco.source("role", "detail.role")
+  @coco.source("assistant", "colleagues.userPrincipalName")
   currentPosition: string;
 
   @coco.label("personAddresses")

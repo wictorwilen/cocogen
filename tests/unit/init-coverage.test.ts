@@ -484,9 +484,11 @@ describe("init coverage", () => {
           personEntity: {
             entity: "workPosition",
             fields: [
-              { path: "detail.role", source: { csvHeaders: [], jsonPath: "$.role" } },
+              { path: "detail.role", source: { csvHeaders: [], jsonPath: "$.position['role,']" } },
+              { path: "detail.secondaryJobTitle", source: { csvHeaders: [], jsonPath: "$.position.secondaryJobTitle" } },
               { path: "detail.company.displayName", source: { csvHeaders: [], jsonPath: "$.company" } },
               { path: "detail.jobTitle", source: { csvHeaders: [], jsonPath: "$.title" } },
+              { path: "colleagues.userPrincipalName", source: { csvHeaders: [], jsonPath: "$.assistant" } },
             ],
           },
         },
@@ -540,6 +542,13 @@ describe("init coverage", () => {
     expect(result.outDir).toBe(path.resolve(outDir));
     const { access } = await import("node:fs/promises");
     await access(path.join(outDir, "src", "datasource", "jsonItemSource.ts"));
+
+    const transform = await import("node:fs/promises").then(({ readFile }) =>
+      readFile(path.join(outDir, "src", "People", "propertyTransformBase.ts"), "utf8")
+    );
+    expect(transform).toContain("colleagues");
+    expect(transform).toContain("parseStringCollection(readSourceValue(row, \"$.assistant\"))");
+    expect(transform).toContain("$.position['role,']");
   });
 
   test("initDotnetProject covers yaml datasource with diverse types", async () => {

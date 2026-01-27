@@ -36,6 +36,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Fix people entity collection nesting + add PersonRelationship enums (TS + .NET) ✅
 - Improve .NET Graph error logging with HTTP status ✅
 - Improve TS Graph error logging with status + details ✅
 - Add start-of-operation logs for provision/delete flows ✅

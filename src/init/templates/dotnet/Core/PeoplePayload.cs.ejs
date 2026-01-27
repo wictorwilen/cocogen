@@ -11,6 +11,19 @@ public enum PeoplePayloadKind
     StringCollection
 }
 
+<% if (graphEnums && graphEnums.length > 0) { -%>
+<% for (const enumDef of graphEnums) { -%>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum <%= enumDef.csName %>
+{
+<% for (const value of enumDef.values) { -%>
+    <%= value %>,
+<% } -%>
+}
+
+<% } -%>
+<% } -%>
+
 public sealed record PeopleLabelDefinition(
     string Label,
     string GraphTypeName,
@@ -157,12 +170,22 @@ public static class PeoplePayload
     }
 }
 
+<% const enumNames = new Set((graphEnums ?? []).map((entry) => entry.csName)); -%>
+<% const isEnumType = (csType) => {
+    const trimmed = csType.replace("?", "");
+    const listMatch = /^List<(.+)>$/.exec(trimmed);
+    if (listMatch) return enumNames.has(listMatch[1] ?? "");
+    return enumNames.has(trimmed);
+}; -%>
 <% for (const type of peopleProfileTypes) { -%>
 public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type.csName %><% if (type.baseType) { -%> : <%= type.baseType %><% } -%>
 {
 <% for (const prop of type.properties) { -%>
 <% if (prop.csType.endsWith("?")) { -%>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+<% } -%>
+<% if (isEnumType(prop.csType)) { -%>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
 <% } -%>
     [JsonPropertyName(<%= JSON.stringify(prop.name) %>)]
     public <%= prop.csType %> <%= prop.csName %> { get; init; }

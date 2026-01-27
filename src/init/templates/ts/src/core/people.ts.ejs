@@ -63,6 +63,18 @@ const normalizeCollectionValue = (
   return results;
 };
 
+<% if (graphEnums && graphEnums.length > 0) { -%>
+<% for (const enumDef of graphEnums) { -%>
+export type <%= enumDef.tsName %> = <%= enumDef.values.map((value) => JSON.stringify(value)).join(" | ") %>;
+
+const <%= enumDef.tsName %>Values = new Set([<%= enumDef.values.map((value) => JSON.stringify(value)).join(", ") %>]);
+
+const is<%= enumDef.tsName %> = (value: unknown): value is <%= enumDef.tsName %> =>
+  typeof value === "string" && <%= enumDef.tsName %>Values.has(value);
+
+<% } -%>
+<% } -%>
+
 <% for (const type of graphTypes) { -%>
 export type <%= type.alias %> = <%= type.baseAlias ? `${type.baseAlias} & ` : "" %>{
 <% for (const field of type.fields) { -%>

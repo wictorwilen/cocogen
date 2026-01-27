@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- People entity transforms now emit nested collection payloads correctly for JSON/YAML sources (TS + .NET).
+
 ### Changed
 - Updated credential precedence to: client secret → managed identity.
 - Improved .NET Graph error messages to include HTTP status codes.
@@ -14,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI version output now reflects the package version.
 - Update checks now honor custom npm registry configuration.
 - Added Azure Functions migration tutorial (Node + .NET).
+### Added
+- Graph people enum helpers now include `PersonRelationship` (TS + .NET).
 
 ## [1.0.31] - 2026-01-22
 ### Fixed

@@ -365,6 +365,7 @@ async function writeGeneratedTs(outDir: string, ir: ConnectorIr, schemaFolderNam
       await renderTemplate("ts/src/core/people.ts.ejs", {
         graphTypes: peopleGraphTypes,
         labels: peopleLabelSerializers,
+        graphEnums: buildGraphEnumTemplates(),
       }),
       "utf8"
     );
@@ -583,6 +584,112 @@ function buildTsPersonEntityExpression(
       .map((line) => `${prefix}${line}`)
       .join("\n");
 
+  const collectFields = (node: Record<string, unknown>): PersonEntityField[] => {
+    const collected: PersonEntityField[] = [];
+    const visit = (value: Record<string, unknown>): void => {
+      for (const entry of Object.values(value)) {
+        if (typeof entry === "object" && entry && "path" in (entry as PersonEntityField)) {
+          collected.push(entry as PersonEntityField);
+          continue;
+        }
+        if (typeof entry === "object" && entry && !Array.isArray(entry)) {
+          visit(entry as Record<string, unknown>);
+        }
+      }
+    };
+    visit(node);
+    return collected;
+  };
+
+  const renderNodeForCollection = (
+    node: Record<string, unknown>,
+    level: number,
+    valueVar: string,
+    info: TsPersonEntityTypeInfo | null
+  ): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        return `${childIndent}${JSON.stringify(key)}: ${valueVar}`;
+      }
+      const propType = info?.properties.get(key) ?? null;
+      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      const renderedChild = renderNodeForCollection(value as Record<string, unknown>, level + 1, valueVar, nestedType);
+      const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
+      return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
+    });
+    return `{
+${entries.join(",\n")}
+${indent}}`;
+  };
+
+  const renderNodeForCollectionMany = (
+    node: Record<string, unknown>,
+    info: TsPersonEntityTypeInfo | null,
+    level: number,
+    fieldVarByPath: Map<string, string>
+  ): string => {
+    const entryIndent = indentUnit.repeat(level);
+    const closeIndent = indentUnit.repeat(Math.max(0, level - 1));
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const field = value as PersonEntityField;
+        const varName = fieldVarByPath.get(field.path) ?? "";
+        return `${entryIndent}${JSON.stringify(key)}: getValue(${varName}, index)`;
+      }
+      const propType = info?.properties.get(key) ?? null;
+      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, nestedType, level + 1, fieldVarByPath);
+      const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
+      return `${entryIndent}${JSON.stringify(key)}: ${typedChild}`;
+    });
+    return `{
+${entries.join(",\n")}
+${closeIndent}}`;
+  };
+
+  const renderCollectionNode = (
+    node: Record<string, unknown>,
+    level: number,
+    elementInfo: TsPersonEntityTypeInfo | null,
+    elementType: string | null
+  ): string => {
+    const indent = indentUnit.repeat(level);
+    const bodyIndent = indentUnit.repeat(level + 1);
+    const collected = collectFields(node);
+    if (collected.length === 0) return "undefined";
+
+    if (!elementInfo && elementType === "string") {
+      const sourceLiteral = buildSourceLiteral(collected[0]!.source);
+      return `(() => {\n${bodyIndent}const values = parseStringCollection(readSourceValue(row, ${sourceLiteral}));\n${bodyIndent}return values.length > 0 ? values : undefined;\n${indent}})()`;
+    }
+
+    if (collected.length === 1) {
+      const field = collected[0]!;
+      const sourceLiteral = buildSourceLiteral(field.source);
+      const rendered = renderNodeForCollection(node, level + 1, "value", elementInfo);
+      const typed = elementInfo ? `(${rendered} as ${elementInfo.alias})` : rendered;
+      return `(() => {\n${bodyIndent}const values = parseStringCollection(readSourceValue(row, ${sourceLiteral}));\n${bodyIndent}if (values.length === 0) return undefined;\n${bodyIndent}return values.map((value) => ${typed});\n${indent}})()`;
+    }
+
+    const fieldVarByPath = new Map<string, string>();
+    const fieldLines = collected.map((field, index) => {
+      const varName = `field${index}`;
+      fieldVarByPath.set(field.path, varName);
+      const sourceLiteral = buildSourceLiteral(field.source);
+      return `${bodyIndent}const ${varName} = parseStringCollection(readSourceValue(row, ${sourceLiteral}));`;
+    });
+    const fieldVars = [...fieldVarByPath.values()].join(", ");
+    const lengthVars = fieldVars
+      ? `${bodyIndent}const lengths = [${fieldVars}].map((value) => value.length);`
+      : `${bodyIndent}const lengths = [0];`;
+    const rendered = renderNodeForCollectionMany(node, elementInfo, level + 2, fieldVarByPath);
+    const typed = elementInfo ? `(${rendered} as ${elementInfo.alias})` : rendered;
+
+    return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}if (maxLen === 0) return undefined;\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return "";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? "";\n${bodyIndent}${indentUnit}return values[index] ?? "";\n${bodyIndent}};\n${bodyIndent}const results: Array<${elementInfo ? elementInfo.alias : "unknown"}> = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(${typed});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}})()`;
+  };
+
   const renderNode = (node: Record<string, unknown>, level: number, info: TsPersonEntityTypeInfo | null): string => {
     const indent = indentUnit.repeat(level);
     const childIndent = indentUnit.repeat(level + 1);
@@ -594,7 +701,13 @@ function buildTsPersonEntityExpression(
       }
 
       const propType = info?.properties.get(key) ?? null;
-      const nestedType = propType && !propType.endsWith("[]") ? typeMap.get(propType) ?? null : null;
+      if (propType && propType.endsWith("[]")) {
+        const elementType = propType.slice(0, -2);
+        const elementInfo = typeMap.get(elementType) ?? null;
+        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, level + 1, elementInfo, elementType);
+        return `${childIndent}${JSON.stringify(key)}: ${renderedCollection}`;
+      }
+      const nestedType = propType ? typeMap.get(propType) ?? null : null;
       const renderedChild = renderNode(value as Record<string, unknown>, level + 1, nestedType);
       const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
       return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
@@ -913,6 +1026,151 @@ function buildCsPersonEntityObjectExpression(
   const tree = buildObjectTree(fields);
   const indentUnit = "    ";
 
+  const collectFields = (node: Record<string, unknown>): PersonEntityField[] => {
+    const collected: PersonEntityField[] = [];
+    const visit = (value: Record<string, unknown>): void => {
+      for (const entry of Object.values(value)) {
+        if (typeof entry === "object" && entry && "path" in (entry as PersonEntityField)) {
+          collected.push(entry as PersonEntityField);
+          continue;
+        }
+        if (typeof entry === "object" && entry && !Array.isArray(entry)) {
+          visit(entry as Record<string, unknown>);
+        }
+      }
+    };
+    visit(node);
+    return collected;
+  };
+
+  const extractListElementType = (csType: string): string | null => {
+    const trimmed = csType.replace("?", "");
+    const match = /^List<(.+)>$/.exec(trimmed);
+    return match ? match[1]! : null;
+  };
+
+  const renderNodeForCollection = (
+    node: Record<string, unknown>,
+    level: number,
+    valueVar: string,
+    info: CsPersonEntityTypeInfo | null
+  ): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        return `${childIndent}[${JSON.stringify(key)}] = ${valueVar}`;
+      }
+      const propType = info?.properties.get(key)?.csType ?? null;
+      const nestedType = propType ? typeMap.get(propType.replace("?", "")) ?? null : null;
+      const renderedChild = renderNodeForCollection(value as Record<string, unknown>, level + 1, valueVar, nestedType);
+      return `${childIndent}[${JSON.stringify(key)}] = ${renderedChild}`;
+    });
+
+    if (!info) {
+      return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
+    }
+
+    const typedEntries = Object.entries(node).map(([key, value]) => {
+      const propInfo = info.properties.get(key);
+      if (!propInfo) {
+        return null;
+      }
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        return `${childIndent}${propInfo.csName} = ${valueVar}`;
+      }
+      const nestedType = typeMap.get(propInfo.csType.replace("?", "")) ?? null;
+      const renderedChild = renderNodeForCollection(value as Record<string, unknown>, level + 1, valueVar, nestedType);
+      return `${childIndent}${propInfo.csName} = ${renderedChild}`;
+    }).filter((entry): entry is string => Boolean(entry));
+
+    return `new ${info.typeName}\n${indent}{\n${typedEntries.join(",\n")}\n${indent}}`;
+  };
+
+  const renderNodeForCollectionMany = (
+    node: Record<string, unknown>,
+    level: number,
+    info: CsPersonEntityTypeInfo | null,
+    fieldVarByPath: Map<string, string>
+  ): string => {
+    const indent = indentUnit.repeat(level);
+    const childIndent = indentUnit.repeat(level + 1);
+    const entries = Object.entries(node).map(([key, value]) => {
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const field = value as PersonEntityField;
+        const varName = fieldVarByPath.get(field.path) ?? "";
+        return `${childIndent}[${JSON.stringify(key)}] = GetValue(${varName}, index)`;
+      }
+      const propType = info?.properties.get(key)?.csType ?? null;
+      const nestedType = propType ? typeMap.get(propType.replace("?", "")) ?? null : null;
+      const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, level + 1, nestedType, fieldVarByPath);
+      return `${childIndent}[${JSON.stringify(key)}] = ${renderedChild}`;
+    });
+
+    if (!info) {
+      return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
+    }
+
+    const typedEntries = Object.entries(node).map(([key, value]) => {
+      const propInfo = info.properties.get(key);
+      if (!propInfo) {
+        return null;
+      }
+      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
+        const field = value as PersonEntityField;
+        const varName = fieldVarByPath.get(field.path) ?? "";
+        return `${childIndent}${propInfo.csName} = GetValue(${varName}, index)`;
+      }
+      const nestedType = typeMap.get(propInfo.csType.replace("?", "")) ?? null;
+      const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, level + 1, nestedType, fieldVarByPath);
+      return `${childIndent}${propInfo.csName} = ${renderedChild}`;
+    }).filter((entry): entry is string => Boolean(entry));
+
+    return `new ${info.typeName}\n${indent}{\n${typedEntries.join(",\n")}\n${indent}}`;
+  };
+
+  const renderCollectionNode = (
+    node: Record<string, unknown>,
+    propCsType: string,
+    level: number,
+    elementInfo: CsPersonEntityTypeInfo | null
+  ): string => {
+    const indent = indentUnit.repeat(level);
+    const bodyIndent = indentUnit.repeat(level + 1);
+    const elementType = extractListElementType(propCsType) ?? "object";
+    const collected = collectFields(node);
+    if (collected.length === 0) return "null";
+
+    if (!elementInfo && elementType === "string") {
+      const sourceLiteral = buildCsSourceLiteral(collected[0]!.source);
+      return `new Func<List<string>?>(() =>\n${indent}{\n${bodyIndent}var values = RowParser.ParseStringCollection(row, ${sourceLiteral});\n${bodyIndent}return values.Count == 0 ? null : values;\n${indent}}).Invoke()`;
+    }
+
+    if (collected.length === 1) {
+      const field = collected[0]!;
+      const sourceLiteral = buildCsSourceLiteral(field.source);
+      const objectExpression = renderNodeForCollection(node, level + 2, "value", elementInfo);
+
+      return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${bodyIndent}var values = RowParser.ParseStringCollection(row, ${sourceLiteral});\n${bodyIndent}if (values.Count == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}foreach (var value in values)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
+    }
+
+    const fieldVarByPath = new Map<string, string>();
+    const fieldLines = collected.map((field, index) => {
+      const varName = `field${index}`;
+      fieldVarByPath.set(field.path, varName);
+      const sourceLiteral = buildCsSourceLiteral(field.source);
+      return `${bodyIndent}var ${varName} = RowParser.ParseStringCollection(row, ${sourceLiteral});`;
+    });
+    const fieldVars = [...fieldVarByPath.values()];
+    const lengthLines = fieldVars.length > 0
+      ? `${bodyIndent}var maxLen = new[] { ${fieldVars.map((v) => `${v}.Count`).join(", ")} }.Max();`
+      : `${bodyIndent}var maxLen = 0;`;
+
+    const objectExpression = renderNodeForCollectionMany(node, level + 1, elementInfo, fieldVarByPath);
+
+    return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${fieldLines.join("\n")}\n${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return \"\";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? \"\") : \"\";\n${bodyIndent}}\n${lengthLines}\n${bodyIndent}if (maxLen == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}for (var index = 0; index < maxLen; index++)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
+  };
+
   const renderDictionary = (
     node: Record<string, unknown>,
     level: number,
@@ -926,6 +1184,12 @@ function buildCsPersonEntityObjectExpression(
         return `${childIndent}[${JSON.stringify(key)}] = ${fieldValueBuilder(field)}`;
       }
       const info = parentInfo?.properties.get(key);
+      if (info && extractListElementType(info.csType)) {
+        const elementTypeName = extractListElementType(info.csType) ?? "";
+        const nestedType = typeMap.get(elementTypeName) ?? null;
+        const renderedValue = renderCollectionNode(value as Record<string, unknown>, info.csType, level + 1, nestedType);
+        return `${childIndent}[${JSON.stringify(key)}] = ${renderedValue}`;
+      }
       const typeName = info?.csType.replace("?", "") ?? "";
       const nestedType = typeMap.get(typeName) ?? null;
       const renderedValue =
@@ -953,6 +1217,12 @@ function buildCsPersonEntityObjectExpression(
     const childIndent = indentUnit.repeat(level + 1);
     const renderedEntries = entries.map(([key, value]) => {
       const propInfo = info.properties.get(key)!;
+      const listElement = extractListElementType(propInfo.csType);
+      if (listElement) {
+        const nestedType = typeMap.get(listElement) ?? null;
+        const renderedValue = renderCollectionNode(value as Record<string, unknown>, propInfo.csType, level + 1, nestedType);
+        return `${childIndent}${propInfo.csName} = ${renderedValue}`;
+      }
       const typeName = propInfo.csType.replace("?", "");
       const nestedType = typeMap.get(typeName) ?? null;
       const rawValue =
@@ -1280,6 +1550,30 @@ const GRAPH_STRING_TYPES = new Set<string>([
   "graph.itemBody",
 ]);
 
+const GRAPH_ENUM_TYPES = new Map<string, string[]>([
+  [
+    "personRelationship",
+    [
+      "manager",
+      "colleague",
+      "directReport",
+      "dotLineReport",
+      "assistant",
+      "dotLineManager",
+      "alternateContact",
+      "friend",
+      "spouse",
+      "sibling",
+      "child",
+      "parent",
+      "sponsor",
+      "emergencyContact",
+      "other",
+      "unknownFutureValue",
+    ],
+  ],
+]);
+
 function resolveGraphTypeName(typeName: string): string | null {
   return typeName.startsWith("graph.") ? typeName.slice("graph.".length) : null;
 }
@@ -1436,7 +1730,7 @@ function buildDerivedPeopleGraphTypes(ir: ConnectorIr): DerivedPeopleGraphType[]
       const graphName = resolveGraphTypeName(propType);
       const isCollection = /^Collection\(/.test(propType);
       const node = tree[prop.name];
-      if (!graphName || isCollection || GRAPH_STRING_TYPES.has(propType)) continue;
+      if (!graphName || isCollection || GRAPH_STRING_TYPES.has(propType) || GRAPH_ENUM_TYPES.has(graphName)) continue;
       if (schemaTypes.has(graphName)) continue;
       if (!node || typeof node !== "object") continue;
       buildDerivedFromTree(graphName, node as Record<string, unknown>);
@@ -1451,6 +1745,7 @@ function buildDerivedPeopleGraphTypes(ir: ConnectorIr): DerivedPeopleGraphType[]
       if (GRAPH_STRING_TYPES.has(elementType)) continue;
       const graphName = resolveGraphTypeName(elementType);
       if (!graphName) continue;
+      if (GRAPH_ENUM_TYPES.has(graphName)) continue;
       if (schemaTypes.has(graphName)) continue;
       if (derived.has(graphName)) continue;
       referencedGraphTypes.add(graphName);
@@ -1569,6 +1864,15 @@ function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
   }));
 }
 
+function buildGraphEnumTemplates(): Array<{ name: string; tsName: string; csName: string; values: string[] }> {
+  return [...GRAPH_ENUM_TYPES.entries()].map(([name, values]) => ({
+    name,
+    tsName: toTsIdentifier(name),
+    csName: toCsPascal(name),
+    values: [...values],
+  }));
+}
+
 function convertGraphProperty(
   prop: GraphProfileProperty,
   usedVarNames: Set<string>,
@@ -1612,6 +1916,18 @@ function parseGraphTypeDescriptor(
   const collectionMatch = /^Collection\((.+)\)$/.exec(typeName);
   if (collectionMatch) {
     const elementType = collectionMatch[1]!;
+    const elementGraphName = resolveGraphTypeName(elementType);
+    if (elementGraphName && GRAPH_ENUM_TYPES.has(elementGraphName)) {
+      const alias = toTsIdentifier(elementGraphName);
+      return {
+        tsType: `${alias}[]`,
+        isCollection: true,
+        typeCheck: "Array.isArray(value)",
+        expected: "an array",
+        elementTypeCheck: `is${alias}(entry)`,
+        elementExpected: `${elementGraphName} value`,
+      };
+    }
     if (GRAPH_STRING_TYPES.has(elementType)) {
       return {
         tsType: "string[]",
@@ -1650,6 +1966,16 @@ function parseGraphTypeDescriptor(
       isCollection: false,
       typeCheck: `typeof value === "string"`,
       expected: "a string",
+    };
+  }
+  const enumName = resolveGraphTypeName(typeName);
+  if (enumName && GRAPH_ENUM_TYPES.has(enumName)) {
+    const alias = toTsIdentifier(enumName);
+    return {
+      tsType: alias,
+      isCollection: false,
+      typeCheck: `is${alias}(value)`,
+      expected: `${enumName} value`,
     };
   }
   const graphName = resolveGraphTypeName(typeName);
@@ -1749,6 +2075,10 @@ async function writeGeneratedDotnet(
       if (GRAPH_STRING_TYPES.has(elementType)) {
         return { csType: "List<string>", isCollection: true };
       }
+      const enumGraphName = resolveGraphTypeName(elementType);
+      if (enumGraphName && GRAPH_ENUM_TYPES.has(enumGraphName)) {
+        return { csType: `List<${toCsPascal(enumGraphName)}>`, isCollection: true };
+      }
       const graphName = resolveGraphTypeName(elementType);
       if (graphName && graphAliases.has(graphName)) {
         const alias = graphAliases.get(graphName)!.csName;
@@ -1779,6 +2109,11 @@ async function writeGeneratedDotnet(
 
     if (GRAPH_STRING_TYPES.has(rawType)) {
       return { csType: "string", isCollection: false };
+    }
+
+    const enumGraphName = resolveGraphTypeName(rawType);
+    if (enumGraphName && GRAPH_ENUM_TYPES.has(enumGraphName)) {
+      return { csType: toCsPascal(enumGraphName), isCollection: false };
     }
 
     const graphName = resolveGraphTypeName(rawType);
@@ -2246,6 +2581,7 @@ async function writeGeneratedDotnet(
         peopleProfileTypes,
         baseTypeNames,
         itemFacetTypeNames,
+        graphEnums: buildGraphEnumTemplates(),
         itemFacetReadOnlyFields: [
           "id",
           "createdBy",

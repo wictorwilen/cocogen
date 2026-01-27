@@ -91,6 +91,9 @@ describe("people label serialization (e2e)", () => {
     });
 
     expect(run.code).toBe(0);
+
+    const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
+    expect(peopleTs).toContain("type PersonRelationship");
   });
 
   test("dotnet output includes JSON enforcement for people payloads", async () => {
@@ -117,5 +120,7 @@ describe("people label serialization (e2e)", () => {
     const payload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(payload).toContain("non-empty JSON string");
     expect(payload).toContain("read-only");
+    expect(payload).toContain("enum PersonRelationship");
+    expect(payload).toContain("JsonStringEnumConverter");
   });
 });
