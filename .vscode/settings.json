@@ -11,6 +11,11 @@
         "/^bash /home/wictorwilen/code/github/wictorwilen/gcgen/scripts/run-examples-report\\.sh$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "./scripts/generate-examples.sh": true,
+        "/^cd /home/wictorwilen/code/github/wictorwilen/gcgen && bash \\./scripts/run-examples-report\\.sh$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

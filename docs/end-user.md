@@ -256,6 +256,9 @@ Ingest debugging flags:
 ### Add/modify people profile data
 - Use people labels like `personName` or `personCurrentPosition`.
 - Use `@coco.source("header", "entity.path")` to map CSV columns into the profile entity fields.
+
+## 8) Azure Functions migration (Node + .NET)
+See the end-to-end tutorial: [docs/azure-functions.md](azure-functions.md)
 - For collection properties (`string[]`), CSV values can be separated with `;` and will be aligned by index.
 - Collections split on semicolons only (`,` is reserved for CSV columns).
 - For custom entity shaping, edit the overrides file (safe file):

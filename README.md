@@ -78,6 +78,7 @@ model Product {
 
 Start here:
 - [docs/typespec.md](https://github.com/wictorwilen/cocogen/blob/main/docs/typespec.md)
+- [docs/azure-functions.md](https://github.com/wictorwilen/cocogen/blob/main/docs/azure-functions.md)
 
 Examples:
 - [examples/content-connector.tsp](https://github.com/wictorwilen/cocogen/blob/main/examples/content-connector.tsp)

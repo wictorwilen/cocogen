@@ -44,7 +44,48 @@ describe("people label registry", () => {
     expect(isSupportedPeopleLabel("notALabel")).toBe(false);
   });
 
+  test("isSupportedPeopleLabel accepts known labels", () => {
+    expect(isSupportedPeopleLabel("personAccount")).toBe(true);
+    expect(isSupportedPeopleLabel("personSkills")).toBe(true);
+  });
+
   test("getPeopleLabelInfo throws for missing labels", () => {
     expect(() => getPeopleLabelInfo("missingLabel")).toThrow("Missing Graph type mapping");
+  });
+
+  test("getPeopleLabelInfo returns correct payload type", () => {
+    const singleInfo = getPeopleLabelInfo("personAccount");
+    expect(singleInfo.payloadType).toBe("string");
+
+    const collectionInfo = getPeopleLabelInfo("personSkills");
+    expect(collectionInfo.payloadType).toBe("stringCollection");
+  });
+
+  test("getPeopleLabelInfo includes required fields", () => {
+    const info = getPeopleLabelInfo("personAccount");
+    expect(info.requiredFields).toBeInstanceOf(Array);
+  });
+
+  test("getPeopleLabelInfo omits collectionLimit when not defined", () => {
+    const info = getPeopleLabelInfo("personAccount");
+    expect(info.collectionLimit).toBeUndefined();
+  });
+
+  test("getPeopleLabelDefinition returns undefined for unknown labels", () => {
+    const def = getPeopleLabelDefinition("unknownLabel");
+    expect(def).toBeUndefined();
+  });
+
+  test("getBlockedPeopleLabel returns undefined for non-blocked labels", () => {
+    const blocked = getBlockedPeopleLabel("personAccount");
+    expect(blocked).toBeUndefined();
+  });
+
+  test("getBlockedPeopleLabel returns all blocked labels", () => {
+    expect(getBlockedPeopleLabel("personManager")).toBeTruthy();
+    expect(getBlockedPeopleLabel("personAssistants")).toBeTruthy();
+    expect(getBlockedPeopleLabel("personColleagues")).toBeTruthy();
+    expect(getBlockedPeopleLabel("personAlternateContacts")).toBeTruthy();
+    expect(getBlockedPeopleLabel("personEmergencyContacts")).toBeTruthy();
   });
 });
