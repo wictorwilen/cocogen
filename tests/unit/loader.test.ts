@@ -251,6 +251,30 @@ describe("loadIrFromTypeSpec", () => {
     expect(projectProp?.source.jsonPath).toBe("$.projects[0].name");
   });
 
+  test("captures jsonpath sources with special characters", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        @coco.source("id")
+        id: string;
+
+        @coco.source("position['role,']")
+        role: string;
+
+        @coco.source("meta['source.id']")
+        sourceId: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "json" });
+    const roleProp = ir.properties.find((p) => p.name === "role");
+    expect(roleProp?.source.jsonPath).toBe("$.position['role,']");
+
+    const sourceProp = ir.properties.find((p) => p.name === "sourceId");
+    expect(sourceProp?.source.jsonPath).toBe("$.meta['source.id']");
+  });
+
   test("errors on invalid jsonpath syntax", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

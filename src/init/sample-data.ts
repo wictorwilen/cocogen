@@ -477,15 +477,13 @@ function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
       for (const field of prop.personEntity.fields) {
         const path = field.source.jsonPath ?? field.source.csvHeaders[0] ?? field.path;
         if (path.includes("[*]")) {
-          const parts = path.split("[*]");
-          const root = parts[0] ?? "";
-          const rest = parts[1] ?? "";
-          const segments = rest.split(".").map((segment) => segment.trim()).filter(Boolean);
-          const key = segments[segments.length - 1] ?? "";
-          const sampleValue = sampleValueForHeader(`${root}.${key}`, prop.type);
+          const root = path.split("[*]")[0] ?? "";
+          const elementPath = path.replace(`${root}[*].`, "");
+          const header = field.source.csvHeaders[0] ?? field.path;
+          const sampleValue = sampleValueForHeader(header, prop.type);
           const values = sampleValue.split(/\s*;\s*/).map((value) => value.trim()).filter(Boolean);
           if (!arrayGroups.has(root)) arrayGroups.set(root, []);
-          arrayGroups.get(root)!.push({ key, values });
+          arrayGroups.get(root)!.push({ key: elementPath, values });
           continue;
         }
 
@@ -502,7 +500,8 @@ function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
           const entry: Record<string, unknown> = {};
           for (const field of fields) {
             const raw = field.values[index] ?? field.values[0] ?? "";
-            setNestedObject(entry, [field.key], raw);
+            const steps = jsonPathToSteps(field.key);
+            setNestedValue(entry, steps, raw);
           }
           return entry;
         });

@@ -150,6 +150,56 @@ describe("sample data generation", () => {
     expect((item.meta as Record<string, unknown>)["source.id"]).toBe("sample");
   });
 
+  test("buildSampleJson handles nested people arrays", () => {
+    const nestedIr: ConnectorIr = {
+      connection: {
+        inputFormat: "json",
+        graphApiVersion: "beta",
+      },
+      item: {
+        typeName: "Item",
+        idPropertyName: "id",
+        idEncoding: "slug",
+      },
+      properties: [
+        {
+          name: "id",
+          type: "string",
+          labels: [],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: ["id"], jsonPath: "id" },
+        },
+        {
+          name: "collaborationTags",
+          type: "stringCollection",
+          labels: ["personProject"],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: ["tags"], jsonPath: "detail.positions[*].collaborationTags[*]" },
+          personEntity: {
+            entity: "workPosition",
+            fields: [
+              {
+                path: "detail.positions.collaborationTags",
+                source: { csvHeaders: ["tags"], jsonPath: "detail.positions[*].collaborationTags[*]" },
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const json = buildSampleJson(nestedIr);
+    const parsed = JSON.parse(json) as Array<Record<string, unknown>>;
+    const item = parsed[0] ?? {};
+    const detail = item.detail as Record<string, unknown>;
+    const positions = detail.positions as Array<Record<string, unknown>>;
+    expect(Array.isArray(positions)).toBe(true);
+    expect(Array.isArray(positions[0]?.collaborationTags)).toBe(true);
+    expect((positions[0]?.collaborationTags as unknown[])[0]).toBe("alpha");
+  });
+
   test("buildSampleCsv escapes headers and samples principals", () => {
     const csv = buildSampleCsv({
       ...ir,

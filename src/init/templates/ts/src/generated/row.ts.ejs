@@ -10,6 +10,13 @@ type SourceKey = string | string[];
 /** Parse any row value into a string (empty when nullish). */
 function parseString(value: unknown): string {
   if (value === undefined || value === null) return "";
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "";
+    }
+  }
   return String(value);
 }
 

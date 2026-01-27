@@ -60,6 +60,10 @@ public static class RowParser
     public static string ParseString(object? value)
     {
         if (value is null) return "";
+        if (value is JsonNode jsonNode && jsonNode is not JsonValue)
+        {
+            return jsonNode.ToJsonString();
+        }
         if (value is JsonValue jsonValue)
         {
             if (jsonValue.TryGetValue<string>(out var s)) return s ?? "";

@@ -36,6 +36,9 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Add tests for @coco.source special JSONPath cases ✅
+- Fix people sample data arrays for nested JSONPath fields ✅
+- Stringify JSON/YAML object/array values in row parsing (TS + .NET) ✅
 - Fix people entity collection nesting + add PersonRelationship enums (TS + .NET) ✅
 - Improve .NET Graph error logging with HTTP status ✅
 - Improve TS Graph error logging with status + details ✅

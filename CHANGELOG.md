@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Fixed
 - People entity transforms now emit nested collection payloads correctly for JSON/YAML sources (TS + .NET).
+- Sample JSON/YAML data now preserves nested people arrays (e.g., collaboration tags).
+- JSON/YAML row parsing now stringifies object/array values for rich JSON-serialized fields (TS + .NET).
 
 ### Changed
 - Updated credential precedence to: client secret → managed identity.
