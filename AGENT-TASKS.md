@@ -36,6 +36,10 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Simplify .NET JSON/YAML people collection transforms ✅
+- Add RowParser helper for JSON/YAML people array iteration ✅
+- Fix sample data JSONPath root '$' emission ✅
+- Remove .NET nullable warnings in JSONPath helper ✅
 - Add tests for @coco.source special JSONPath cases ✅
 - Fix people sample data arrays for nested JSONPath fields ✅
 - Stringify JSON/YAML object/array values in row parsing (TS + .NET) ✅

@@ -52,6 +52,29 @@ public static class RowParser
         }
         return "";
     }
+
+    /// <summary>
+    /// Read array entries from the row using a JSONPath expression.
+    /// </summary>
+    public static IEnumerable<object> ReadArrayEntries(object row, string jsonPath)
+    {
+        var value = ReadValue(row, jsonPath);
+        if (value is JsonArray array)
+        {
+            foreach (var entry in array)
+            {
+                if (entry is not null) yield return entry;
+            }
+            yield break;
+        }
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var entry in element.EnumerateArray())
+            {
+                yield return entry;
+            }
+        }
+    }
 <% } -%>
 
     /// <summary>
@@ -396,26 +419,26 @@ public static class RowParser
             {
                 if (match?.Value is null)
                 {
-                    array.Add((JsonNode?)null);
+                    array.Add(CoalesceNode(null));
                     continue;
                 }
                 if (match.Value is JsonValue jsonValue && jsonValue.TryGetValue<JsonElement>(out var elementValue))
                 {
                     var parsed = JsonNode.Parse(elementValue.GetRawText());
-                    array.Add(parsed ?? JsonValue.Create(elementValue.GetRawText()));
+                    array.Add(CoalesceNode(parsed ?? JsonValue.Create(elementValue.GetRawText())));
                     continue;
                 }
                 if (match.Value is JsonValue jsonScalar)
                 {
-                    array.Add(jsonScalar);
+                    array.Add(CoalesceNode(jsonScalar));
                     continue;
                 }
                 if (match.Value is JsonNode nodeValue)
                 {
-                    array.Add(nodeValue);
+                    array.Add(CoalesceNode(nodeValue));
                     continue;
                 }
-                array.Add(JsonValue.Create(match.Value));
+                array.Add(CoalesceNode(JsonValue.Create(match.Value)));
             }
             return array;
         }
@@ -423,6 +446,11 @@ public static class RowParser
         {
             return "";
         }
+    }
+
+    private static JsonNode CoalesceNode(JsonNode? node)
+    {
+        return node ?? JsonValue.Create(string.Empty)!;
     }
 
     private static string NormalizeJsonPath(string jsonPath)

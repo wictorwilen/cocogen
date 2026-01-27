@@ -505,7 +505,8 @@ function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
           }
           return entry;
         });
-        const trimmedRoot = root.replace(/\.$/, "");
+        const normalizedRoot = root.startsWith("$.") ? root.slice(2) : root.startsWith("$") ? root.slice(1) : root;
+        const trimmedRoot = normalizedRoot.replace(/\.$/, "");
         const segments = trimmedRoot.split(".").map((segment) => segment.trim()).filter(Boolean);
         setNestedObject(item, segments, entries);
       }

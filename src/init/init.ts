@@ -1277,9 +1277,51 @@ function buildCsPersonEntityCollectionExpression(
   collectionExpressionBuilder: (sourceLiteral: string) => string = (sourceLiteral) =>
     `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
   typeInfo: CsPersonEntityTypeInfo | null,
-  typeMap: CsPersonEntityTypeMap
+  typeMap: CsPersonEntityTypeMap,
+  inputFormat: ConnectorIr["connection"]["inputFormat"]
 ): string {
   const indentUnit = "    ";
+
+  const getCommonJsonArrayRoot = ():
+    | { root: string; relativeByPath: Map<string, string> }
+    | null => {
+    const relativeByPath = new Map<string, string>();
+    let root: string | null = null;
+    for (const field of fields) {
+      const jsonPath = field.source.jsonPath;
+      if (!jsonPath) return null;
+      const index = jsonPath.indexOf("[*]");
+      if (index < 0) return null;
+      const candidateRoot = jsonPath.slice(0, index + 3);
+      if (root && root !== candidateRoot) return null;
+      root = candidateRoot;
+      const remainder = jsonPath.slice(index + 3);
+      const relative = remainder.startsWith(".") ? remainder.slice(1) : remainder;
+      relativeByPath.set(field.path, relative);
+    }
+    if (!root) return null;
+    return { root, relativeByPath };
+  };
+
+  if (inputFormat !== "csv") {
+    const common = getCommonJsonArrayRoot();
+    if (common) {
+      const objectExpression = buildCsPersonEntityObjectExpression(
+        fields,
+        (field) => {
+          const relative = common.relativeByPath.get(field.path) ?? "";
+          return relative
+            ? `RowParser.ParseString(entry, ${JSON.stringify(relative)})`
+            : "RowParser.ParseString(entry)";
+        },
+        typeInfo,
+        typeMap,
+        2
+      );
+
+      return `new Func<List<string>>(() =>\n    {\n        var results = new List<string>();\n        foreach (var entry in RowParser.ReadArrayEntries(row, ${JSON.stringify(common.root)}))\n        {\n            results.Add(JsonSerializer.Serialize(${objectExpression}));\n        }\n        return results;\n    }).Invoke()`;
+    }
+  }
 
   if (fields.length === 1) {
     const tree = buildObjectTree(fields);
@@ -2259,7 +2301,7 @@ async function writeGeneratedDotnet(
             return csStringConstraints.hasAny
               ? `Validation.ValidateStringCollection(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
               : base;
-          }, personEntityTypeInfo, peopleProfileTypeInfoByName)
+          }, personEntityTypeInfo, peopleProfileTypeInfoByName, ir.connection.inputFormat)
         : buildCsPersonEntityExpression(personEntity.fields, (headersLiteral) => {
             const base = `RowParser.ParseString(row, ${headersLiteral})`;
             return csStringConstraints.hasAny

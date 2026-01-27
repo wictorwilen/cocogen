@@ -80,7 +80,7 @@ describe("sample data generation", () => {
         labels: [],
         aliases: [],
         search: {},
-        source: { csvHeaders: ["id"], jsonPath: "id" },
+        source: { csvHeaders: ["id"], jsonPath: "$.id" },
       },
       {
         name: "tag",
@@ -88,7 +88,7 @@ describe("sample data generation", () => {
         labels: [],
         aliases: [],
         search: {},
-        source: { csvHeaders: ["tag"], jsonPath: "tags[0]" },
+        source: { csvHeaders: ["tag"], jsonPath: "$.tags[0]" },
       },
       {
         name: "sourceId",
@@ -96,7 +96,7 @@ describe("sample data generation", () => {
         labels: [],
         aliases: [],
         search: {},
-        source: { csvHeaders: ["source"], jsonPath: "meta['source.id']" },
+        source: { csvHeaders: ["source"], jsonPath: "$.meta['source.id']" },
       },
       {
         name: "owner",
@@ -104,7 +104,7 @@ describe("sample data generation", () => {
         labels: [],
         aliases: [],
         search: {},
-        source: { csvHeaders: ["owner"], jsonPath: "owner" },
+        source: { csvHeaders: ["owner"], jsonPath: "$.owner" },
       },
       {
         name: "skills",
@@ -117,11 +117,11 @@ describe("sample data generation", () => {
           fields: [
             {
               path: "skills.name",
-              source: { csvHeaders: ["skill"], jsonPath: "details.skills[*].name" },
+              source: { csvHeaders: ["skill"], jsonPath: "$.details.skills[*].name" },
             },
           ],
         },
-        source: { csvHeaders: ["skill"], jsonPath: "details.skills[*].name" },
+        source: { csvHeaders: ["skill"], jsonPath: "$.details.skills[*].name" },
       },
     ],
   };
@@ -133,6 +133,8 @@ describe("sample data generation", () => {
 
     expect((item.tags as unknown[])[0]).toBe("sample");
     expect((item.meta as Record<string, unknown>)["source.id"]).toBe("sample");
+    expect(Object.prototype.hasOwnProperty.call(item, "$"))
+      .toBe(false);
 
     const details = item.details as Record<string, unknown>;
     const skills = details.skills as Array<Record<string, unknown>>;
@@ -168,7 +170,7 @@ describe("sample data generation", () => {
           labels: [],
           aliases: [],
           search: {},
-          source: { csvHeaders: ["id"], jsonPath: "id" },
+          source: { csvHeaders: ["id"], jsonPath: "$.id" },
         },
         {
           name: "collaborationTags",
@@ -176,13 +178,13 @@ describe("sample data generation", () => {
           labels: ["personProject"],
           aliases: [],
           search: {},
-          source: { csvHeaders: ["tags"], jsonPath: "detail.positions[*].collaborationTags[*]" },
+          source: { csvHeaders: ["tags"], jsonPath: "$.detail.positions[*].collaborationTags[*]" },
           personEntity: {
             entity: "workPosition",
             fields: [
               {
                 path: "detail.positions.collaborationTags",
-                source: { csvHeaders: ["tags"], jsonPath: "detail.positions[*].collaborationTags[*]" },
+                source: { csvHeaders: ["tags"], jsonPath: "$.detail.positions[*].collaborationTags[*]" },
               },
             ],
           },

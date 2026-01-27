@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - People entity transforms now emit nested collection payloads correctly for JSON/YAML sources (TS + .NET).
 - Sample JSON/YAML data now preserves nested people arrays (e.g., collaboration tags).
 - JSON/YAML row parsing now stringifies object/array values for rich JSON-serialized fields (TS + .NET).
+- .NET JSON/YAML people collections now iterate array nodes directly instead of zipping string arrays.
+- .NET JSON/YAML people collection transforms now use a shared array iterator helper.
+- Sample JSON/YAML data no longer emits a "$" root key for JSONPath sources.
+- Generated .NET JSONPath handling no longer triggers nullable warnings during builds.
 
 ### Changed
 - Updated credential precedence to: client secret → managed identity.
@@ -19,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI version output now reflects the package version.
 - Update checks now honor custom npm registry configuration.
 - Added Azure Functions migration tutorial (Node + .NET).
+
 ### Added
 - Graph people enum helpers now include `PersonRelationship` (TS + .NET).
 
@@ -34,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Tests for JSONPath validation and .NET YAML JsonPath array ingestion.
+
 ### Changed
 - Bumped JsonPath.Net to 2.2.0 in generated .NET projects.
 
