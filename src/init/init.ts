@@ -66,6 +66,10 @@ async function ensureEmptyDir(outDir: string, force: boolean): Promise<void> {
   }
 }
 
+async function updateSchemaCopy(outDir: string, tspPath: string): Promise<void> {
+  await copyFile(tspPath, path.join(outDir, "schema.tsp"));
+}
+
 function graphBaseUrl(ir: ConnectorIr): string {
   return `https://graph.microsoft.com/${ir.connection.graphApiVersion}`;
 }
@@ -2713,6 +2717,8 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
     throw new Error(`Schema validation failed:\n${validationMessage}`);
   }
 
+  await updateSchemaCopy(outDir, tspPath);
+
   const schemaFolderName = toTsSchemaFolderName(ir.connection.connectionName);
   await writeGeneratedTs(outDir, ir, schemaFolderName);
   if (options.tspPath) {
@@ -2746,6 +2752,8 @@ export async function updateDotnetProject(
     throw new Error(`Schema validation failed:\n${validationMessage}`);
   }
 
+  await updateSchemaCopy(outDir, tspPath);
+
   const namespaceName = toCsNamespace(path.basename(outDir));
   const schemaFolderName = toSchemaFolderName(ir.connection.connectionName);
   const schemaNamespace = `${namespaceName}.${schemaFolderName}`;
@@ -2778,6 +2786,8 @@ export async function updateRestProject(options: UpdateOptions): Promise<{ outDi
   if (validationMessage) {
     throw new Error(`Schema validation failed:\n${validationMessage}`);
   }
+
+  await updateSchemaCopy(outDir, tspPath);
 
   await writeRestFiles(outDir, ir);
   if (options.tspPath) {

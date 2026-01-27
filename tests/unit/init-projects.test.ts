@@ -354,6 +354,9 @@ model Item {
 
     const config = JSON.parse(await readFile(path.join(outDir, "cocogen.json"), "utf8")) as { tsp: string };
     expect(config.tsp).toContain(".tsp");
+
+    const copiedSchema = await readFile(path.join(outDir, "schema.tsp"), "utf8");
+    expect(copiedSchema).toContain("status");
   });
 
   test("initDotnetProject generates Program.cs and SchemaConstants", async () => {
