@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Graph people enum helpers now include `PersonRelationship` (TS + .NET).
+- `@coco.source(..., { serialized: Model })` for JSON-serialized custom payloads.
 
 ## [1.0.31] - 2026-01-22
 ### Fixed

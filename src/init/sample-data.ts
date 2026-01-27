@@ -8,6 +8,8 @@ type JsonPathStep =
   | { type: "prop"; key: string }
   | { type: "index"; index: number };
 
+type SerializedModel = NonNullable<ConnectorIr["properties"][number]["serialized"]>;
+
 function csvEscape(value: string): string {
   if (value.includes("\n") || value.includes("\r") || value.includes(",") || value.includes("\"")) {
     return `"${value.replaceAll("\"", '""')}"`;
@@ -406,6 +408,24 @@ function sampleJsonValueForType(type: PropertyType): unknown {
   }
 }
 
+function buildSerializedSampleObject(model: SerializedModel): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const field of model.fields) {
+    const exampleValue = field.example !== undefined
+      ? exampleValueForPayload(field.example, field.type)
+      : undefined;
+    result[field.name] = exampleValue ?? sampleJsonValueForType(field.type);
+  }
+  return result;
+}
+
+function buildSerializedSampleValue(model: SerializedModel, type: PropertyType): unknown {
+  if (type === "stringCollection") {
+    return [buildSerializedSampleObject(model), buildSerializedSampleObject(model)];
+  }
+  return buildSerializedSampleObject(model);
+}
+
 function samplePayloadValueForType(
   type: PropertyType,
   fields: PersonEntityField[] | null,
@@ -513,6 +533,14 @@ function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
       continue;
     }
 
+    if (prop.serialized) {
+      const path = prop.source.jsonPath ?? prop.source.csvHeaders[0] ?? prop.name;
+      const steps = jsonPathToSteps(path);
+      const value = buildSerializedSampleValue(prop.serialized, prop.type);
+      setNestedValue(item, steps, value);
+      continue;
+    }
+
     const path = prop.source.jsonPath ?? prop.source.csvHeaders[0] ?? prop.name;
     const steps = jsonPathToSteps(path);
     const exampleValue = exampleValueForPayload(prop.example, prop.type);
@@ -553,6 +581,20 @@ function buildSampleCsv(ir: ConnectorIr): string {
         const header = field.source.csvHeaders[0] ?? field.path;
         if (!valueByHeader.has(header)) {
           valueByHeader.set(header, sampleValueForHeader(header, prop.type));
+        }
+      }
+      continue;
+    }
+
+    if (prop.serialized) {
+      const serializedValue = buildSerializedSampleValue(prop.serialized, prop.type);
+      const formatted = Array.isArray(serializedValue)
+        ? serializedValue.map((entry) => JSON.stringify(entry)).join(";")
+        : JSON.stringify(serializedValue);
+      const exampleValue = exampleValueForType(prop.example, prop.type);
+      for (const header of prop.source.csvHeaders) {
+        if (!valueByHeader.has(header)) {
+          valueByHeader.set(header, exampleValue ?? formatted);
         }
       }
       continue;

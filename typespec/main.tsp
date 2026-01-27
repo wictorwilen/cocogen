@@ -42,6 +42,11 @@ namespace coco {
     jsonPath?: string;
   }
 
+  model SourceTargetSettings {
+    to?: string;
+    serialized?: Model;
+  }
+
 
   alias ContentCategory =
     | "uncategorized"
@@ -121,7 +126,7 @@ namespace coco {
   extern dec content(target: ModelProperty, settings?: ContentSettings);
 
   // Maps a source field (CSV header) to a property or entity path.
-  extern dec source(target: ModelProperty, from: SourceSettings | string, to?: string);
+  extern dec source(target: ModelProperty, from: SourceSettings | string, to?: string | SourceTargetSettings);
 
   // Marks a property as having no CSV source mapping.
   extern dec noSource(target: ModelProperty);

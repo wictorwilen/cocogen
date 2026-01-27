@@ -151,6 +151,55 @@ describe("sample data generation", () => {
     expect((item.tags as unknown[])[0]).toBe("sample");
     expect((item.meta as Record<string, unknown>)["source.id"]).toBe("sample");
   });
+  
+  test("buildSampleJson handles serialized models", () => {
+    const serializedIr: ConnectorIr = {
+      connection: {
+        inputFormat: "json",
+        graphApiVersion: "v1.0",
+      },
+      item: {
+        typeName: "Item",
+        idPropertyName: "id",
+        idEncoding: "slug",
+      },
+      properties: [
+        {
+          name: "id",
+          type: "string",
+          labels: [],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: ["id"], jsonPath: "$.id" },
+        },
+        {
+          name: "products",
+          type: "stringCollection",
+          labels: [],
+          aliases: [],
+          search: {},
+          serialized: {
+            name: "Product",
+            fields: [
+              { name: "odata@type", type: "string", example: "https://schema.org/Product" },
+              { name: "name", type: "string" },
+              { name: "productId", type: "string" },
+            ],
+          },
+          source: { csvHeaders: ["products"], jsonPath: "$.products" },
+        },
+      ],
+    };
+  
+    const json = buildSampleJson(serializedIr);
+    const parsed = JSON.parse(json) as Array<Record<string, unknown>>;
+    const item = parsed[0] ?? {};
+    const products = item.products as Array<Record<string, unknown>>;
+    expect(Array.isArray(products)).toBe(true);
+    expect(products[0]?.name).toBe("sample");
+    expect(products[0]?.productId).toBe("sample");
+      expect(products[0]?.["odata@type"]).toBe("https://schema.org/Product");
+  });
 
   test("buildSampleJson handles nested people arrays", () => {
     const nestedIr: ConnectorIr = {

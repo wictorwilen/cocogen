@@ -20,6 +20,7 @@ import {
   COCOGEN_STATE_PROPERTY_SOURCE,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
+  COCOGEN_STATE_PROPERTY_SERIALIZED,
   type CocogenConnectionSettings,
   type CocogenIdSettings,
   type CocogenProfileSourceSettings,
@@ -81,6 +82,7 @@ function isModelProperty(target: unknown): target is ModelProperty {
     typeof (target as ModelProperty).name === "string"
   );
 }
+
 
 export function $item(context: DecoratorContext, target: Model): void {
   if (!isModel(target)) return;
@@ -161,16 +163,34 @@ export function $source(
   context: DecoratorContext,
   target: ModelProperty,
   from: CocogenSourceSettings | string,
-  to?: string
+  to?: string | { serialized?: Model; to?: string }
 ): void {
   if (!isModelProperty(target)) return;
 
-  const rawTo = unwrapValue<string | undefined>(to);
+  const rawTo = unwrapValue<unknown>(to);
 
-  if (typeof rawTo === "string" && rawTo.trim().length > 0) {
+  if (rawTo && typeof rawTo === "object" && !Array.isArray(rawTo)) {
+    const targetSettings = normalizeObject<{ serialized?: unknown; to?: unknown }>(rawTo);
+    const serialized = targetSettings.serialized;
+    const path = typeof targetSettings.to === "string" ? targetSettings.to.trim() : "";
+
+    if (serialized) {
+      if (path.length > 0) {
+        throw new Error("@coco.source serialized targets cannot include a 'to' path. Use string 'to' for people entity mappings only.");
+      }
+      if (!isModel(serialized)) {
+        throw new Error("@coco.source serialized targets must reference a model type.");
+      }
+      context.program.stateMap(COCOGEN_STATE_PROPERTY_SERIALIZED).set(target, serialized);
+    }
+  }
+
+  const rawToString = typeof rawTo === "string" ? rawTo : undefined;
+  const rawToText = rawToString?.trim();
+  if (typeof rawToText === "string" && rawToText.length > 0) {
     const rawFrom = unwrapValue<unknown>(from);
     const entry: CocogenPersonEntityField = {
-      path: rawTo,
+      path: rawToText,
       source: typeof rawFrom === "string" ? rawFrom : normalizeObject<CocogenSourceSettings>(from),
     };
 

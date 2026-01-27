@@ -84,6 +84,14 @@ export type ConnectorIr = {
         };
       }>;
     };
+    serialized?: {
+      name: string;
+      fields: Array<{
+        name: string;
+        type: PropertyType;
+        example?: unknown;
+      }>;
+    };
     source: {
       csvHeaders: string[];
       jsonPath?: string;

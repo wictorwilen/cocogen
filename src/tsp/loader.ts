@@ -41,6 +41,7 @@ import {
   COCOGEN_STATE_PROPERTY_SOURCE,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
+  COCOGEN_STATE_PROPERTY_SERIALIZED,
   COCOGEN_STATE_ID_SETTINGS,
   type CocogenConnectionSettings,
   type CocogenProfileSourceSettings,
@@ -258,6 +259,42 @@ function getPersonEntityMapping(
 
   return {
     entity,
+    fields,
+  };
+}
+
+function getSerializedModel(program: Program, prop: ModelProperty): {
+  name: string;
+  fields: Array<{ name: string; type: PropertyType; example?: unknown }>;
+} | undefined {
+  const raw = program.stateMap(COCOGEN_STATE_PROPERTY_SERIALIZED).get(prop) as Model | undefined;
+  if (!raw) return undefined;
+
+  let model = raw;
+  if (isArrayModelType(program, model)) {
+    const element = model.indexer.value;
+    if (element.kind !== "Model") {
+      throw new CocogenError("@coco.source serialized targets must reference a model type.");
+    }
+    model = element as Model;
+  }
+  const fields = [...model.properties.entries()].map(([name, field]) => {
+    if (field.type.kind === "String") {
+      return {
+        name,
+        type: "string" as const,
+        example: field.type.value,
+      };
+    }
+    return {
+      name,
+      type: mapTypeToPropertyType(program, field.type),
+      example: getExampleValue(program, field),
+    };
+  });
+
+  return {
+    name: model.name,
     fields,
   };
 }
@@ -484,6 +521,16 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
 
     const propertyType = mapTypeToPropertyType(program, prop.type);
     const personEntity = getPersonEntityMapping(program, prop, propertyType, sourcePathSyntax);
+    const serialized = getSerializedModel(program, prop);
+    if (serialized) {
+      const supported = propertyType === "string" || propertyType === "stringCollection";
+      if (!supported) {
+        throw new CocogenError("Serialized @coco.source targets are only supported for string or string[] properties.");
+      }
+      if (personEntity) {
+        throw new CocogenError("Serialized @coco.source targets are not supported for people entity mappings.");
+      }
+    }
 
     return {
       name,
@@ -501,6 +548,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       aliases,
       search: getSearchFlags(program, prop),
       ...(personEntity ? { personEntity } : {}),
+      ...(serialized ? { serialized } : {}),
       source: getSourceSettings(program, prop, name, sourcePathSyntax),
     };
   });

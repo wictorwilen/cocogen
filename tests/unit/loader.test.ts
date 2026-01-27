@@ -275,6 +275,35 @@ describe("loadIrFromTypeSpec", () => {
     expect(sourceProp?.source.jsonPath).toBe("$.meta['source.id']");
   });
 
+  test("captures serialized source targets", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      model Product {
+        "odata@type": "https://schema.org/Product";
+        name: string;
+        productId: string;
+      }
+
+      @coco.item
+      model Item {
+        @coco.id
+        @coco.source("id")
+        id: string;
+
+        @coco.source("products", { serialized: Product })
+        products: string[];
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "json" });
+    const productsProp = ir.properties.find((p) => p.name === "products");
+    expect(productsProp?.serialized?.name).toBe("Product");
+    expect(productsProp?.serialized?.fields.map((field) => field.name)).toEqual(
+      expect.arrayContaining(["name", "productId", "odata@type"])
+    );
+  });
+
   test("errors on invalid jsonpath syntax", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

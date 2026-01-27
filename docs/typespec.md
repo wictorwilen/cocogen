@@ -274,6 +274,25 @@ Notes:
 - For non-people connectors, omit `to` (equivalent to `@coco.source("header")`).
 - For `coco.Principal` and `coco.Principal[]`, use `to` to map source paths to principal properties (for example `@coco.source("manager", "upn")`).
 - For people connectors, any property with a people label should define at least one `@coco.source(..., to)` mapping; otherwise validation warns and you must implement the mapping manually.
+- For JSON-serialized custom payloads, use `@coco.source("path", { serialized: MyModel })` on `string` or `string[]` properties.
+
+Serialized payload example:
+
+```tsp
+model Product {
+  "odata@type": "https://schema.org/Product";
+  name: string;
+  productId: string;
+}
+
+@coco.source("products", { serialized: Product })
+products: string[];
+```
+
+Notes:
+- `serialized` targets must reference a model type with scalar or scalar-collection fields.
+- For JSON/YAML/custom input, object values are JSON-serialized automatically.
+- For CSV input, provide JSON strings (semicolon-separated for `string[]`).
 
 ### People entity fields with `@coco.source(..., to)`
 

@@ -12,6 +12,7 @@ export const COCOGEN_STATE_PROPERTY_SEARCH = Symbol.for("@wictorwilen/cocogen/pr
 export const COCOGEN_STATE_PROPERTY_SOURCE = Symbol.for("@wictorwilen/cocogen/propertySource");
 export const COCOGEN_STATE_PROPERTY_NO_SOURCE = Symbol.for("@wictorwilen/cocogen/propertyNoSource");
 export const COCOGEN_STATE_PROPERTY_PERSON_FIELDS = Symbol.for("@wictorwilen/cocogen/propertyPersonFields");
+export const COCOGEN_STATE_PROPERTY_SERIALIZED = Symbol.for("@wictorwilen/cocogen/propertySerialized");
 
 export type CocogenConnectionSettings = {
   contentCategory?:
@@ -55,6 +56,10 @@ export type CocogenSearchFlags = {
 export type CocogenSourceSettings = {
   csv?: string;
   jsonPath?: string;
+};
+
+export type CocogenSerializedTarget = {
+  type: import("@typespec/compiler").Model;
 };
 
 export type CocogenPersonEntityField = {
