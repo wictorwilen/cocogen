@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.33] - 2026-01-28
 ### Added
 - REST datasource input format with paginated ingestion scaffolds (TS + .NET).
 
@@ -205,6 +207,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.33]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.33
 [1.0.32]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.32
 [1.0.31]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.31
 [1.0.30]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.30
