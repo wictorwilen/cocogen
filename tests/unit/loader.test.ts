@@ -120,6 +120,20 @@ describe("loadIrFromTypeSpec", () => {
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/Unsupported collection element type/i);
   });
 
+  test("rejects union property types", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        status: "new" | "active";
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/Unsupported TypeSpec property type kind: Union/);
+  });
+
   test("surfaces TypeSpec compile errors", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
@@ -304,6 +318,86 @@ describe("loadIrFromTypeSpec", () => {
     );
   });
 
+  test("rejects serialized references that wrap scalar arrays", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      model StringArray is string[];
+
+      @coco.item
+      model Item {
+        @coco.id
+        @coco.source("id")
+        id: string;
+
+        @coco.source("payload", { serialized: StringArray })
+        payload: string[];
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "json" })).rejects.toThrow(
+      /serialized targets must reference a model type/i
+    );
+  });
+
+  test("rejects serialized targets on non-string properties", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      model Payload {
+        name: string;
+      }
+
+      @coco.item
+      model Item {
+        @coco.id
+        @coco.source("id")
+        id: string;
+
+        @coco.source("payload", { serialized: Payload })
+        count: int64;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "json" })).rejects.toThrow(
+      /only supported for string or string\[\]/i
+    );
+  });
+
+  test("rejects serialized targets for people entity mappings", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      model SkillData {
+        "odata@type": "microsoft.graph.skillProficiency";
+        name: string;
+      }
+
+      @coco.connection({
+        contentCategory: "people",
+        name: "People connector",
+        connectionId: "peopleconnector"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example people source"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        @coco.label("personSkills")
+        @coco.source("skills")
+        @coco.source("skills", "detail.name")
+        @coco.source("skills", { serialized: SkillData })
+        skills: string[];
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "json" })).rejects.toThrow(
+      /not supported for people entity mappings/i
+    );
+  });
+
   test("errors on invalid jsonpath syntax", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
@@ -349,6 +443,22 @@ describe("loadIrFromTypeSpec", () => {
     `);
 
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/@coco.id property cannot be marked #deprecated/i);
+  });
+
+  test("errors when @coco.content property is deprecated", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        #deprecated "Legacy content"
+        @coco.content
+        body: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/@coco.content property cannot be marked #deprecated/i);
   });
 
   test("defaults id encoding to slug", async () => {
@@ -422,6 +532,32 @@ describe("loadIrFromTypeSpec", () => {
     expect(prop?.personEntity?.fields[0]?.path).toBe("userPrincipalName");
   });
 
+  test("captures bracketed people entity paths", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.connection({
+        contentCategory: "people",
+        name: "People connector",
+        connectionId: "peopleconnector"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example people source"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        @coco.label("personAccount")
+        @coco.source("account")
+        @coco.source("account", "$['detail']['userPrincipalName']")
+        account: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    const prop = ir.properties.find((p) => p.name === "account");
+    expect(prop?.personEntity?.fields[0]?.path).toBe("$['detail']['userPrincipalName']");
+  });
+
   test("errors on invalid source settings", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
@@ -462,6 +598,19 @@ describe("loadIrFromTypeSpec", () => {
     `);
 
     await expect(loadIrFromTypeSpec(entry, { inputFormat: "csv" })).rejects.toThrow(/not valid for CSV input/i);
+  });
+
+  test("rejects unknown input format option", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+        title: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "bogus" as any })).rejects.toThrow(/Invalid input format/i);
   });
 
   test("defaults graph API version to v1.0 when no category or principal", async () => {

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Refactored init generation into shared core and language-specific generator modules for TS and .NET.
+- Consolidated people-entity collection rendering to reuse shared renderers (TS + .NET) for multi-field paths.
+
+### Fixed
+- Generated TS property transform base now indents multi-line expressions consistently.
+- Removed references to missing TS scaffold template files in generator output.
 
 ## [1.0.32] - 2026-01-27
 ### Fixed

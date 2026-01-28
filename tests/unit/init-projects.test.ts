@@ -575,8 +575,8 @@ model Item {
     await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
-    expect(transforms).toContain("[\"detail\"] = new Dictionary");
-    expect(transforms).toContain("GetValue");
+    expect(transforms).toContain("Detail = new PositionDetail");
+    expect(transforms).toContain("results.Add(JsonSerializer.Serialize(new SkillProficiency");
   });
 
   test("initTsProject includes related person graph types", async () => {

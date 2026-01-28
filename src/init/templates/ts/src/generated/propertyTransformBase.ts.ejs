@@ -45,7 +45,10 @@ export abstract class PropertyTransformBase {
 <% for (const prop of properties) { -%>
   /** Transform the <%= prop.name %> property from a source row. */
   protected transform<%= prop.transformName %>(row: Record<string, unknown>): <%= prop.tsType %> {
-    return <%- prop.expression %>;
+    return <%- prop.expression
+      .split("\n")
+      .map((line, index) => (index === 0 ? line : `    ${line}`))
+      .join("\n") %>;
   }
 
 <% } -%>
