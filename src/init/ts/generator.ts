@@ -76,6 +76,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       await renderTemplate("ts/.env.example.ejs", {
         itemTypeName: this.ir.item.typeName,
         isPeopleConnector: this.ir.connection.contentCategory === "people",
+        inputFormat: this.ir.connection.inputFormat,
         connectionName: this.ir.connection.connectionName ?? null,
         connectionId: this.ir.connection.connectionId ?? null,
         connectionDescription: this.ir.connection.connectionDescription ?? null,
@@ -131,6 +132,15 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       await writeFile(
         path.join(this.outDir, "src", "datasource", "yamlItemSource.ts"),
         await renderTemplate("ts/src/datasource/yamlItemSource.ts.ejs", {
+          itemTypeName: this.ir.item.typeName,
+          schemaFolderName,
+        }),
+        "utf8"
+      );
+    } else if (this.ir.connection.inputFormat === "rest") {
+      await writeFile(
+        path.join(this.outDir, "src", "datasource", "restItemSource.ts"),
+        await renderTemplate("ts/src/datasource/restItemSource.ts.ejs", {
           itemTypeName: this.ir.item.typeName,
           schemaFolderName,
         }),

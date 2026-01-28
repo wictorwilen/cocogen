@@ -125,6 +125,7 @@ npx @wictorwilen/cocogen@latest generate \
 - **csv** (default)
 - **json** (JSONPath)
 - **yaml** (JSONPath)
+- **rest** (JSONPath)
 - **custom** (stub datasource)
 
 ---

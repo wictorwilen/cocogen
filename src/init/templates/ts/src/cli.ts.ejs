@@ -23,6 +23,8 @@ import type { ItemSource } from "./datasource/itemSource.js";
 import { JsonItemSource } from "./datasource/jsonItemSource.js";
 <% } else if (inputFormat === "yaml") { -%>
 import { YamlItemSource } from "./datasource/yamlItemSource.js";
+<% } else if (inputFormat === "rest") { -%>
+import { RestItemSource, type RestItemSourceOptions } from "./datasource/restItemSource.js";
 <% } else if (inputFormat === "custom") { -%>
 import { CustomItemSource } from "./datasource/customItemSource.js";
 <% } else { -%>
@@ -95,12 +97,34 @@ function resolveProfileSourcePriority(): "first" | "last" {
 
 function resolveInputPath(inputPath?: string): string {
   if (inputPath) return inputPath;
-  return <%= JSON.stringify(inputFormat === "custom" ? "" : inputFormat === "json" ? "data.json" : inputFormat === "yaml" ? "data.yaml" : "data.csv") %>;
+  return <%= JSON.stringify(
+    inputFormat === "custom"
+      ? ""
+      : inputFormat === "json"
+      ? "data.json"
+      : inputFormat === "yaml"
+      ? "data.yaml"
+      : inputFormat === "rest"
+      ? ""
+      : "data.csv"
+  ) %>;
 }
 
 function buildItemSource(path: string): ItemSource<<%= itemTypeName %>> {
+<% if (inputFormat === "rest") { -%>
+  return new RestItemSource(resolveRestOptions(path));
+<% } else { -%>
   return new <%= inputFormat === "json" ? "JsonItemSource" : inputFormat === "yaml" ? "YamlItemSource" : inputFormat === "custom" ? "CustomItemSource" : "CsvItemSource" %>(path);
+<% } -%>
 }
+
+<% if (inputFormat === "rest") { -%>
+function resolveRestOptions(inputPath?: string): RestItemSourceOptions {
+  const baseUrl = inputPath || process.env.REST_BASE_URL || "";
+  if (!baseUrl) throw new Error("Missing REST_BASE_URL or --input for REST ingestion.");
+  return { baseUrl };
+}
+<% } -%>
 
 let cachedCredential: ClientSecretCredential | ManagedIdentityCredential | null = null;
 let cachedToken: { token: string; expiresOnTimestamp: number } | null = null;
@@ -224,7 +248,7 @@ program
 program
   .command("ingest")
   .description("Ingest items from the configured input file")
-  .option("--input <path>", "Input file path")
+  .option("--input <path>", <%= JSON.stringify(inputFormat === "rest" ? "Input file path or REST base URL" : "Input file path") %>)
   .option("--dry-run", "Build payloads but do not send to Graph")
   .option("--fail-fast", "Abort on the first item failure")
   .option("--limit <n>", "Limit number of items", (value) => Number(value))

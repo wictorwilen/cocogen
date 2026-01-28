@@ -195,8 +195,9 @@ ${indent}}`;
   };
 
   const objectExpression = renderNode(tree, 0, typeInfo);
+  const typedObjectExpression = typeInfo ? `(${objectExpression} as ${typeInfo.alias})` : objectExpression;
 
-  return `JSON.stringify(\n${indentUnit.repeat(2)}${objectExpression}\n${indentUnit.repeat(2)})`;
+  return `JSON.stringify(\n${indentUnit.repeat(2)}${typedObjectExpression}\n${indentUnit.repeat(2)})`;
 }
 
 /** Build a TS JSON string[] expression for person-entity collections. */

@@ -69,12 +69,14 @@ function starterTspContents(options: {
 
   if (kind === "people") {
     return `import "@wictorwilen/cocogen";
-  using coco;
+using coco;
 
 // People connectors use Graph /beta. Use --use-preview-features with cocogen validate/generate/update.
-// Optional: set defaults for profile source registration.
-// @coco.profileSource({ webUrl: "https://contoso.com/people", displayName: "Contoso HR", priority: "first" })
-
+@coco.profileSource({
+  webUrl: "https://contoso.com/people",
+  displayName: "Contoso HR",
+  priority: "first"
+})
 @coco.connection({
   contentCategory: "people",
   name: "People connector",

@@ -1,0 +1,236 @@
+// REST datasource implementation with simple pagination.
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Linq;
+using Json.Path;
+
+using <%= schemaNamespace %>;
+using ItemModel = <%= schemaNamespace %>.<%= itemTypeName %>;
+
+namespace <%= namespaceName %>.Datasource;
+
+public sealed record RestOptions(
+    string BaseUrl,
+    string ItemsPath,
+    string NextLinkPath,
+    string Method,
+    Dictionary<string, string>? Headers,
+    JsonObject? Body
+);
+
+/// <summary>
+/// REST-based datasource. Expects a paginated JSON response.
+/// </summary>
+public sealed class RestItemSource : IItemSource<ItemModel>
+{
+    private const string DefaultMethod = "GET";
+    private const string DefaultItemsPath = "$.value";
+    private const string DefaultNextLinkPath = "$['@odata.nextLink']";
+
+    private readonly HttpClient _client;
+    private readonly RestOptions _options;
+
+    public RestItemSource(string baseUrl, HttpClient? client = null)
+        : this(new RestOptions(
+            baseUrl,
+            DefaultItemsPath,
+            DefaultNextLinkPath,
+            DefaultMethod,
+            null,
+            null
+        ), client)
+    {
+    }
+
+    public RestItemSource(RestOptions options, HttpClient? client = null)
+    {
+        if (string.IsNullOrWhiteSpace(options.BaseUrl))
+            throw new InvalidOperationException("RestOptions.BaseUrl is required.");
+        _options = options;
+        _client = client ?? new HttpClient();
+    }
+
+    public async IAsyncEnumerable<ItemModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        string? nextUrl = _options.BaseUrl;
+
+        while (!string.IsNullOrWhiteSpace(nextUrl))
+        {
+            using var request = BuildRequest(nextUrl);
+            using var response = await _client.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new InvalidOperationException($"REST request failed ({(int)response.StatusCode}): {payload}");
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var root = await JsonNode.ParseAsync(stream, cancellationToken: cancellationToken);
+            if (root is null) throw new InvalidOperationException("REST response could not be parsed.");
+
+            var items = ResolveItems(root, _options.ItemsPath);
+            foreach (var item in items)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (item is not JsonObject obj)
+                {
+                    throw new InvalidOperationException("REST items must be JSON objects.");
+                }
+                yield return FromRow.Parse(obj);
+            }
+
+            var nextLink = ResolveString(root, _options.NextLinkPath)
+                ?? ResolveString(root, "$['@odata.nextLink']")
+                ?? ResolveString(root, "$.nextLink");
+
+            if (!string.IsNullOrWhiteSpace(nextLink))
+            {
+                nextUrl = new Uri(new Uri(nextUrl), nextLink).ToString();
+                continue;
+            }
+
+            nextUrl = null;
+        }
+    }
+
+    private HttpRequestMessage BuildRequest(string baseUrl)
+    {
+        var method = _options.Method.Trim().ToUpperInvariant();
+        var httpMethod = method == "POST" ? HttpMethod.Post : HttpMethod.Get;
+
+        var url = httpMethod == HttpMethod.Get
+            ? BuildUrl(baseUrl)
+            : baseUrl;
+
+        var request = new HttpRequestMessage(httpMethod, url);
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+        if (_options.Headers is not null)
+        {
+            foreach (var header in _options.Headers)
+            {
+                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+        }
+
+        if (httpMethod == HttpMethod.Post)
+        {
+            var body = BuildBody();
+            if (body is not null)
+            {
+                request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            }
+        }
+
+        return request;
+    }
+
+    private string BuildUrl(string baseUrl) => new Uri(baseUrl).ToString();
+
+    private JsonObject? BuildBody()
+    {
+        if (_options.Body is null) return null;
+        var body = new JsonObject();
+        foreach (var entry in _options.Body)
+        {
+            body[entry.Key] = entry.Value;
+        }
+        return body.Count == 0 ? null : body;
+    }
+
+    private static JsonArray ResolveItems(JsonNode root, string itemsPath)
+    {
+        var value = EvaluateJsonPath(root, itemsPath)
+            ?? EvaluateJsonPath(root, "$.value")
+            ?? EvaluateJsonPath(root, "$.items");
+        if (value is JsonArray array) return array;
+        if (value is JsonObject obj) return new JsonArray(obj);
+
+        if (root is JsonArray rootArray) return rootArray;
+        if (root is JsonObject rootObject && rootObject["items"] is JsonArray items) return items;
+        throw new InvalidOperationException("REST response must be an array or an object with an 'items' array.");
+    }
+
+    private static string? ResolveString(JsonNode root, string path)
+    {
+        var value = EvaluateJsonPath(root, path);
+        if (value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var str)) return str;
+        if (value is JsonValue jsonNumber && jsonNumber.TryGetValue<double>(out var num)) return num.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (root is JsonObject obj)
+        {
+            if (obj.TryGetPropertyValue(path, out var direct) && direct is JsonValue directValue)
+            {
+                if (directValue.TryGetValue<string>(out var directString)) return directString;
+                if (directValue.TryGetValue<double>(out var directNumber)) return directNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            var extracted = ExtractPathKey(path);
+            if (!string.IsNullOrWhiteSpace(extracted)
+                && obj.TryGetPropertyValue(extracted, out var fallback)
+                && fallback is JsonValue fallbackValue)
+            {
+                if (fallbackValue.TryGetValue<string>(out var fallbackString)) return fallbackString;
+                if (fallbackValue.TryGetValue<double>(out var fallbackNumber)) return fallbackNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+        return null;
+    }
+
+    private static string? ExtractPathKey(string path)
+    {
+        var trimmed = path.Trim();
+        if (trimmed.StartsWith("$['") && trimmed.EndsWith("']"))
+        {
+            return trimmed.Substring(3, trimmed.Length - 5);
+        }
+        if (trimmed.StartsWith("$."))
+        {
+            return trimmed.Substring(2);
+        }
+        return null;
+    }
+
+    private static object? EvaluateJsonPath(JsonNode node, string jsonPath)
+    {
+        try
+        {
+            var normalized = NormalizeJsonPath(jsonPath);
+            if (string.IsNullOrWhiteSpace(normalized)) return null;
+            var path = JsonPath.Parse(normalized);
+            var result = path.Evaluate(node);
+            var matches = result.Matches?.ToList() ?? new List<Node>();
+            if (matches.Count == 0) return null;
+            if (matches.Count == 1) return matches[0]?.Value;
+            var array = new JsonArray();
+            foreach (var match in matches)
+            {
+                if (match?.Value is JsonNode nodeValue)
+                {
+                    array.Add(nodeValue);
+                }
+                else
+                {
+                    array.Add(JsonValue.Create(match?.Value));
+                }
+            }
+            return array;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string NormalizeJsonPath(string jsonPath)
+    {
+        var trimmed = jsonPath.Trim();
+        if (trimmed.Length == 0) return "";
+        if (trimmed.StartsWith("$")) return trimmed;
+        if (trimmed.StartsWith("[")) return "$" + trimmed;
+        return "$." + trimmed;
+    }
+}

@@ -121,6 +121,10 @@ To generate a JSON or YAML input project:
 ```bash
 npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --data-format json
 ```
+To generate a REST input project:
+```bash
+npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --data-format rest
+```
 To generate a custom input project (no built-in datasource):
 ```bash
 npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector --data-format custom

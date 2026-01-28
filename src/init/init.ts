@@ -29,7 +29,7 @@ export type InitOptions = {
   projectName?: string;
   force?: boolean;
   usePreviewFeatures?: boolean;
-  inputFormat?: "csv" | "json" | "yaml" | "custom" | undefined;
+  inputFormat?: "csv" | "json" | "yaml" | "rest" | "custom" | undefined;
 };
 
 export type UpdateOptions = {

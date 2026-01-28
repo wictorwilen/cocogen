@@ -46,6 +46,7 @@ User has `schema.tsp` and runs:
 - `npx cocogen generate --tsp ./schema.tsp --lang rest --out ./my-connector`
 Input format can be selected during generation:
 - `npx cocogen generate --tsp ./schema.tsp --lang ts --out ./my-connector --data-format json`
+- `npx cocogen generate --tsp ./schema.tsp --lang ts --out ./my-connector --data-format rest`
 - `npx cocogen generate --tsp ./schema.tsp --lang ts --out ./my-connector --data-format custom` (emit a stub datasource)
 
 If they need a starter schema, they can scaffold one first:
@@ -90,7 +91,7 @@ Common:
 - `--tsp <path>`: entry TypeSpec file.
 - `--out <dir>`: output directory.
 - `--lang <ts|dotnet|rest>`: target project.
-- `--data-format <csv|json|yaml|custom>`: choose the ingestion source format for generated projects.
+- `--data-format <csv|json|yaml|rest|custom>`: choose the ingestion source format for generated projects.
 
 Current state:
 - This repo is a single TypeScript package.
@@ -131,7 +132,7 @@ Microsoft Graph connector schema is a **flat** property list (not nested). TypeS
 - `@coco.description("...")`: maps to Graph schema property `description` (and may also be used for generated help/docs).
 - `@coco.content({ type?: "text" })` on a property: marks full-text source for `externalItem.content`.
 Input format is selected at generation time via CLI:
-  - `cocogen generate --data-format csv|json|yaml|custom`
+  - `cocogen generate --data-format csv|json|yaml|rest|custom`
 - `@coco.source(...)` on a property: maps the property to a source field (CSV header or JSONPath).
   - `@coco.noSource` marks a property as having no source mapping (value computed elsewhere).
 Notes on People connectors:

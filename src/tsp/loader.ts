@@ -58,7 +58,7 @@ export class CocogenError extends Error {
 }
 
 export type LoadIrOptions = {
-  inputFormat?: "csv" | "json" | "yaml" | "custom" | undefined;
+  inputFormat?: "csv" | "json" | "yaml" | "rest" | "custom" | undefined;
 };
 
 type SourcePathSyntax = "csv" | "jsonpath";
@@ -86,7 +86,7 @@ function getConnectionSettings(program: Program, itemModel: Model): CocogenConne
   return (program.stateMap(COCOGEN_STATE_CONNECTION_SETTINGS).get(itemModel) ?? {}) as CocogenConnectionSettings;
 }
 
-function getSourcePathSyntax(inputFormat: "csv" | "json" | "yaml" | "custom"): SourcePathSyntax {
+function getSourcePathSyntax(inputFormat: "csv" | "json" | "yaml" | "rest" | "custom"): SourcePathSyntax {
   return inputFormat === "csv" ? "csv" : "jsonpath";
 }
 
@@ -400,6 +400,10 @@ function mapTypeToPropertyType(program: Program, type: Type): PropertyType {
     }
   }
 
+  if (type.kind === "Enum") {
+    return "string";
+  }
+
   if (type.kind === "Model") {
     throw new CocogenError(
       "Nested models are not supported for connector schema properties. Flatten the model so every property is a scalar or scalar collection."
@@ -426,6 +430,9 @@ function mapCollectionType(element: Type): PropertyType {
       default:
         break;
     }
+  }
+  if (element.kind === "Enum") {
+    return "stringCollection";
   }
   throw new CocogenError("Unsupported collection element type.");
 }

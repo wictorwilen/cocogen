@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- REST datasource input format with paginated ingestion scaffolds (TS + .NET).
+
 ### Changed
 - Refactored init generation into shared core and language-specific generator modules for TS and .NET.
 - Consolidated people-entity collection rendering to reuse shared renderers (TS + .NET) for multi-field paths.
@@ -14,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Generated TS property transform base now indents multi-line expressions consistently.
 - Removed references to missing TS scaffold template files in generator output.
+- Fixed REST TypeScript templates to allow rest/custom input formats and satisfy strict type checks.
+- People entity transforms now cast generated object payloads to their strongly typed Graph models before JSON serialization (TS).
+- People entity transforms now cast generated object payloads to their strongly typed Graph models before JSON serialization (C#).
+- Aligned REST datasource templates (TS + .NET) with simplified OData nextLink pagination and direct-key fallback resolution.
+- People starter schemas from `cocogen init --kind people` now include a default `@coco.profileSource`.
+- TypeSpec enum properties now map to Graph string types.
+- Example generation/report scripts now include the REST input format (dry-run skipped for REST).
 
 ## [1.0.32] - 2026-01-27
 ### Fixed

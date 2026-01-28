@@ -289,9 +289,9 @@ describe("init coverage", () => {
     expect(profileSource).toContain("Register profile source");
   });
 
-  test("initTsProject covers json/yaml/custom datasource branches", async () => {
+  test("initTsProject covers json/yaml/rest/custom datasource branches", async () => {
     const tspPath = await writeTempTspFile("@doc(\"coverage\") model Dummy { }");
-    const formats: Array<"json" | "yaml" | "custom"> = ["json", "yaml", "custom"];
+    const formats: Array<"json" | "yaml" | "rest" | "custom"> = ["json", "yaml", "rest", "custom"];
 
     for (const format of formats) {
       const outDir = await writeTempDir(`cocogen-coverage-${format}-`);
@@ -352,6 +352,8 @@ describe("init coverage", () => {
         ? path.join(outDir, "src", "datasource", "jsonItemSource.ts")
         : format === "yaml"
         ? path.join(outDir, "src", "datasource", "yamlItemSource.ts")
+        : format === "rest"
+        ? path.join(outDir, "src", "datasource", "restItemSource.ts")
         : path.join(outDir, "src", "datasource", "customItemSource.ts");
       await access(datasourcePath);
     }

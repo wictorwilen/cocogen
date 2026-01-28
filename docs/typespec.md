@@ -103,7 +103,7 @@ Notes:
 
 Input format is selected at generation time via the CLI:
 
-- `cocogen generate --data-format csv|json|yaml|custom`
+- `cocogen generate --data-format csv|json|yaml|rest|custom`
 
 When the input format is `json`, `yaml`, or `custom`, `@coco.source(...)` values are interpreted as JSONPath (RFC 9535).
 
@@ -406,6 +406,7 @@ Scalar types:
 - `float32 | float64` → Graph `double`
 - `utcDateTime` → Graph `dateTime`
 - `coco.Principal` → Graph `principal` (**requires Graph beta / `--use-preview-features`**)
+- TypeSpec `enum` → Graph `string`
 
 Collection types:
 - `string[]` → Graph `stringCollection`
@@ -413,6 +414,7 @@ Collection types:
 - `float32[] | float64[]` → Graph `doubleCollection`
 - `utcDateTime[]` → Graph `dateTimeCollection`
 - `coco.Principal[]` → Graph `principalCollection` (**requires Graph beta / `--use-preview-features`**)
+- `enum[]` → Graph `stringCollection`
 
 Not supported:
 - Nested models / objects (flatten your schema)

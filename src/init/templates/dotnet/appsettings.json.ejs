@@ -9,7 +9,10 @@
     "Id": "",
     "Name": "",
     "Description": ""
-  }<% if (isPeopleConnector) { -%>,
+  }<% if (inputFormat === "rest") { -%>,
+  "Rest": {
+    "BaseUrl": ""
+  }<% } -%><% if (isPeopleConnector) { -%>,
   "ProfileSource": {
     "WebUrl": "",
     "DisplayName": "",

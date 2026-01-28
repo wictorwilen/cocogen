@@ -241,6 +241,45 @@ describe("init/people/graph-types", () => {
     expect(existingNested?.fields.some((f) => f.name === "field2")).toBe(true);
   });
 
+  test("buildDerivedFromTree refreshes nested types when key already exists", () => {
+    const ir = createIr([
+      createIdProperty(),
+      {
+        name: "prop1",
+        type: "string",
+        labels: [],
+        aliases: [],
+        search: {},
+        personEntity: {
+          entity: "sharedType",
+          fields: [
+            { path: "details.manager.name", source: { csvHeaders: ["managerName"] } },
+          ],
+        },
+        source: { csvHeaders: ["prop1"] },
+      },
+      {
+        name: "prop2",
+        type: "string",
+        labels: [],
+        aliases: [],
+        search: {},
+        personEntity: {
+          entity: "sharedType",
+          fields: [
+            { path: "details.manager.title", source: { csvHeaders: ["managerTitle"] } },
+          ],
+        },
+        source: { csvHeaders: ["prop2"] },
+      },
+    ]);
+
+    const result = buildPeopleGraphTypes(ir);
+    const nestedManager = result.derived.find((type) => type.name === "sharedTypeDetailsManager");
+    expect(nestedManager).toBeDefined();
+    expect(nestedManager?.fields.some((field) => field.name === "title")).toBe(true);
+  });
+
   test("buildDerivedFromTree handles field name collision with suffix incrementation", () => {
     const ir = createIr([
       createIdProperty(),

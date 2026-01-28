@@ -72,8 +72,25 @@ string ConnectionDescription() => RequiredSetting("Connection:Description", Sche
 string InputPath(string? inputPath)
 {
     if (!string.IsNullOrWhiteSpace(inputPath)) return inputPath;
-    return <%= JSON.stringify(inputFormat === "custom" ? "" : inputFormat === "json" ? "data.json" : inputFormat === "yaml" ? "data.yaml" : "data.csv") %>;
+    return <%= JSON.stringify(
+      inputFormat === "custom"
+        ? ""
+        : inputFormat === "json"
+        ? "data.json"
+        : inputFormat === "yaml"
+        ? "data.yaml"
+        : inputFormat === "rest"
+        ? ""
+        : "data.csv"
+    ) %>;
 }
+<% if (inputFormat === "rest") { -%>
+string RestBaseUrl(string? inputPath)
+{
+    if (!string.IsNullOrWhiteSpace(inputPath)) return inputPath;
+    return configuration["Rest:BaseUrl"] ?? "";
+}
+<% } -%>
 <% if (isPeopleConnector) { -%>
 string ProfileSourceWebUrl() => RequiredSetting("ProfileSource:WebUrl", SchemaConstants.ProfileSourceWebUrl);
 string ProfileSourceDisplayName() => RequiredSetting("ProfileSource:DisplayName", SchemaConstants.ProfileSourceDisplayName);
@@ -176,7 +193,14 @@ async Task IngestAsync(string? inputPath, bool dryRun, int? limit, bool verbose,
     var path = InputPath(inputPath);
 
     // Swap this for any IItemSource implementation (API, DB, queue, etc.).
+<% if (inputFormat === "rest") { -%>
+    var baseUrl = RestBaseUrl(path);
+    if (string.IsNullOrWhiteSpace(baseUrl))
+        throw new InvalidOperationException("Missing Rest:BaseUrl or --input for REST ingestion.");
+    IItemSource<ItemModel> source = new RestItemSource(baseUrl);
+<% } else { -%>
     IItemSource<ItemModel> source = new <%= inputFormat === "json" ? "JsonItemSource" : inputFormat === "yaml" ? "YamlItemSource" : inputFormat === "custom" ? "CustomItemSource" : "CsvItemSource" %>(path);
+<% } -%>
     var core = BuildConnectorCore(graph, credential, connectionId);
 
     await core.IngestAsync(source, dryRun, limit, verbose, failFast);
@@ -196,7 +220,7 @@ async Task DeleteConnectionAsync()
     Console.WriteLine("ok: deleted");
 }
 
-var inputOption = new Option<string?>("--input") { Description = "Input file path" };
+var inputOption = new Option<string?>("--input") { Description = <%= JSON.stringify(inputFormat === "rest" ? "Input file path or REST base URL" : "Input file path") %> };
 var dryRunOption = new Option<bool>("--dry-run") { Description = "Build payloads but do not send to Graph" };
 var failFastOption = new Option<bool>("--fail-fast") { Description = "Abort on the first item failure" };
 var limitOption = new Option<int?>("--limit") { Description = "Limit number of items" };

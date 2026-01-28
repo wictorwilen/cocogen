@@ -140,6 +140,16 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         }),
         "utf8"
       );
+    } else if (this.ir.connection.inputFormat === "rest") {
+      await writeFile(
+        path.join(this.outDir, "Datasource", "RestItemSource.cs"),
+        await renderTemplate("dotnet/Datasource/RestItemSource.cs.ejs", {
+          namespaceName,
+          schemaNamespace,
+          itemTypeName: this.ir.item.typeName,
+        }),
+        "utf8"
+      );
     } else if (this.ir.connection.inputFormat === "custom") {
       await writeFile(
         path.join(this.outDir, "Datasource", "CustomItemSource.cs"),
@@ -167,6 +177,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       await renderTemplate("dotnet/appsettings.json.ejs", {
         itemTypeName: this.ir.item.typeName,
         isPeopleConnector: this.ir.connection.contentCategory === "people",
+        inputFormat: this.ir.connection.inputFormat,
         connectionName: this.ir.connection.connectionName ?? null,
         connectionId: this.ir.connection.connectionId ?? null,
         connectionDescription: this.ir.connection.connectionDescription ?? null,

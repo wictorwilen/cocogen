@@ -101,3 +101,11 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Fix JSON/YAML sample data for JSONPath arrays ✅
 - Annotate .NET JSON/YAML async iterators to avoid CS8425 ✅
 - Add custom input format with stub datasource ✅
+- Add REST input format with paginated datasource scaffolds ✅
+- Fix REST TS templates for strict type checking ✅
+- Cast TS people entity payloads to graph types ✅
+- Cast C# people entity payloads to graph types ✅
+- Align REST TS/.NET templates with nextLink pagination ✅
+- Add profileSource to people init scaffold ✅
+- Support TypeSpec enum properties ✅
+- Add REST format to example scripts ✅

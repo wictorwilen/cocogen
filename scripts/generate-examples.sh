@@ -20,6 +20,12 @@ fi
 
 shopt -s nullglob
 
+if [[ -n "${INPUT_FORMATS:-}" ]]; then
+  read -r -a input_formats <<< "${INPUT_FORMATS}"
+else
+  input_formats=("csv" "json" "yaml" "rest")
+fi
+
 for tsp in "$EXAMPLES_DIR"/*.tsp; do
   base="$(basename "$tsp" .tsp)"
   preview=(--use-preview-features)
@@ -29,14 +35,16 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
     continue
   fi
 
-  out_ts="$TMP_DIR/${base}-ts"
-  out_dotnet="$TMP_DIR/${base}-dotnet"
+  for input_format in "${input_formats[@]}"; do
+    out_ts="$TMP_DIR/${base}-ts-${input_format}"
+    out_dotnet="$TMP_DIR/${base}-dotnet-${input_format}"
 
-  printf "Generating TS project for %s...\n" "$base"
-  node "$CLI" generate --tsp "$tsp" --out "$out_ts" --lang ts --force "${preview[@]}"
+    printf "Generating TS project for %s (%s)...\n" "$base" "$input_format"
+    node "$CLI" generate --tsp "$tsp" --out "$out_ts" --lang ts --force --data-format "$input_format" "${preview[@]}"
 
-  printf "Generating .NET project for %s...\n" "$base"
-  node "$CLI" generate --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force "${preview[@]}"
+    printf "Generating .NET project for %s (%s)...\n" "$base" "$input_format"
+    node "$CLI" generate --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force --data-format "$input_format" "${preview[@]}"
+  done
 
 done
 

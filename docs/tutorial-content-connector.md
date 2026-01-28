@@ -219,6 +219,7 @@ npx @wictorwilen/cocogen@latest generate \
 - **csv** (default): CSV input with headers.
 - **json**: JSON input with JSONPath mapping.
 - **yaml**: YAML input with JSONPath mapping.
+- **rest**: REST input with JSONPath mapping.
 - **custom**: emits a stub datasource to replace.
 
 ### Output

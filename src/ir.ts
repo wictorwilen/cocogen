@@ -27,7 +27,7 @@ export type ConnectorIr = {
     connectionName?: string;
     connectionId?: string;
     connectionDescription?: string;
-    inputFormat: "csv" | "json" | "yaml" | "custom";
+    inputFormat: "csv" | "json" | "yaml" | "rest" | "custom";
     profileSource?: {
       webUrl: string;
       displayName: string;

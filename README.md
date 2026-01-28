@@ -109,7 +109,7 @@ cocogen --help
 | --- | --- | --- |
 | `init` | Create a starter TypeSpec file | `--out <path>`, `--kind <content\|people>`, `--prompt`, `--force` |
 | `validate` | Validate a TypeSpec schema | `--tsp <path>`, `--json`, `--use-preview-features` |
-| `generate` | Generate a runnable connector project | `--tsp <path>`, `--out <dir>`, `--lang <ts\|dotnet\|rest>`, `--name <name>`, `--data-format <csv\|json\|yaml\|custom>`, `--force`, `--use-preview-features` |
+| `generate` | Generate a runnable connector project | `--tsp <path>`, `--out <dir>`, `--lang <ts\|dotnet\|rest>`, `--name <name>`, `--data-format <csv\|json\|yaml\|rest\|custom>`, `--force`, `--use-preview-features` |
 | `update` | Regenerate TypeSpec-derived code in a generated project | `--out <dir>`, `--tsp <path>`, `--use-preview-features` |
 | `emit` | Emit cocogen IR as JSON | `--tsp <path>`, `--out <path>`, `--use-preview-features` |
 

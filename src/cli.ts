@@ -210,7 +210,7 @@ export async function main(argv: string[]): Promise<void> {
     .command("validate")
     .description("Validate a TypeSpec schema against connector constraints")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
-    .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
+    .option("--data-format <format>", "Data format (csv|json|yaml|rest|custom)")
     .option("--json", "Output validation result as JSON", false)
     .action(async (options: { tsp: string; json: boolean; dataFormat?: string }) => {
       await runCommand({
@@ -261,7 +261,7 @@ export async function main(argv: string[]): Promise<void> {
     .command("emit")
     .description("Emit cocogen IR as JSON (useful for debugging and CI)")
     .requiredOption("--tsp <path>", "Entry TypeSpec file")
-    .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
+    .option("--data-format <format>", "Data format (csv|json|yaml|rest|custom)")
     .option("--out <path>", "Write IR JSON to a file instead of stdout")
     .action(async (options: { tsp: string; out?: string; dataFormat?: string }) => {
       await runCommand({
@@ -338,7 +338,7 @@ export async function main(argv: string[]): Promise<void> {
     .requiredOption("--out <dir>", "Output directory")
     .option("--lang <lang>", "Target language (ts|dotnet|rest)", "ts")
     .option("--name <name>", "Project name (defaults to folder name)")
-    .option("--data-format <format>", "Data format (csv|json|yaml|custom)")
+    .option("--data-format <format>", "Data format (csv|json|yaml|rest|custom)")
     .option("--force", "Overwrite files in a non-empty output directory", false)
     .action(
       async (options: {

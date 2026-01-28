@@ -576,7 +576,7 @@ model Item {
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("Detail = new PositionDetail");
-    expect(transforms).toContain("results.Add(JsonSerializer.Serialize(new SkillProficiency");
+    expect(transforms).toContain("JsonSerializer.Serialize((SkillProficiency)(new SkillProficiency");
   });
 
   test("initTsProject includes related person graph types", async () => {

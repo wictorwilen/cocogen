@@ -37,18 +37,25 @@ describe("input-format", () => {
       expect(normalizeInputFormat("  CUSTOM  ")).toBe("custom");
     });
 
+    test("normalizes rest format", () => {
+      expect(normalizeInputFormat("rest")).toBe("rest");
+      expect(normalizeInputFormat("REST")).toBe("rest");
+      expect(normalizeInputFormat("  rest  ")).toBe("rest");
+      expect(normalizeInputFormat("  REST  ")).toBe("rest");
+    });
+
     test("throws error for invalid format", () => {
       expect(() => normalizeInputFormat("invalid")).toThrow(
-        "Invalid input format. Expected csv, json, yaml, or custom."
+        "Invalid input format. Expected csv, json, yaml, rest, or custom."
       );
       expect(() => normalizeInputFormat("xml")).toThrow(
-        "Invalid input format. Expected csv, json, yaml, or custom."
+        "Invalid input format. Expected csv, json, yaml, rest, or custom."
       );
       expect(() => normalizeInputFormat("txt")).toThrow(
-        "Invalid input format. Expected csv, json, yaml, or custom."
+        "Invalid input format. Expected csv, json, yaml, rest, or custom."
       );
       expect(() => normalizeInputFormat("  invalid  ")).toThrow(
-        "Invalid input format. Expected csv, json, yaml, or custom."
+        "Invalid input format. Expected csv, json, yaml, rest, or custom."
       );
     });
 
@@ -57,7 +64,7 @@ describe("input-format", () => {
       expect(normalizeInputFormat("")).toBe("csv");
       // Whitespace string is truthy, but trims to empty, so throws error
       expect(() => normalizeInputFormat("   ")).toThrow(
-        "Invalid input format. Expected csv, json, yaml, or custom."
+        "Invalid input format. Expected csv, json, yaml, rest, or custom."
       );
     });
   });

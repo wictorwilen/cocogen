@@ -1,0 +1,148 @@
+/**
+ * REST datasource implementation with simple pagination.
+ */
+import { JSONPath } from "jsonpath-plus";
+
+import type { <%= itemTypeName %> } from "../<%= schemaFolderName %>/model.js";
+import type { ItemSource } from "./itemSource.js";
+import { fromRow } from "../<%= schemaFolderName %>/fromRow.js";
+import { normalizeJsonPath } from "./inputPath.js";
+
+export type RestItemSourceOptions = {
+  baseUrl: string;
+  method?: "GET" | "POST";
+  headers?: Record<string, string>;
+  itemsPath?: string;
+  nextLinkPath?: string;
+  body?: Record<string, unknown>;
+};
+
+// Default REST settings (edit here to customize behavior).
+const defaultOptions: Required<Pick<
+  RestItemSourceOptions,
+  "itemsPath" | "nextLinkPath" | "method"
+>> = {
+  itemsPath: "$.value",
+  nextLinkPath: "$['@odata.nextLink']",
+  method: "GET",
+};
+
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+function readJsonPath<T>(payload: unknown, path?: string): T | undefined {
+  if (!path) return undefined;
+  const normalized = normalizeJsonPath(path);
+  if (!normalized) return undefined;
+  try {
+    return JSONPath({ path: normalized, json: payload as JsonValue, wrap: false }) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveItems(payload: unknown, options: RestItemSourceOptions): unknown[] {
+  const configuredPath = options.itemsPath;
+  const fromPath = readJsonPath<unknown>(payload, configuredPath ?? defaultOptions.itemsPath)
+    ?? (configuredPath ? undefined : readJsonPath<unknown>(payload, "$.items"));
+  if (Array.isArray(fromPath)) return fromPath;
+
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    const candidate = (payload as { items?: unknown[] }).items;
+    if (Array.isArray(candidate)) return candidate;
+  }
+  throw new Error("REST response must be an array or an object with an 'items' array.");
+}
+
+function resolveString(payload: unknown, path?: string): string | undefined {
+  const value = readJsonPath<unknown>(payload, path ?? "");
+  if (typeof value === "string") return value;
+  if (value && typeof value === "number") return String(value);
+
+  const key = path?.trim();
+  if (key && payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    const direct = record[key];
+    if (typeof direct === "string") return direct;
+    if (direct && typeof direct === "number") return String(direct);
+
+    const bracketMatch = key.match(/^\$\[['"](.+)['"]\]$/);
+    const dottedMatch = key.startsWith("$.") ? key.slice(2) : undefined;
+    const extracted = bracketMatch?.[1] ?? dottedMatch;
+    if (extracted) {
+      const fallback = record[extracted];
+      if (typeof fallback === "string") return fallback;
+      if (fallback && typeof fallback === "number") return String(fallback);
+    }
+  }
+  return undefined;
+}
+
+function buildUrl(baseUrl: string): string {
+  return new URL(baseUrl).toString();
+}
+
+function buildBody(options: RestItemSourceOptions): Record<string, unknown> | undefined {
+  return options.body ? { ...options.body } : undefined;
+}
+
+/**
+ * REST-based datasource. Expects a paginated JSON response.
+ */
+export class RestItemSource implements ItemSource<<%= itemTypeName %>> {
+  private readonly options: RestItemSourceOptions;
+
+  constructor(options: RestItemSourceOptions) {
+    this.options = options;
+    if (!options.baseUrl) {
+      throw new Error("REST baseUrl is required for RestItemSource.");
+    }
+  }
+
+  async *getItems(): AsyncIterable<<%= itemTypeName %>> {
+    let nextUrl: string | undefined = this.options.baseUrl;
+
+    while (nextUrl) {
+      const method = (this.options.method ?? defaultOptions.method).toUpperCase() as "GET" | "POST";
+      const headers = { "accept": "application/json", ...(this.options.headers ?? {}) };
+      const currentUrl = nextUrl;
+      const url: string = method === "GET" ? buildUrl(currentUrl) : currentUrl;
+      const body = method === "POST" ? buildBody(this.options) : undefined;
+
+      const response: Response = await fetch(url, {
+        method,
+        headers: body ? { ...headers, "content-type": "application/json" } : headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`REST request failed (${response.status}): ${text}`);
+      }
+
+      const payload: unknown = await response.json();
+      const items = resolveItems(payload, this.options);
+      for (const item of items) {
+        if (!item || typeof item !== "object") {
+          throw new Error("REST items must be objects.");
+        }
+        yield fromRow(item as Record<string, unknown>);
+      }
+
+      const nextLink: string | undefined = resolveString(
+        payload,
+        this.options.nextLinkPath
+          ?? defaultOptions.nextLinkPath
+          ?? "$['@odata.nextLink']"
+      ) ?? resolveString(payload, "$['@odata.nextLink']")
+        ?? resolveString(payload, "$.nextLink");
+
+      if (nextLink) {
+        const resolvedNextUrl: string = new URL(nextLink, currentUrl).toString();
+        nextUrl = resolvedNextUrl;
+        continue;
+      }
+      nextUrl = undefined;
+    }
+  }
+}
