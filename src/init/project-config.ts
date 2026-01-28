@@ -14,6 +14,7 @@ export type CocogenProjectConfig = {
 
 export const COCOGEN_CONFIG_FILE = "cocogen.json";
 
+/** Resolve the cocogen package version from nearby package.json files. */
 export function getGeneratorVersion(): string {
   try {
     const dir = path.dirname(fileURLToPath(import.meta.url));
@@ -45,6 +46,7 @@ export function getGeneratorVersion(): string {
   return "0.0.0";
 }
 
+/** Build the cocogen.json contents for a generated project. */
 export function projectConfigContents(
   outDir: string,
   tspPath: string,
@@ -61,6 +63,7 @@ export function projectConfigContents(
   return JSON.stringify(config, null, 2) + "\n";
 }
 
+/** Load and validate cocogen.json from a project directory. */
 export async function loadProjectConfig(outDir: string): Promise<{ config: CocogenProjectConfig }> {
   const tryRead = async (fileName: string): Promise<string | undefined> => {
     try {

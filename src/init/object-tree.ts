@@ -1,3 +1,4 @@
+/** Build a nested object tree keyed by dot-separated field paths. */
 export function buildObjectTree<T extends { path: string }>(fields: T[]): Record<string, unknown> {
   const root: Record<string, unknown> = {};
 

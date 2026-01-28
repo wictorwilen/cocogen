@@ -35,7 +35,6 @@ import {
   buildCsPersonEntityCollectionExpression,
   buildCsPersonEntityExpression,
   type CsPersonEntityTypeInfo,
-  type CsPersonEntityTypeMap,
 } from "./people-entity.js";
 import { applyCsValidationExpression, buildCsStringConstraintsLiteral } from "./validation.js";
 
@@ -44,6 +43,7 @@ export type DotnetGeneratorSettings = {
   tspPath: string;
 };
 
+/** Generates .NET connector scaffolds and generated files. */
 export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
   protected lang = "dotnet" as const;
 
@@ -51,18 +51,22 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     super(context);
   }
 
+  /** Resolve the root C# namespace for output. */
   private get namespaceName(): string {
     return toCsNamespace(this.settings.projectName);
   }
 
+  /** Resolve the schema folder name for .NET output. */
   private get schemaFolderName(): string {
     return toSchemaFolderName(this.ir.connection.connectionName);
   }
 
+  /** Build the schema namespace for generated types. */
   private get schemaNamespace(): string {
     return `${this.namespaceName}.${this.schemaFolderName}`;
   }
 
+  /** Write non-generated scaffolding files for a .NET project. */
   async writeScaffold(): Promise<void> {
     const { namespaceName, schemaFolderName, schemaNamespace } = this;
 
@@ -193,6 +197,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     await this.writeProjectConfig(this.settings.tspPath);
   }
 
+  /** Write generated .NET files based on the IR. */
   async writeGenerated(): Promise<void> {
     const { namespaceName, schemaFolderName, schemaNamespace } = this;
 

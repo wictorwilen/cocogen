@@ -10,6 +10,7 @@ export type GeneratorContext<TSettings> = {
   settings: TSettings;
 };
 
+/** Shared generator base for language-specific emitters. */
 export abstract class CoreGenerator<TSettings> {
   protected abstract lang: CocogenProjectConfig["lang"];
 
@@ -27,6 +28,7 @@ export abstract class CoreGenerator<TSettings> {
     return this.context.settings;
   }
 
+  /** Write cocogen.json for the generated project. */
   protected async writeProjectConfig(tspPath: string): Promise<void> {
     await writeFile(
       path.join(this.outDir, COCOGEN_CONFIG_FILE),

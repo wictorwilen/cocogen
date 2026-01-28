@@ -68,6 +68,7 @@ export const GRAPH_ENUM_TYPES = new Map<string, string[]>([
   ],
 ]);
 
+/** Strip the graph. prefix to get a profile schema type name. */
 export function resolveGraphTypeName(typeName: string): string | null {
   return typeName.startsWith("graph.") ? typeName.slice("graph.".length) : null;
 }
@@ -80,6 +81,7 @@ export type PeopleLabelSerializerTemplate = {
   collectionLimit: number | null;
 };
 
+/** Build people graph type templates and alias mappings. */
 export function buildPeopleGraphTypes(ir: ConnectorIr): {
   templates: PeopleGraphTypeTemplate[];
   derived: DerivedPeopleGraphType[];
@@ -159,6 +161,7 @@ export function buildPeopleGraphTypes(ir: ConnectorIr): {
   return { templates, derived, aliases };
 }
 
+/** Build serializer templates for person labels. */
 export function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
   return [...PEOPLE_LABEL_DEFINITIONS.entries()].map(([label, def]) => ({
     label,
@@ -169,6 +172,7 @@ export function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
   }));
 }
 
+/** Build enum templates for Graph enum-like types. */
 export function buildGraphEnumTemplates(): Array<{ name: string; tsName: string; csName: string; values: string[] }> {
   return [...GRAPH_ENUM_TYPES.entries()].map(([name, values]) => ({
     name,
@@ -193,6 +197,7 @@ type ScalarTypeDescriptor = {
   check: (varName: string) => string;
 };
 
+/** Build derived graph types from mapped person-entity fields. */
 function buildDerivedPeopleGraphTypes(ir: ConnectorIr): DerivedPeopleGraphType[] {
   const fieldsByEntity = new Map<string, PersonEntityField[]>();
   for (const prop of ir.properties) {
@@ -366,6 +371,7 @@ function buildDerivedPeopleGraphTypes(ir: ConnectorIr): DerivedPeopleGraphType[]
   return [...derived.values()];
 }
 
+/** Build mapping from graph type names to TS/C# aliases. */
 function buildPeopleGraphTypeAliases(
   derived: DerivedPeopleGraphType[]
 ): Map<string, PeopleGraphTypeAlias> {
@@ -382,6 +388,7 @@ function buildPeopleGraphTypeAliases(
   return map;
 }
 
+/** Convert a graph schema property into a template field. */
 function convertGraphProperty(
   prop: GraphProfileProperty,
   usedVarNames: Set<string>,
@@ -403,6 +410,7 @@ function convertGraphProperty(
   };
 }
 
+/** Parse graph property types into TS type descriptors. */
 export function parseGraphTypeDescriptor(
   typeName: string,
   graphAliases: Map<string, PeopleGraphTypeAlias>
@@ -491,6 +499,7 @@ export function parseGraphTypeDescriptor(
   };
 }
 
+/** Resolve scalar descriptors for Graph/Edm types. */
 function getScalarDescriptor(typeName: string): ScalarTypeDescriptor {
   switch (typeName) {
     case "Edm.String":
@@ -509,6 +518,7 @@ function getScalarDescriptor(typeName: string): ScalarTypeDescriptor {
   }
 }
 
+/** Create a unique JS variable name for a people field. */
 function toPeopleFieldVarName(name: string, used: Set<string>): string {
   const identifier = toTsIdentifier(name);
   const base = identifier.length > 0 ? identifier[0]!.toLowerCase() + identifier.slice(1) : "value";

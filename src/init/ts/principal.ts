@@ -2,6 +2,7 @@ import type { PersonEntityField, SourceDescriptor } from "../shared-types.js";
 import { buildSourceLiteral } from "../helpers/source.js";
 import { buildPrincipalFieldEntries } from "../helpers/principal.js";
 
+/** Build a principal JSON expression for a single item. */
 export function buildTsPrincipalExpression(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor
@@ -16,6 +17,7 @@ export function buildTsPrincipalExpression(
   }\n})`;
 }
 
+/** Build a principal JSON expression for a collection of items. */
 export function buildTsPrincipalCollectionExpression(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor

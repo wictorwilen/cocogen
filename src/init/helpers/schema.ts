@@ -1,9 +1,11 @@
 import type { ConnectorIr, PropertyType } from "../../ir.js";
 
+/** Build the Graph base URL for the selected API version. */
 export function graphBaseUrl(ir: ConnectorIr): string {
   return `https://graph.microsoft.com/${ir.connection.graphApiVersion}`;
 }
 
+/** Create the external item schema payload for Graph provisioning. */
 export function schemaPayload(ir: ConnectorIr): unknown {
   return {
     baseType: "microsoft.graph.externalItem",
@@ -24,6 +26,7 @@ export function schemaPayload(ir: ConnectorIr): unknown {
   };
 }
 
+/** Map property types to Graph schema enum names. */
 export function toGraphPropertyTypeEnumName(type: PropertyType): string {
   switch (type) {
     case "string":
@@ -53,6 +56,7 @@ export function toGraphPropertyTypeEnumName(type: PropertyType): string {
   }
 }
 
+/** Map property types to OData collection type strings. */
 export function toOdataCollectionType(type: PropertyType): string | null {
   switch (type) {
     case "stringCollection":
@@ -70,6 +74,7 @@ export function toOdataCollectionType(type: PropertyType): string | null {
   }
 }
 
+/** Map property types to C# RowParser function names. */
 export function toCsParseFunction(type: PropertyType): string {
   switch (type) {
     case "stringCollection":
@@ -96,6 +101,7 @@ export function toCsParseFunction(type: PropertyType): string {
   }
 }
 
+/** Emit C# value expressions for schema payloads. */
 export function toCsPropertyValueExpression(type: PropertyType, csPropertyName: string): string {
   switch (type) {
     case "dateTime":

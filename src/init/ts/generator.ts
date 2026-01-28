@@ -1,7 +1,6 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { ConnectorIr } from "../../ir.js";
 import { PEOPLE_LABEL_DEFINITIONS } from "../../people/label-registry.js";
 import { graphProfileSchema } from "../../people/profile-schema.js";
 import {
@@ -24,7 +23,7 @@ import {
 } from "../people/graph-types.js";
 import { CoreGenerator, type GeneratorContext } from "../generators/core.js";
 import { removeIfExists } from "../helpers/fs.js";
-import { buildTsPersonEntityCollectionExpression, buildTsPersonEntityExpression, type TsPersonEntityTypeInfo, type TsPersonEntityTypeMap } from "./people-entity.js";
+import { buildTsPersonEntityCollectionExpression, buildTsPersonEntityExpression, type TsPersonEntityTypeInfo } from "./people-entity.js";
 import { buildTsPrincipalCollectionExpression, buildTsPrincipalExpression } from "./principal.js";
 import { applyTsValidationExpression, buildTsStringConstraintsLiteral } from "./validation.js";
 
@@ -33,6 +32,7 @@ export type TsGeneratorSettings = {
   tspPath: string;
 };
 
+/** Generates TypeScript connector scaffolds and generated files. */
 export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
   protected lang = "ts" as const;
 
@@ -40,10 +40,12 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
     super(context);
   }
 
+  /** Resolve the schema folder name for TS output. */
   private get schemaFolderName(): string {
     return toTsSchemaFolderName(this.ir.connection.connectionName);
   }
 
+  /** Write non-generated scaffolding files for a TS project. */
   async writeScaffold(): Promise<void> {
     const schemaFolderName = this.schemaFolderName;
     await mkdir(path.join(this.outDir, "src"), { recursive: true });
@@ -161,6 +163,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
     );
   }
 
+  /** Write generated TS files based on the IR. */
   async writeGenerated(): Promise<void> {
     const schemaFolderName = this.schemaFolderName;
 

@@ -1,5 +1,6 @@
 import type { PropertyType } from "../../ir.js";
 
+/** Build C# validation literals for string constraints. */
 export function buildCsStringConstraintsLiteral(prop: {
   minLength?: number;
   maxLength?: number;
@@ -18,6 +19,7 @@ export function buildCsStringConstraintsLiteral(prop: {
   return { minLength, maxLength, pattern, format, hasAny };
 }
 
+/** Build C# validation literals for number constraints. */
 export function buildCsNumberConstraintsLiteral(prop: { minValue?: number; maxValue?: number }): {
   minValue: string;
   maxValue: string;
@@ -29,6 +31,7 @@ export function buildCsNumberConstraintsLiteral(prop: { minValue?: number; maxVa
   return { minValue, maxValue, hasAny };
 }
 
+/** Wrap a C# parse expression with validation when constraints exist. */
 export function applyCsValidationExpression(
   prop: {
     name: string;

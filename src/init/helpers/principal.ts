@@ -1,5 +1,6 @@
 import type { PersonEntityField, SourceDescriptor } from "../shared-types.js";
 
+/** Resolve principal field entries from explicit mappings or fallback source. */
 export function buildPrincipalFieldEntries(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor

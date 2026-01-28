@@ -1,5 +1,6 @@
 import type { PropertyType } from "../ir.js";
 
+/** Map property types to TypeScript types used in templates. */
 export function toTsType(type: PropertyType): string {
   switch (type) {
     case "string":
@@ -27,6 +28,7 @@ export function toTsType(type: PropertyType): string {
   }
 }
 
+/** Map property types to C# types used in templates. */
 export function toCsType(type: PropertyType): string {
   switch (type) {
     case "string":
@@ -56,17 +58,20 @@ export function toCsType(type: PropertyType): string {
   }
 }
 
+/** Convert an arbitrary name into a C#-friendly identifier. */
 export function toCsIdentifier(name: string): string {
   const parts = name.split(/[_\-\s]+/g).filter(Boolean);
   const pascal = parts.map((part) => part.slice(0, 1).toUpperCase() + part.slice(1)).join("");
   return pascal || "Item";
 }
 
+/** Convert a name to PascalCase for C# symbols. */
 export function toCsPascal(name: string): string {
   if (!name) return "Value";
   return name.slice(0, 1).toUpperCase() + name.slice(1);
 }
 
+/** Choose a unique C# property name avoiding collisions. */
 export function toCsPropertyName(name: string, itemTypeName: string, used: Set<string>): string {
   const base = toCsIdentifier(name);
   const forbidden = itemTypeName.toLowerCase();
@@ -80,6 +85,7 @@ export function toCsPropertyName(name: string, itemTypeName: string, used: Set<s
   return candidate;
 }
 
+/** Convert an arbitrary name into a TypeScript identifier. */
 export function toTsIdentifier(name: string): string {
   const parts = name.split(/[^A-Za-z0-9]+/g).filter(Boolean);
   if (parts.length === 0) return "Item";
@@ -89,6 +95,7 @@ export function toTsIdentifier(name: string): string {
   return /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
 }
 
+/** Resolve a C# schema folder name from the connection name. */
 export function toSchemaFolderName(connectionName: string | undefined): string {
   const cleaned = (connectionName ?? "").trim();
   if (!cleaned) return "Schema";
@@ -96,6 +103,7 @@ export function toSchemaFolderName(connectionName: string | undefined): string {
   return candidate || "Schema";
 }
 
+/** Resolve a TS schema folder name from the connection name. */
 export function toTsSchemaFolderName(connectionName: string | undefined): string {
   const cleaned = (connectionName ?? "").trim();
   if (!cleaned) return "schema";
@@ -103,6 +111,7 @@ export function toTsSchemaFolderName(connectionName: string | undefined): string
   return candidate || "schema";
 }
 
+/** Normalize a project name into a C# namespace. */
 export function toCsNamespace(projectName: string): string {
   const cleaned = projectName
     .replaceAll(/[^A-Za-z0-9_\.\-\s]/g, "")

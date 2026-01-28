@@ -10,6 +10,7 @@ type JsonPathStep =
 
 type SerializedModel = NonNullable<ConnectorIr["properties"][number]["serialized"]>;
 
+/** Escape a CSV cell value when needed. */
 function csvEscape(value: string): string {
   if (value.includes("\n") || value.includes("\r") || value.includes(",") || value.includes("\"")) {
     return `"${value.replaceAll("\"", '""')}"`;
@@ -17,6 +18,7 @@ function csvEscape(value: string): string {
   return value;
 }
 
+/** Parse a JSONPath string into property/index steps. */
 function jsonPathToSteps(path: string): JsonPathStep[] {
   const trimmed = path.trim();
   if (!trimmed) return [];
@@ -156,6 +158,7 @@ function jsonPathToSteps(path: string): JsonPathStep[] {
   return splitSegments(raw).flatMap(parseSegment);
 }
 
+/** Set a nested value on an object using parsed JSONPath steps. */
 function setNestedValue(target: Record<string, unknown>, steps: JsonPathStep[], value: unknown): void {
   if (steps.length === 0) return;
   let cursor: unknown = target;
@@ -205,6 +208,7 @@ function setNestedValue(target: Record<string, unknown>, steps: JsonPathStep[], 
   }
 }
 
+/** Set a nested object value using dot-separated segments. */
 function setNestedObject(target: Record<string, unknown>, segments: string[], value: unknown): void {
   if (segments.length === 0) return;
   let cursor: Record<string, unknown> = target;
@@ -219,6 +223,7 @@ function setNestedObject(target: Record<string, unknown>, segments: string[], va
   cursor[segments[segments.length - 1]!] = value;
 }
 
+/** Return a representative string sample for a property type. */
 function sampleValueForType(type: PropertyType): string {
   switch (type) {
     case "boolean":
@@ -247,6 +252,7 @@ function sampleValueForType(type: PropertyType): string {
   }
 }
 
+/** Normalize example values into a string sample. */
 function exampleValueForType(example: unknown, type: PropertyType): string | undefined {
   if (example === undefined || example === null) return undefined;
 
@@ -263,6 +269,7 @@ function exampleValueForType(example: unknown, type: PropertyType): string | und
   return JSON.stringify(example);
 }
 
+/** Infer a sample string based on header keywords and type. */
 function sampleValueForHeader(header: string, type?: PropertyType): string {
   const lower = header.toLowerCase();
   if (lower.includes("job title")) return "Software Engineer";
@@ -283,6 +290,7 @@ function sampleValueForHeader(header: string, type?: PropertyType): string {
   return type ? sampleValueForType(type) : "sample";
 }
 
+/** Build a sample value for a principal field key. */
 function sampleValueForPrincipalKey(key: string, index = 0): string {
   const suffix = index > 0 ? index.toString() : "";
   const email = `user${suffix}@contoso.com`;
@@ -302,6 +310,7 @@ function sampleValueForPrincipalKey(key: string, index = 0): string {
   }
 }
 
+/** Build a sample principal object payload. */
 function buildSamplePrincipalObject(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor,
@@ -318,6 +327,7 @@ function buildSamplePrincipalObject(
   return principal;
 }
 
+/** Build a sample principal collection payload. */
 function buildSamplePrincipalCollection(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor
@@ -328,6 +338,7 @@ function buildSamplePrincipalCollection(
   ];
 }
 
+/** Build a sample person-entity object from field mappings. */
 function buildSamplePersonEntityObject(fields: PersonEntityField[], index = 0): Record<string, unknown> {
   const tree = buildObjectTree(fields);
   const valueByPath = new Map<string, string>();
@@ -356,6 +367,7 @@ function buildSamplePersonEntityObject(fields: PersonEntityField[], index = 0): 
   return renderNode(tree);
 }
 
+/** Build a JSON string (or list) for a person-entity payload sample. */
 function buildSamplePersonEntityPayload(fields: PersonEntityField[], isCollection: boolean): string | string[] {
   if (!isCollection) {
     return JSON.stringify(buildSamplePersonEntityObject(fields, 0));
@@ -368,6 +380,7 @@ function buildSamplePersonEntityPayload(fields: PersonEntityField[], isCollectio
   return objects.map((value) => JSON.stringify(value));
 }
 
+/** Normalize example values into JSON-friendly payload shapes. */
 function exampleValueForPayload(example: unknown, type: PropertyType): unknown {
   if (example === undefined || example === null) return undefined;
   if (type.endsWith("Collection")) {
@@ -380,6 +393,7 @@ function exampleValueForPayload(example: unknown, type: PropertyType): unknown {
   return example;
 }
 
+/** Return a JSON-typed sample value for a property type. */
 function sampleJsonValueForType(type: PropertyType): unknown {
   switch (type) {
     case "boolean":
@@ -408,6 +422,7 @@ function sampleJsonValueForType(type: PropertyType): unknown {
   }
 }
 
+/** Build a sample object for serialized payload models. */
 function buildSerializedSampleObject(model: SerializedModel): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const field of model.fields) {
@@ -419,6 +434,7 @@ function buildSerializedSampleObject(model: SerializedModel): Record<string, unk
   return result;
 }
 
+/** Build a serialized sample value, respecting collection types. */
 function buildSerializedSampleValue(model: SerializedModel, type: PropertyType): unknown {
   if (type === "stringCollection") {
     return [buildSerializedSampleObject(model), buildSerializedSampleObject(model)];
@@ -426,6 +442,7 @@ function buildSerializedSampleValue(model: SerializedModel, type: PropertyType):
   return buildSerializedSampleObject(model);
 }
 
+/** Build a sample payload value for a property type and entity fields. */
 function samplePayloadValueForType(
   type: PropertyType,
   fields: PersonEntityField[] | null,
@@ -458,6 +475,7 @@ function samplePayloadValueForType(
   }
 }
 
+/** Resolve principal entries for sample generation. */
 function buildPrincipalFieldEntries(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor
@@ -487,6 +505,7 @@ function buildPrincipalFieldEntries(
   return [];
 }
 
+/** Build a sample JSON item for a connector IR. */
 function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
   const item: Record<string, unknown> = {};
 
@@ -551,6 +570,7 @@ function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
   return item;
 }
 
+/** Build a two-line CSV sample for a connector IR. */
 function buildSampleCsv(ir: ConnectorIr): string {
   const headers: string[] = [];
   const seen = new Set<string>();
@@ -613,10 +633,12 @@ function buildSampleCsv(ir: ConnectorIr): string {
   return `${headerLine}\n${valueLine}\n`;
 }
 
+/** Build a JSON sample document for a connector IR. */
 function buildSampleJson(ir: ConnectorIr): string {
   return JSON.stringify([buildSampleItem(ir)], null, 2) + "\n";
 }
 
+/** Build a YAML sample document for a connector IR. */
 function buildSampleYaml(ir: ConnectorIr): string {
   const yaml = stringifyYaml([buildSampleItem(ir)]);
   return yaml.endsWith("\n") ? yaml : `${yaml}\n`;

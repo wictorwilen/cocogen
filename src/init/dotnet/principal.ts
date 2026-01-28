@@ -2,6 +2,7 @@ import type { PersonEntityField, SourceDescriptor } from "../shared-types.js";
 import { buildCsSourceLiteral } from "../helpers/source.js";
 import { buildPrincipalFieldEntries } from "../helpers/principal.js";
 
+/** Build a principal object expression for C# transforms. */
 export function buildCsPrincipalExpression(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor
@@ -52,6 +53,7 @@ export function buildCsPrincipalExpression(
   ].join("\n");
 }
 
+/** Build a principal collection expression for C# transforms. */
 export function buildCsPrincipalCollectionExpression(
   fields: PersonEntityField[] | null,
   fallbackSource: SourceDescriptor

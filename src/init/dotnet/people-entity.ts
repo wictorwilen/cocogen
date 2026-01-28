@@ -1,7 +1,9 @@
 import type { ConnectorIr } from "../../ir.js";
 import { buildObjectTree } from "../object-tree.js";
-import type { PersonEntityField, SourceDescriptor } from "../shared-types.js";
+import type { PersonEntityField } from "../shared-types.js";
 import { buildCsSourceLiteral } from "../helpers/source.js";
+import { collectPersonEntityFields, CS_INDENT } from "../helpers/people-entity.js";
+import { createCollectionRenderer } from "../people/entity-renderer.js";
 
 export type CsPersonEntityTypeInfo = {
   typeName: string;
@@ -25,36 +27,21 @@ type CollectionRenderers = {
   ) => string;
   renderCollectionNode: (
     node: Record<string, unknown>,
-    propCsType: string,
     level: number,
+    propCsType: string | null,
     elementInfo: CsPersonEntityTypeInfo | null
   ) => string;
   extractListElementType: (csType: string) => string | null;
   collectFields: (node: Record<string, unknown>) => PersonEntityField[];
 };
 
-const DEFAULT_INDENT_UNIT = "    ";
+const DEFAULT_INDENT_UNIT = CS_INDENT;
 
+/** Build shared renderers for C# people-entity collections. */
 function createCollectionRenderers(
   typeMap: CsPersonEntityTypeMap,
   indentUnit = DEFAULT_INDENT_UNIT
 ): CollectionRenderers {
-  const collectFields = (node: Record<string, unknown>): PersonEntityField[] => {
-    const collected: PersonEntityField[] = [];
-    const visit = (value: Record<string, unknown>): void => {
-      for (const entry of Object.values(value)) {
-        if (typeof entry === "object" && entry && "path" in (entry as PersonEntityField)) {
-          collected.push(entry as PersonEntityField);
-          continue;
-        }
-        if (typeof entry === "object" && entry && !Array.isArray(entry)) {
-          visit(entry as Record<string, unknown>);
-        }
-      }
-    };
-    visit(node);
-    return collected;
-  };
 
   const extractListElementType = (csType: string): string | null => {
     const trimmed = csType.replace("?", "");
@@ -62,132 +49,90 @@ function createCollectionRenderers(
     return match ? match[1]! : null;
   };
 
+  const collectionRenderer = createCollectionRenderer<CsPersonEntityTypeInfo, { csName: string; csType: string }>({
+    indentUnit,
+    getPropInfo: (info, key) => info?.properties.get(key) ?? null,
+    getPropType: (propInfo) => propInfo.csType,
+    isCollectionType: (propType) => extractListElementType(propType) !== null,
+    getNestedInfo: (propType) => {
+      const listElement = extractListElementType(propType);
+      if (listElement) {
+        return typeMap.get(listElement) ?? null;
+      }
+      return typeMap.get(propType.replace("?", "")) ?? null;
+    },
+    buildEntry: ({ key, value, level, info, propInfo }) => {
+      const childIndent = indentUnit.repeat(level + 1);
+      if (!info) {
+        return `${childIndent}[${JSON.stringify(key)}] = ${value}`;
+      }
+      if (!propInfo) {
+        return null;
+      }
+      return `${childIndent}${propInfo.csName} = ${value}`;
+    },
+    wrapObject: (entries, level, info) => {
+      const indent = indentUnit.repeat(level);
+      if (!info) {
+        return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
+      }
+      return `new ${info.typeName}\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
+    },
+    formatNestedValue: (value) => value,
+  });
+
   const renderNodeForCollection = (
     node: Record<string, unknown>,
     level: number,
     valueVar: string,
     info: CsPersonEntityTypeInfo | null
-  ): string => {
-    const indent = indentUnit.repeat(level);
-    const childIndent = indentUnit.repeat(level + 1);
-    const entries = Object.entries(node).map(([key, value]) => {
-      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
-        const propType = info?.properties.get(key)?.csType ?? null;
+  ): string =>
+    collectionRenderer.renderNodeForCollection(
+      node,
+      level,
+      valueVar,
+      info,
+      renderCollectionNode,
+      (propType, value) => {
         const listElement = propType ? extractListElementType(propType) : null;
         if (listElement === "string") {
-          return `${childIndent}[${JSON.stringify(key)}] = new List<string> { ${valueVar} }`;
+          return `new List<string> { ${value} }`;
         }
-        return `${childIndent}[${JSON.stringify(key)}] = ${valueVar}`;
+        return value;
       }
-      const propType = info?.properties.get(key)?.csType ?? null;
-      const listElement = propType ? extractListElementType(propType) : null;
-      if (listElement) {
-        const elementInfo = typeMap.get(listElement) ?? null;
-        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, propType ?? "", level + 1, elementInfo);
-        return `${childIndent}[${JSON.stringify(key)}] = ${renderedCollection}`;
-      }
-      const nestedType = propType ? typeMap.get(propType.replace("?", "")) ?? null : null;
-      const renderedChild = renderNodeForCollection(value as Record<string, unknown>, level + 1, valueVar, nestedType);
-      return `${childIndent}[${JSON.stringify(key)}] = ${renderedChild}`;
-    });
-
-    if (!info) {
-      return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
-    }
-
-    const typedEntries = Object.entries(node)
-      .map(([key, value]) => {
-        const propInfo = info.properties.get(key);
-        if (!propInfo) {
-          return null;
-        }
-        if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
-          return `${childIndent}${propInfo.csName} = ${valueVar}`;
-        }
-        const nestedType = typeMap.get(propInfo.csType.replace("?", "")) ?? null;
-        const renderedChild = renderNodeForCollection(value as Record<string, unknown>, level + 1, valueVar, nestedType);
-        return `${childIndent}${propInfo.csName} = ${renderedChild}`;
-      })
-      .filter((entry): entry is string => Boolean(entry));
-
-    return `new ${info.typeName}\n${indent}{\n${typedEntries.join(",\n")}\n${indent}}`;
-  };
+    );
 
   const renderNodeForCollectionMany = (
     node: Record<string, unknown>,
     level: number,
     info: CsPersonEntityTypeInfo | null,
     fieldVarByPath: Map<string, string>
-  ): string => {
-    const indent = indentUnit.repeat(level);
-    const childIndent = indentUnit.repeat(level + 1);
-    const entries = Object.entries(node).map(([key, value]) => {
-      if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
-        const field = value as PersonEntityField;
-        const varName = fieldVarByPath.get(field.path) ?? "";
-        const propType = info?.properties.get(key)?.csType ?? null;
+  ): string =>
+    collectionRenderer.renderNodeForCollectionMany(
+      node,
+      level,
+      info,
+      fieldVarByPath,
+      renderCollectionNode,
+      (propType, value) => {
         const listElement = propType ? extractListElementType(propType) : null;
         if (listElement === "string") {
-          return `${childIndent}[${JSON.stringify(key)}] = GetCollectionValue(${varName}, index)`;
+          return `GetCollectionValue(${value}, index)`;
         }
-        return `${childIndent}[${JSON.stringify(key)}] = GetValue(${varName}, index)`;
+        return `GetValue(${value}, index)`;
       }
-      const propType = info?.properties.get(key)?.csType ?? null;
-      const listElement = propType ? extractListElementType(propType) : null;
-      if (listElement) {
-        const elementInfo = typeMap.get(listElement) ?? null;
-        const renderedCollection = renderCollectionNode(value as Record<string, unknown>, propType ?? "", level + 1, elementInfo);
-        return `${childIndent}[${JSON.stringify(key)}] = ${renderedCollection}`;
-      }
-      const nestedType = propType ? typeMap.get(propType.replace("?", "")) ?? null : null;
-      const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, level + 1, nestedType, fieldVarByPath);
-      return `${childIndent}[${JSON.stringify(key)}] = ${renderedChild}`;
-    });
-
-    if (!info) {
-      return `new Dictionary<string, object?>\n${indent}{\n${entries.join(",\n")}\n${indent}}`;
-    }
-
-    const typedEntries = Object.entries(node)
-      .map(([key, value]) => {
-        const propInfo = info.properties.get(key);
-        if (!propInfo) {
-          return null;
-        }
-        if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
-          const field = value as PersonEntityField;
-          const varName = fieldVarByPath.get(field.path) ?? "";
-          const listElement = extractListElementType(propInfo.csType);
-          if (listElement === "string") {
-            return `${childIndent}${propInfo.csName} = GetCollectionValue(${varName}, index)`;
-          }
-          return `${childIndent}${propInfo.csName} = GetValue(${varName}, index)`;
-        }
-        const listElement = extractListElementType(propInfo.csType);
-        if (listElement) {
-          const elementInfo = typeMap.get(listElement) ?? null;
-          const renderedCollection = renderCollectionNode(value as Record<string, unknown>, propInfo.csType, level + 1, elementInfo);
-          return `${childIndent}${propInfo.csName} = ${renderedCollection}`;
-        }
-        const nestedType = typeMap.get(propInfo.csType.replace("?", "")) ?? null;
-        const renderedChild = renderNodeForCollectionMany(value as Record<string, unknown>, level + 1, nestedType, fieldVarByPath);
-        return `${childIndent}${propInfo.csName} = ${renderedChild}`;
-      })
-      .filter((entry): entry is string => Boolean(entry));
-
-    return `new ${info.typeName}\n${indent}{\n${typedEntries.join(",\n")}\n${indent}}`;
-  };
+    );
 
   const renderCollectionNode = (
     node: Record<string, unknown>,
-    propCsType: string,
     level: number,
+    propCsType: string | null,
     elementInfo: CsPersonEntityTypeInfo | null
   ): string => {
     const indent = indentUnit.repeat(level);
     const bodyIndent = indentUnit.repeat(level + 1);
-    const elementType = extractListElementType(propCsType) ?? "object";
-    const collected = collectFields(node);
+    const elementType = propCsType ? extractListElementType(propCsType) ?? "object" : "object";
+    const collected = collectPersonEntityFields(node);
     if (collected.length === 0) return "null";
 
     if (!elementInfo && elementType === "string") {
@@ -225,10 +170,11 @@ function createCollectionRenderers(
     renderNodeForCollectionMany,
     renderCollectionNode,
     extractListElementType,
-    collectFields,
+    collectFields: collectPersonEntityFields,
   };
 }
 
+/** Build a C# object expression for a person-entity payload. */
 export function buildCsPersonEntityObjectExpression(
   fields: PersonEntityField[],
   fieldValueBuilder: (field: PersonEntityField) => string,
@@ -244,8 +190,6 @@ export function buildCsPersonEntityObjectExpression(
   const indentUnit = DEFAULT_INDENT_UNIT;
   const {
     renderCollectionNode,
-    renderNodeForCollection,
-    renderNodeForCollectionMany,
     extractListElementType,
   } = createCollectionRenderers(typeMap, indentUnit);
 
@@ -270,7 +214,7 @@ export function buildCsPersonEntityObjectExpression(
       if (info && extractListElementType(info.csType)) {
         const elementTypeName = extractListElementType(info.csType) ?? "";
         const nestedType = typeMap.get(elementTypeName) ?? null;
-        const renderedValue = renderCollectionNode(value as Record<string, unknown>, info.csType, level + 1, nestedType);
+        const renderedValue = renderCollectionNode(value as Record<string, unknown>, level + 1, info.csType, nestedType);
         return `${childIndent}[${JSON.stringify(key)}] = ${renderedValue}`;
       }
       const typeName = info?.csType.replace("?", "") ?? "";
@@ -310,7 +254,7 @@ export function buildCsPersonEntityObjectExpression(
           return `${childIndent}${propInfo.csName} = ${fieldValueBuilder(field)}`;
         }
         const nestedType = typeMap.get(listElement) ?? null;
-        const renderedValue = renderCollectionNode(value as Record<string, unknown>, propInfo.csType, level + 1, nestedType);
+        const renderedValue = renderCollectionNode(value as Record<string, unknown>, level + 1, propInfo.csType, nestedType);
         return `${childIndent}${propInfo.csName} = ${renderedValue}`;
       }
       const typeName = propInfo.csType.replace("?", "");
@@ -336,6 +280,7 @@ export function buildCsPersonEntityObjectExpression(
   return renderTypedNode(tree, typeInfo, indentLevel);
 }
 
+/** Build a C# JSON string expression for a person-entity object. */
 export function buildCsPersonEntityExpression(
   fields: PersonEntityField[],
   valueExpressionBuilder: (sourceLiteral: string) => string = (sourceLiteral) =>
@@ -358,6 +303,7 @@ export function buildCsPersonEntityExpression(
   return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${objectExpression}\n${indentUnit.repeat(2)})`;
 }
 
+/** Build a C# JSON string list expression for person-entity collections. */
 export function buildCsPersonEntityCollectionExpression(
   fields: PersonEntityField[],
   collectionExpressionBuilder: (sourceLiteral: string) => string = (sourceLiteral) =>
@@ -417,7 +363,6 @@ export function buildCsPersonEntityCollectionExpression(
   }
 
   if (fields.length === 1) {
-    const tree = buildObjectTree(fields);
     const field = fields[0]!;
     const sourceLiteral = buildCsSourceLiteral(field.source);
     const objectExpression = buildCsPersonEntityObjectExpression(

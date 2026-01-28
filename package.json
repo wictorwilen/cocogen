@@ -41,6 +41,7 @@
     "prepublishOnly": "npm run build && node ./scripts/update-changelog.mjs",
     "update-graph-profile-schema": "tsx scripts/update-graph-profile-schema.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit --noUnusedLocals --noUnusedParameters",
     "pretest": "npm run typecheck && npm run build",
     "test": "vitest run",
     "test:coverage": "vitest run tests/unit --coverage",

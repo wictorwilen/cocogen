@@ -4,11 +4,13 @@ import { fileURLToPath } from "node:url";
 
 import ejs from "ejs";
 
+/** Resolve the on-disk templates root for runtime rendering. */
 function templatesRootDir(): string {
   // Works both from src (ts-node/dev) and from dist (compiled).
   return path.join(path.dirname(fileURLToPath(import.meta.url)), "templates");
 }
 
+/** Render an EJS template from the init templates directory. */
 export async function renderTemplate(
   relativePath: string,
   data: Record<string, unknown>

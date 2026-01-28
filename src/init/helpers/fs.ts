@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readdir, unlink } from "node:fs/promises";
 import path from "node:path";
 
+/** Remove a file if it exists; ignore missing files. */
 export async function removeIfExists(filePath: string): Promise<void> {
   try {
     await unlink(filePath);
@@ -10,6 +11,7 @@ export async function removeIfExists(filePath: string): Promise<void> {
   }
 }
 
+/** Ensure output directory exists and is empty unless forced. */
 export async function ensureEmptyDir(outDir: string, force: boolean): Promise<void> {
   await mkdir(outDir, { recursive: true });
   const entries = await readdir(outDir);
@@ -20,6 +22,7 @@ export async function ensureEmptyDir(outDir: string, force: boolean): Promise<vo
   }
 }
 
+/** Copy the TypeSpec schema into the output directory. */
 export async function updateSchemaCopy(outDir: string, tspPath: string): Promise<void> {
   await copyFile(tspPath, path.join(outDir, "schema.tsp"));
 }

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Refactored init generation into shared core and language-specific generator modules for TS and .NET.
 - Consolidated people-entity collection rendering to reuse shared renderers (TS + .NET) for multi-field paths.
+- Added a TypeScript lint script that reports unused locals/parameters.
 
 ### Fixed
 - Generated TS property transform base now indents multi-line expressions consistently.

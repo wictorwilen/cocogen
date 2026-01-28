@@ -242,7 +242,6 @@ export async function main(argv: string[]): Promise<void> {
           return;
         }
 
-        const summary = `${errors.length} error(s), ${warnings.length} warning(s)`;
         if (errors.length === 0 && warnings.length === 0) {
           spinner?.succeed(`Valid ✅ (${ir.item.typeName})`);
           if (!spinner) process.stdout.write(`${pc.green("ok")}: Valid (${ir.item.typeName})\n`);

@@ -1,5 +1,6 @@
 import type { PropertyType } from "../../ir.js";
 
+/** Build a TS validation options literal for string constraints. */
 export function buildTsStringConstraintsLiteral(prop: {
   minLength?: number;
   maxLength?: number;
@@ -14,6 +15,7 @@ export function buildTsStringConstraintsLiteral(prop: {
   return parts.length > 0 ? `{ ${parts.join(", ")} }` : undefined;
 }
 
+/** Build a TS validation options literal for number constraints. */
 export function buildTsNumberConstraintsLiteral(prop: { minValue?: number; maxValue?: number }): string | undefined {
   const parts: string[] = [];
   if (prop.minValue !== undefined) parts.push(`minValue: ${prop.minValue}`);
@@ -21,6 +23,7 @@ export function buildTsNumberConstraintsLiteral(prop: { minValue?: number; maxVa
   return parts.length > 0 ? `{ ${parts.join(", ")} }` : undefined;
 }
 
+/** Wrap a parse expression with validation when constraints exist. */
 export function applyTsValidationExpression(
   prop: {
     name: string;

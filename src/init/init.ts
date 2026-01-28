@@ -38,6 +38,7 @@ export type UpdateOptions = {
   usePreviewFeatures?: boolean;
 };
 
+/** Build the REST connection payload from the IR. */
 function buildRestConnectionPayload(ir: ConnectorIr): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     id: ir.connection.connectionId ?? "connection-id",
@@ -50,6 +51,7 @@ function buildRestConnectionPayload(ir: ConnectorIr): Record<string, unknown> {
   return payload;
 }
 
+/** Build the REST item payload from the IR and item id. */
 function buildRestItemPayload(ir: ConnectorIr, itemId: string): Record<string, unknown> {
   const properties: Record<string, unknown> = {};
   for (const prop of ir.properties) {
@@ -91,6 +93,7 @@ function buildRestItemPayload(ir: ConnectorIr, itemId: string): Record<string, u
   return payload;
 }
 
+/** Write REST sample request files for a generated project. */
 async function writeRestFiles(outDir: string, ir: ConnectorIr): Promise<void> {
   const connectionId = ir.connection.connectionId ?? "connection-id";
   const connectionPayloadJson = JSON.stringify(buildRestConnectionPayload(ir), null, 2);
@@ -160,6 +163,7 @@ async function writeRestFiles(outDir: string, ir: ConnectorIr): Promise<void> {
   }
 }
 
+/** Format validation errors into a single error message. */
 function formatValidationErrors(ir: ConnectorIr): string {
   const issues = validateIr(ir);
   const errors = issues.filter((i) => i.severity === "error");
@@ -170,6 +174,7 @@ function formatValidationErrors(ir: ConnectorIr): string {
     .join("\n");
 }
 
+/** Update an existing TS project from a schema. */
 export async function updateTsProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
@@ -208,6 +213,7 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
   return { outDir, ir };
 }
 
+/** Update an existing .NET project from a schema. */
 export async function updateDotnetProject(
   options: UpdateOptions
 ): Promise<{ outDir: string; ir: ConnectorIr }> {
@@ -248,6 +254,7 @@ export async function updateDotnetProject(
   return { outDir, ir };
 }
 
+/** Update an existing REST project from a schema. */
 export async function updateRestProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
@@ -280,6 +287,7 @@ export async function updateRestProject(options: UpdateOptions): Promise<{ outDi
   return { outDir, ir };
 }
 
+/** Update an existing project based on its cocogen config. */
 export async function updateProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
@@ -292,6 +300,7 @@ export async function updateProject(options: UpdateOptions): Promise<{ outDir: s
   return updateTsProject(options);
 }
 
+/** Initialize a REST-only project from a schema. */
 export async function initRestProject(options: InitOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
   const outDir = path.resolve(options.outDir);
   await ensureEmptyDir(outDir, Boolean(options.force));
@@ -317,6 +326,7 @@ export async function initRestProject(options: InitOptions): Promise<{ outDir: s
   return { outDir, ir };
 }
 
+/** Initialize a TS project from a schema. */
 export async function initTsProject(options: InitOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
   const outDir = path.resolve(options.outDir);
   await ensureEmptyDir(outDir, Boolean(options.force));
@@ -354,6 +364,7 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
   return { outDir, ir };
 }
 
+/** Initialize a .NET project from a schema. */
 export async function initDotnetProject(
   options: InitOptions
 ): Promise<{ outDir: string; ir: ConnectorIr }> {
