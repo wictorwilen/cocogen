@@ -11,7 +11,7 @@ using coco;
 @coco.item()
 model Ticket {
   @coco.id
-  @coco.description("Stable identifier for the ticket (unique within the source system).")
+  @coco.schemaDescription("Stable identifier for the ticket (unique within the source system).")
   @doc("Ticket ID in the source system.")
   @example("TCK-1001")
   @pattern("^TCK-[0-9]+$")
@@ -20,7 +20,7 @@ model Ticket {
   ticketId: string;
 
   @coco.label("title")
-  @coco.description("Short title shown in search results.")
+  @coco.schemaDescription("Short title shown in search results.")
   @doc("One-line title for the ticket.")
   @example("Password reset not working")
   @minLength(4)
@@ -28,13 +28,13 @@ model Ticket {
   @coco.search({ searchable: true, retrievable: true })
   title: string;
 
-  @coco.description("Current state of the ticket (used for filtering/refiners).")
+  @coco.schemaDescription("Current state of the ticket (used for filtering/refiners).")
   @example("open")
   @coco.search({ retrievable: true, refinable: true })
   status: string;
 
   @coco.label("url")
-  @coco.description("Canonical link to the ticket in the source system.")
+  @coco.schemaDescription("Canonical link to the ticket in the source system.")
   @format("uri")
   @example("https://support.contoso.com/tickets/TCK-1001")
   @coco.search({ retrievable: true })
@@ -50,7 +50,7 @@ model Ticket {
   legacyNote: string;
 
   @coco.label("createdDateTime")
-  @coco.description("Timestamp when the ticket was created in the source system.")
+  @coco.schemaDescription("Timestamp when the ticket was created in the source system.")
   @coco.search({ retrievable: true })
   createdAt: utcDateTime;
 }

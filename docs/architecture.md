@@ -129,7 +129,8 @@ Microsoft Graph connector schema is a **flat** property list (not nested). TypeS
 - `@coco.label("title" | "url" | ... )` on a property: maps to Graph `labels`.
 - `@coco.aliases("...")` repeatable: maps to Graph `aliases`.
 - `@coco.search({ searchable?: boolean, queryable?: boolean, retrievable?: boolean, refinable?: boolean, exactMatchRequired?: boolean })`
-- `@coco.description("...")`: maps to Graph schema property `description` (and may also be used for generated help/docs).
+- `@coco.schemaDescription("...")`: maps to Graph schema property `description` (and may also be used for generated help/docs).
+- `@coco.description("...")`: deprecated alias (will be removed in 1.1).
 - `@coco.content({ type?: "text" | "html" })` on a property: marks full-text source for `externalItem.content`.
 Input format is selected at generation time via CLI:
   - `cocogen generate --data-format csv|json|yaml|rest|custom`
@@ -177,8 +178,8 @@ Note:
 Notes:
 - Graph schema property names must be alphanumeric, max 32 chars. If TypeSpec name violates rules, generator requires `@coco.name("...")`.
 - Graph schema properties support a `description` field; `cocogen` MUST emit it.
-  - Default source: `@coco.description("...")`.
-  - If missing, `cocogen` SHOULD fall back to the TypeSpec doc comment (if present) as the schema property description.
+  - Default source: `@coco.schemaDescription("...")`.
+  - If missing, `cocogen` SHOULD fall back to the TypeSpec `@description("...")` decorator as the schema property description.
 
 ### 5.3 Type mapping
 TypeSpec → Graph `propertyType` mapping (initial):

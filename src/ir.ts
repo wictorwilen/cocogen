@@ -54,6 +54,7 @@ export type ConnectorIr = {
     name: string;
     type: PropertyType;
     description?: string;
+    descriptionSource?: "coco.schemaDescription" | "coco.description" | "typespec.description";
     doc?: string;
     example?: unknown;
     format?: string;

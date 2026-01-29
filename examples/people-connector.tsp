@@ -17,7 +17,7 @@ using coco;
 model PersonProfile {
   @coco.id
   @coco.label("personAccount")
-  @coco.description("Unique identifier for this person profile.")
+  @coco.schemaDescription("Unique identifier for this person profile.")
     @doc("User principal name used to identify the person.")
     @example("alex@contoso.com")
     @format("email")
@@ -25,7 +25,7 @@ model PersonProfile {
   userPrincipalName: string;
 
   @coco.label("personName")
-  @coco.description("Preferred display name for this person.")
+  @coco.schemaDescription("Preferred display name for this person.")
     @doc("Display name shown in people search results.")
     @example("Alex Wilber")
     @minLength(2)
@@ -34,7 +34,7 @@ model PersonProfile {
   displayName: string;
 
   @coco.label("personCurrentPosition")
-  @coco.description("Current work position mapped from source fields.")
+  @coco.schemaDescription("Current work position mapped from source fields.")
     @example("Senior Software Engineer")
   @coco.source("job title", "detail.jobTitle")
   @coco.source("company", "detail.company.displayName")
@@ -42,32 +42,32 @@ model PersonProfile {
   workPosition: string;
 
   @coco.label("personEmails")
-  @coco.description("Email addresses associated with this person.")
+  @coco.schemaDescription("Email addresses associated with this person.")
     @example(#["alex@contoso.com", "alex.wilber@contoso.com"])
   @coco.source("email", "address")
   @coco.source("email type", "type")
   emails: string[];
 
   @coco.label("personPhones")
-  @coco.description("Phone numbers associated with this person.")
+  @coco.schemaDescription("Phone numbers associated with this person.")
   @coco.source("phone", "number")
   @coco.source("phone type", "type")
   phones: string[];
 
   @coco.label("personNote")
-  @coco.description("Short bio or summary for this person.")
+  @coco.schemaDescription("Short bio or summary for this person.")
     @example("Customer success leader based in Seattle.")
   @coco.source("bio", "detail")
   bio: string;
 
   // Example of a principal field for ACL-like data (schema propertyType=principal).
   // NOTE: This is NOT a people-domain labeled property.
-  @coco.description("Manager identity for this person.")
+  @coco.schemaDescription("Manager identity for this person.")
   manager: coco.Principal;
 
   // Example of a principal collection (schema propertyType=principalCollection).
   // NOTE: This is NOT a people-domain labeled property.
-  @coco.description("Delegated approvers for this person.")
+  @coco.schemaDescription("Delegated approvers for this person.")
   @coco.source("approver upn", "userPrincipalName")
   @coco.source("approver tenant", "tenantId")
   approvers: coco.Principal[];

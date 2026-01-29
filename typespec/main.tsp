@@ -7,6 +7,9 @@ import "./tsp-index.js";
 
 using TypeSpec.Reflection;
 
+// Global schema description decorator (used as fallback when @coco.schemaDescription is absent).
+extern dec description(target: ModelProperty, value: string);
+
 namespace coco {
   model ConnectionSettings {
     contentCategory?: ContentCategory;
@@ -108,6 +111,9 @@ namespace coco {
   extern dec aliases(target: ModelProperty, value: string);
 
   // Schema property description (emitted to Microsoft Graph schema property.description).
+  extern dec schemaDescription(target: ModelProperty, value: string);
+
+  // Schema property description (deprecated alias for schemaDescription; will be removed in 1.1).
   extern dec description(target: ModelProperty, value: string);
 
   // Field rename for Graph schema constraints.

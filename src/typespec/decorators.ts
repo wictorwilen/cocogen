@@ -14,7 +14,9 @@ import {
   COCOGEN_STATE_ID_SETTINGS,
   COCOGEN_STATE_ITEM_MODELS,
   COCOGEN_STATE_PROPERTY_ALIASES,
-  COCOGEN_STATE_PROPERTY_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_TYPESPEC_DESCRIPTIONS,
   COCOGEN_STATE_PROPERTY_LABELS,
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_SEARCH,
@@ -119,12 +121,32 @@ export function $aliases(context: DecoratorContext, target: ModelProperty, value
   pushArrayValue(context.program.stateMap(COCOGEN_STATE_PROPERTY_ALIASES), target, text);
 }
 
+export function $schemaDescription(context: DecoratorContext, target: ModelProperty, value: string): void {
+  if (!isModelProperty(target)) return;
+  const text = unwrapValue<string>(value);
+  if (typeof text !== "string") return;
+  context.program.stateMap(COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS).set(target, text);
+}
+
 export function $description(context: DecoratorContext, target: ModelProperty, value: string): void {
   if (!isModelProperty(target)) return;
   const text = unwrapValue<string>(value);
   if (typeof text !== "string") return;
-  context.program.stateMap(COCOGEN_STATE_PROPERTY_DESCRIPTIONS).set(target, text);
+  context.program.stateMap(COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS).set(target, text);
 }
+
+export function $typespecDescription(context: DecoratorContext, target: ModelProperty, value: string): void {
+  if (!isModelProperty(target)) return;
+  const text = unwrapValue<string>(value);
+  if (typeof text !== "string") return;
+  context.program.stateMap(COCOGEN_STATE_PROPERTY_TYPESPEC_DESCRIPTIONS).set(target, text);
+}
+
+export const $decorators = {
+  "": {
+    description: $typespecDescription,
+  },
+};
 
 export function $name(context: DecoratorContext, target: ModelProperty, value: string): void {
   if (!isModelProperty(target)) return;
@@ -236,6 +258,7 @@ setTypeSpecNamespace(
   $id,
   $label,
   $aliases,
+  $schemaDescription,
   $description,
   $name,
   $connection,

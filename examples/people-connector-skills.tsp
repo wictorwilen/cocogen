@@ -17,20 +17,20 @@ using coco;
 model PersonProfile {
   @coco.id
   @coco.label("personAccount")
-  @coco.description("Unique identifier for this person profile.")
+  @coco.schemaDescription("Unique identifier for this person profile.")
   @example("jordan@contoso.com")
   @format("email")
   @coco.source("upn", "userPrincipalName")
   userPrincipalName: string;
 
   @coco.label("personName")
-  @coco.description("Preferred display name for this person.")
+  @coco.schemaDescription("Preferred display name for this person.")
   @example("Jordan Kent")
   @coco.source("displayName", "displayName")
   displayName: string;
 
   @coco.label("personSkills")
-  @coco.description("Skills mapped into skillProficiency entities.")
+  @coco.schemaDescription("Skills mapped into skillProficiency entities.")
   @example(#["TypeScript", "C#", "Azure"])
   @coco.source("skill", "displayName")
   @coco.source("proficiency", "proficiency")

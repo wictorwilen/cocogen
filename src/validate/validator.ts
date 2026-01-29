@@ -62,6 +62,14 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
 
   const seenNames = new Set<string>();
   for (const prop of ir.properties) {
+    if (prop.descriptionSource === "coco.description") {
+      issues.push({
+        severity: "warning",
+        message: `@coco.description on property '${prop.name}' is deprecated and will be removed in 1.1.`,
+        hint: "Use @coco.schemaDescription instead.",
+      });
+    }
+
     if (seenNames.has(prop.name)) {
       issues.push({
         severity: "error",
@@ -240,7 +248,7 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         issues.push({
           severity: "error",
           message: `@coco.content property '${contentProp.name}' cannot have a description.`,
-          hint: "Remove @coco.description from the content property.",
+          hint: "Remove @coco.schemaDescription, legacy @coco.description, or TypeSpec @description from the content property.",
         });
       }
       if (hasSearchFlags(contentProp.search)) {

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- `@coco.schemaDescription` for Graph schema property descriptions (preferred over `@coco.description`) to avoid naming collisions with the default TypeSpec `@description`.
+- Validation warning when `@coco.description` is used (deprecated alias).
+
+### Changed
+- Schema description fallback now uses TypeSpec `@description` instead of doc comments.
 
 ## [1.0.34] - 2026-01-29
 ### Added

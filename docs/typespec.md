@@ -189,11 +189,15 @@ People payloads:
 
 Adds Graph schema property aliases. Can be repeated.
 
-### `@coco.description("...")`
+### `@coco.schemaDescription("...")`
 
 Sets the Graph schema property description.
 
-If omitted, `cocogen` will also consider the TypeSpec doc comment on the property.
+If omitted, `cocogen` falls back to the TypeSpec `@description("...")` decorator on the property.
+
+### `@coco.description("...")` (deprecated)
+
+Deprecated alias for `@coco.schemaDescription`. This will be removed in 1.1; `cocogen validate` emits a warning when used.
 
 ## Standard TypeSpec decorators supported
 
@@ -205,7 +209,12 @@ Note: do NOT add `using TypeSpec;` and do NOT use `@TypeSpec.*`. Use unqualified
 
 - Model-level docs are emitted into generated model files.
 - Property-level docs are emitted into generated model files.
-- If `@coco.description` is missing, the doc comment is also used for the Graph schema description.
+- Doc comments do not populate the Graph schema description; use `@coco.schemaDescription` or `@description`.
+
+### `@description("...")`
+
+- Used as the schema description fallback when `@coco.schemaDescription` is absent.
+- When both are present, `@coco.schemaDescription` controls the Graph schema, and `@description` is preserved for generated docs.
 
 ### `@example(...)`
 
@@ -394,7 +403,7 @@ Marks a full-text content field, emitted as `externalItem.content.value` during 
 
 Rules:
 - The content property must be `string`.
-- The content property cannot use `@coco.label`, `@coco.aliases`, `@coco.description`, or `@coco.search`.
+- The content property cannot use `@coco.label`, `@coco.aliases`, `@coco.schemaDescription` (or legacy `@coco.description`), or `@coco.search`.
 - People connectors (`contentCategory: "people"`) must not use `@coco.content`.
 - If multiple `@coco.source` entries are applied to the content property, the generated transform builds content as:
   - **text**: `label: value` lines joined by `\n`.

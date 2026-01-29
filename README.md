@@ -57,17 +57,17 @@ using coco;
 @coco.item()
 model Product {
 	@coco.id
-	@coco.description("Unique product identifier.")
+	@coco.schemaDescription("Unique product identifier.")
 	@coco.search({ queryable: true, retrievable: true })
 	productId: string;
 
 	@coco.label("title")
-	@coco.description("Display name shown in search results.")
+	@coco.schemaDescription("Display name shown in search results.")
 	@coco.search({ searchable: true, retrievable: true })
 	name: string;
 
 	@coco.label("url")
-	@coco.description("Canonical product page URL.")
+	@coco.schemaDescription("Canonical product page URL.")
 	@coco.search({ retrievable: true })
 	url: string;
 

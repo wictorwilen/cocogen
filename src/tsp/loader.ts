@@ -35,7 +35,9 @@ import {
   COCOGEN_STATE_ID_PROPERTIES,
   COCOGEN_STATE_ITEM_MODELS,
   COCOGEN_STATE_PROPERTY_ALIASES,
-  COCOGEN_STATE_PROPERTY_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_TYPESPEC_DESCRIPTIONS,
   COCOGEN_STATE_PROPERTY_LABELS,
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_SEARCH,
@@ -303,18 +305,54 @@ function getSerializedModel(program: Program, prop: ModelProperty): {
   };
 }
 
-function getDescription(program: Program, prop: ModelProperty): string | undefined {
-  const fromDecorator = program.stateMap(COCOGEN_STATE_PROPERTY_DESCRIPTIONS).get(prop) as string | undefined;
+type SchemaDescriptionSource = "coco.schemaDescription" | "coco.description" | "typespec.description";
+
+function getTypeSpecDescription(program: Program, prop: ModelProperty): string | undefined {
+  const fromDecorator = program.stateMap(COCOGEN_STATE_PROPERTY_TYPESPEC_DESCRIPTIONS).get(prop) as
+    | string
+    | undefined;
   if (fromDecorator && fromDecorator.trim().length > 0) return fromDecorator;
 
-  const fromDoc = getDoc(program, prop);
-  if (fromDoc && fromDoc.trim().length > 0) return fromDoc;
-
+  if (!prop.decorators || prop.decorators.length === 0) return undefined;
+  for (const decorator of prop.decorators) {
+    const definition = decorator.definition;
+    if (!definition || definition.name !== "@description") continue;
+    if (definition.namespace?.name === "coco") continue;
+    const arg = decorator.args?.[0];
+    const text = typeof arg?.jsValue === "string" ? arg.jsValue.trim() : "";
+    if (text.length > 0) return text;
+  }
   return undefined;
 }
 
+function getSchemaDescription(
+  program: Program,
+  prop: ModelProperty
+): { text?: string; source?: SchemaDescriptionSource } {
+  const fromSchemaDecorator = program.stateMap(COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS).get(prop) as
+    | string
+    | undefined;
+  if (fromSchemaDecorator && fromSchemaDecorator.trim().length > 0) {
+    return { text: fromSchemaDecorator, source: "coco.schemaDescription" };
+  }
+
+  const fromLegacyDecorator = program.stateMap(COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS).get(prop) as
+    | string
+    | undefined;
+  if (fromLegacyDecorator && fromLegacyDecorator.trim().length > 0) {
+    return { text: fromLegacyDecorator, source: "coco.description" };
+  }
+
+  const fromTypeSpec = getTypeSpecDescription(program, prop);
+  if (fromTypeSpec && fromTypeSpec.trim().length > 0) {
+    return { text: fromTypeSpec, source: "typespec.description" };
+  }
+
+  return {};
+}
+
 function getDocText(program: Program, prop: ModelProperty): string | undefined {
-  const text = getDoc(program, prop);
+  const text = getTypeSpecDescription(program, prop) ?? getDoc(program, prop);
   return text && text.trim().length > 0 ? text : undefined;
 }
 
@@ -559,7 +597,8 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
     const name = getName(program, prop);
     const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
     const aliases = getStringArray(program, COCOGEN_STATE_PROPERTY_ALIASES, prop);
-    const description = getDescription(program, prop);
+    const schemaDescription = getSchemaDescription(program, prop);
+    const description = schemaDescription.text;
     const doc = getDocText(program, prop);
     const example = getExampleValue(program, prop);
     const pattern = getPattern(program, prop);
@@ -591,6 +630,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       name,
       type: propertyType,
       ...(description ? { description } : {}),
+      ...(schemaDescription.source ? { descriptionSource: schemaDescription.source } : {}),
       ...(doc ? { doc } : {}),
       ...(example !== undefined ? { example } : {}),
       ...(format ? { format } : {}),

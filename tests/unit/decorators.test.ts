@@ -6,6 +6,7 @@ import {
   $connection,
   $content,
   $description,
+  $schemaDescription,
   $id,
   $item,
   $label,
@@ -21,7 +22,8 @@ import {
   COCOGEN_STATE_ITEM_MODELS,
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
   COCOGEN_STATE_PROPERTY_ALIASES,
-  COCOGEN_STATE_PROPERTY_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS,
   COCOGEN_STATE_PROPERTY_LABELS,
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
@@ -82,20 +84,22 @@ describe("TypeSpec decorators", () => {
     expect(getMap(program, COCOGEN_STATE_ID_PROPERTIES).get(prop)).toBe(true);
   });
 
-  test("stores labels, aliases, descriptions, and name overrides", () => {
+  test("stores labels, aliases, schema descriptions, legacy descriptions, and name overrides", () => {
     const program = createProgram();
     const context = createContext(program);
 
     $label(context, prop, "title");
     $aliases(context, prop, { value: "heading" } as unknown as string);
-    $description(context, prop, "A title");
+    $schemaDescription(context, prop, "A schema title");
+    $description(context, prop, "A legacy title");
     $name(context, prop, "shortTitle");
     $label(context, prop, null as unknown as string);
     $label(context, {} as ModelProperty, "ignored");
 
     expect(getMap(program, COCOGEN_STATE_PROPERTY_LABELS).get(prop)).toEqual(["title"]);
     expect(getMap(program, COCOGEN_STATE_PROPERTY_ALIASES).get(prop)).toEqual(["heading"]);
-    expect(getMap(program, COCOGEN_STATE_PROPERTY_DESCRIPTIONS).get(prop)).toBe("A title");
+    expect(getMap(program, COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS).get(prop)).toBe("A schema title");
+    expect(getMap(program, COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS).get(prop)).toBe("A legacy title");
     expect(getMap(program, COCOGEN_STATE_PROPERTY_NAME_OVERRIDES).get(prop)).toBe("shortTitle");
   });
 

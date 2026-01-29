@@ -10,6 +10,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Add `cocogen update` to regenerate `src/<ConnectionName>/**` ✅
 
 ## Next
+- Remove legacy @coco.description alias in 1.1 release.
 - Add docs updates for `cocogen update` and generated/static layout ✅
 - Add unit tests for TypeSpec→IR loader and validation ✅
 - Add e2e tests for `cocogen validate` ✅
@@ -36,6 +37,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Add @coco.schemaDescription + deprecate @coco.description (warning + fallback to @description) ✅
 - Add multi-source @coco.content formatting + html content type ✅
 - Add warning for content connectors missing @coco.content ✅
 - Refactor people-entity collection renderers to shared base (TS + .NET) ✅

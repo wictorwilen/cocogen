@@ -4,39 +4,60 @@ import { loadIrFromTypeSpec } from "../../src/tsp/loader.js";
 import { writeTempTspFile } from "../test-utils.js";
 
 describe("loadIrFromTypeSpec", () => {
-  test("loads description from doc comment when @coco.description is absent", async () => {
+  test("loads description from @description when @coco.schemaDescription is absent", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
       model Item {
         @coco.id
         id: string;
 
-        /** Doc description */
+        @description("TypeSpec description")
         title: string;
       }
     `);
 
     const ir = await loadIrFromTypeSpec(entry);
     const titleProp = ir.properties.find((p) => p.name === "title");
-    expect(titleProp?.description).toBe("Doc description");
+    expect(titleProp?.description).toBe("TypeSpec description");
+    expect(titleProp?.descriptionSource).toBe("typespec.description");
   });
 
-  test("@coco.description overrides doc comment", async () => {
+  test("@coco.schemaDescription overrides @description", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
       model Item {
         @coco.id
         id: string;
 
-        /** Doc description */
-        @coco.description("Decorator description")
+        @description("TypeSpec description")
+        @coco.schemaDescription("Schema description")
         title: string;
       }
     `);
 
     const ir = await loadIrFromTypeSpec(entry);
     const titleProp = ir.properties.find((p) => p.name === "title");
-    expect(titleProp?.description).toBe("Decorator description");
+    expect(titleProp?.description).toBe("Schema description");
+    expect(titleProp?.descriptionSource).toBe("coco.schemaDescription");
+    expect(titleProp?.doc).toBe("TypeSpec description");
+  });
+
+  test("@coco.description is captured as legacy schema description", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.description("Legacy description")
+        title: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    const titleProp = ir.properties.find((p) => p.name === "title");
+    expect(titleProp?.description).toBe("Legacy description");
+    expect(titleProp?.descriptionSource).toBe("coco.description");
   });
 
   test("@coco.noSource disables default CSV mapping", async () => {

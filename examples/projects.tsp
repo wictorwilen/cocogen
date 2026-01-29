@@ -14,12 +14,12 @@ using coco;
 model Project {
   @coco.id
   @coco.source("id")
-  @coco.description("Unique identifier for the project")
+  @coco.schemaDescription("Unique identifier for the project")
   @example("PRJ-1001")
   @pattern("^PRJ-[0-9]+$")
   projectId: string;
 
-  @coco.description("Name of the project")
+  @coco.schemaDescription("Name of the project")
   @coco.source("name")
   @coco.label("title")
   @coco.search({ retrievable: true })
@@ -28,19 +28,19 @@ model Project {
   @maxLength(120)
   projectName: string;
 
-  @coco.description("Detailed description of the project")
+  @coco.schemaDescription("Detailed description of the project")
   @coco.source("description")
   @example("Greenfield rollout of the Northwind expansion program.")
   description: string;
 
   @coco.source("start_date")
   @coco.label("createdDateTime")
-  @coco.description("Project start date")
+  @coco.schemaDescription("Project start date")
   @coco.search({ retrievable: true })
   startDate: utcDateTime;
 
   @coco.source("end_date")
-  @coco.description("Project end date")
+  @coco.schemaDescription("Project end date")
   endDate: utcDateTime;
 
   @coco.source("manager")

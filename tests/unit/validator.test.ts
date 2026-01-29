@@ -107,6 +107,18 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "warning" && i.message.includes("@coco.content"))).toBe(true);
   });
 
+  test("warns when @coco.description is used", () => {
+    const ir = baseIr();
+    ir.properties[0] = {
+      ...ir.properties[0]!,
+      description: "Legacy description",
+      descriptionSource: "coco.description",
+    };
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "warning" && i.message.includes("@coco.description"))).toBe(true);
+  });
+
   test("errors when connection name is missing", () => {
     const ir = baseIr();
     ir.connection = { graphApiVersion: "v1.0", connectionId: "testconnection", connectionDescription: "Test connector" };

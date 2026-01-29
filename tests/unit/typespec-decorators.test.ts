@@ -7,6 +7,7 @@ import {
   $connection,
   $content,
   $description,
+  $schemaDescription,
   $id,
   $item,
   $label,
@@ -24,7 +25,8 @@ import {
   COCOGEN_STATE_ITEM_MODELS,
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
   COCOGEN_STATE_PROPERTY_ALIASES,
-  COCOGEN_STATE_PROPERTY_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS,
   COCOGEN_STATE_PROPERTY_LABELS,
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
@@ -107,7 +109,7 @@ describe("TypeSpec decorators", () => {
 
     expect(program.stateMap(COCOGEN_STATE_ID_SETTINGS).get(prop)).toEqual({ encoding: "hash" });
   });
-  test("captures labels, aliases, description, and name overrides", () => {
+  test("captures labels, aliases, schema description, legacy description, and name overrides", () => {
     const context = createContext();
     const program = (context.program as unknown as ProgramMock);
     const prop = createProperty("title");
@@ -116,12 +118,14 @@ describe("TypeSpec decorators", () => {
     $label(context, prop, "subtitle");
     $aliases(context, prop, "headline");
     $aliases(context, prop, "display");
-    $description(context, prop, { value: "A title" } as unknown as string);
+    $schemaDescription(context, prop, { value: "A schema title" } as unknown as string);
+    $description(context, prop, { value: "A legacy title" } as unknown as string);
     $name(context, prop, { value: "Title" } as unknown as string);
 
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_LABELS).get(prop)).toEqual(["title", "subtitle"]);
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_ALIASES).get(prop)).toEqual(["headline", "display"]);
-    expect(program.stateMap(COCOGEN_STATE_PROPERTY_DESCRIPTIONS).get(prop)).toBe("A title");
+    expect(program.stateMap(COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS).get(prop)).toBe("A schema title");
+    expect(program.stateMap(COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS).get(prop)).toBe("A legacy title");
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_NAME_OVERRIDES).get(prop)).toBe("Title");
   });
 
