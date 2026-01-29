@@ -36,6 +36,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Add warning for content connectors missing @coco.content ✅
 - Refactor people-entity collection renderers to shared base (TS + .NET) ✅
 - Refactor init helpers + people graph types modules ✅
 - Simplify .NET JSON/YAML people collection transforms ✅

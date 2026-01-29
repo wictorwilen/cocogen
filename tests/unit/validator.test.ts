@@ -33,7 +33,8 @@ function baseIr(): ConnectorIr {
 describe("validateIr", () => {
   test("accepts a minimal valid IR", () => {
     const issues = validateIr(baseIr());
-    expect(issues).toEqual([]);
+    expect(issues.filter((i) => i.severity === "error")).toEqual([]);
+    expect(issues.some((i) => i.severity === "warning" && i.message.includes("@coco.content"))).toBe(true);
   });
 
   test("errors when @coco.id is not a string", () => {
@@ -97,6 +98,13 @@ describe("validateIr", () => {
     expect(
       issues.some((i) => i.severity === "warning" && i.message.includes("Missing @coco.connection connectionDescription"))
     ).toBe(true);
+  });
+
+  test("warns when content connectors lack @coco.content", () => {
+    const ir = baseIr();
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "warning" && i.message.includes("@coco.content"))).toBe(true);
   });
 
   test("errors when connection name is missing", () => {

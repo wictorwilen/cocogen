@@ -251,6 +251,12 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         });
       }
     }
+  } else if (ir.connection.contentCategory !== "people") {
+    issues.push({
+      severity: "warning",
+      message: "Content connectors should define a @coco.content property for full-text search.",
+      hint: "Add @coco.content({ type: \"text\" }) to a string property to populate externalItem.content.",
+    });
   }
 
   // People connectors rules (preview)
