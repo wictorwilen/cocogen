@@ -401,6 +401,27 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
       const needsManualEntity = isPeopleLabel && !p.personEntity;
       const noSource = Boolean(p.source.noSource);
+      const isContentProperty = p.name === this.ir.item.contentPropertyName;
+      const contentSources = isContentProperty ? this.ir.item.contentSources ?? [] : [];
+      const contentType = this.ir.item.contentType ?? "text";
+      const contentExpression = contentSources.length > 0
+        ? (() => {
+            const lineExpressions = contentSources
+              .map((entry) => {
+                const labelLiteral = JSON.stringify(entry.label);
+                const sourceLiteral = buildCsSourceLiteral(entry.source);
+                if (contentType === "html") {
+                  return `string.Concat("<li><b>", ${labelLiteral}, "</b>: ", RowParser.ParseString(row, ${sourceLiteral}), "</li>")`;
+                }
+                return `string.Concat(${labelLiteral}, ": ", RowParser.ParseString(row, ${sourceLiteral}))`;
+              })
+              .join(", ");
+            if (contentType === "html") {
+              return `string.Concat("<ul>", string.Join("", new[] { ${lineExpressions} }), "</ul>")`;
+            }
+            return `string.Join("\\n", new[] { ${lineExpressions} })`;
+          })()
+        : null;
       const principalExpression =
         p.type === "principal"
           ? buildCsPrincipalExpression(p.personEntity?.fields ?? null, p.source)
@@ -411,6 +432,8 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         ? `throw new NotImplementedException("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement in PropertyTransform.cs.")`
         : noSource
         ? "default!"
+        : contentExpression
+        ? contentExpression
         : (p.type === "principal" || p.type === "principalCollection") && principalExpression
         ? principalExpression
         : personEntity
@@ -592,10 +615,13 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     const contentValueExpression = this.ir.item.contentPropertyName
       ? `Convert.ToString(item.${toCsIdentifier(this.ir.item.contentPropertyName)}) ?? string.Empty`
       : "string.Empty";
+    const contentTypeEnum = this.ir.item.contentType === "html"
+      ? "ExternalItemContentType.Html"
+      : "ExternalItemContentType.Text";
     const contentBlock = [
       "        externalItem.Content = new ExternalItemContent",
       "        {",
-      "            Type = ExternalItemContentType.Text,",
+      `            Type = ${contentTypeEnum},`,
       `            Value = ${contentValueExpression},`,
       "        };",
     ].join("\n");

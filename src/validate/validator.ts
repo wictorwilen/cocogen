@@ -251,6 +251,13 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         });
       }
     }
+    if (ir.item.contentType && ir.item.contentType !== "text" && ir.item.contentType !== "html") {
+      issues.push({
+        severity: "error",
+        message: `@coco.content type '${ir.item.contentType}' is not supported. Use "text" or "html".`,
+        hint: "Set @coco.content({ type: \"text\" }) or @coco.content({ type: \"html\" }).",
+      });
+    }
   } else if (ir.connection.contentCategory !== "people") {
     issues.push({
       severity: "warning",

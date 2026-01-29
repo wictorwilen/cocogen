@@ -41,6 +41,9 @@ model Ticket {
   url: string;
 
   @coco.content({ type: "text" })
+  @coco.source("title")
+  @coco.source("url")
+  @coco.source("ticketId", "ticket identifier")
   body: string;
 
   #deprecated "Legacy note field is no longer used."

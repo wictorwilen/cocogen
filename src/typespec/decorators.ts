@@ -9,6 +9,7 @@ import {
   COCOGEN_STATE_CONNECTION_SETTINGS,
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
   COCOGEN_STATE_CONTENT_PROPERTIES,
+  COCOGEN_STATE_CONTENT_SETTINGS,
   COCOGEN_STATE_ID_PROPERTIES,
   COCOGEN_STATE_ID_SETTINGS,
   COCOGEN_STATE_ITEM_MODELS,
@@ -18,13 +19,16 @@ import {
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_SEARCH,
   COCOGEN_STATE_PROPERTY_SOURCE,
+  COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   COCOGEN_STATE_PROPERTY_SERIALIZED,
   type CocogenConnectionSettings,
+  type CocogenContentSettings,
   type CocogenIdSettings,
   type CocogenProfileSourceSettings,
   type CocogenSearchFlags,
+  type CocogenSourceEntry,
   type CocogenSourceSettings,
   type CocogenPersonEntityField,
 } from "./state.js";
@@ -154,9 +158,15 @@ export function $search(context: DecoratorContext, target: ModelProperty, flags:
   context.program.stateMap(COCOGEN_STATE_PROPERTY_SEARCH).set(target, normalizeObject<CocogenSearchFlags>(flags));
 }
 
-export function $content(context: DecoratorContext, target: ModelProperty): void {
+export function $content(context: DecoratorContext, target: ModelProperty, settings?: CocogenContentSettings): void {
   if (!isModelProperty(target)) return;
   context.program.stateMap(COCOGEN_STATE_CONTENT_PROPERTIES).set(target, true);
+  if (settings) {
+    context.program.stateMap(COCOGEN_STATE_CONTENT_SETTINGS).set(
+      target,
+      normalizeObject<CocogenContentSettings>(settings)
+    );
+  }
 }
 
 export function $source(
@@ -168,6 +178,13 @@ export function $source(
   if (!isModelProperty(target)) return;
 
   const rawTo = unwrapValue<unknown>(to);
+  const rawFrom = unwrapValue<unknown>(from);
+  const fromValue = typeof rawFrom === "string" ? rawFrom : normalizeObject<CocogenSourceSettings>(from);
+  const rawToString = typeof rawTo === "string" ? rawTo.trim() : "";
+  const sourceEntry: CocogenSourceEntry = rawToString
+    ? { from: fromValue, to: rawToString }
+    : { from: fromValue };
+  pushArrayValue(context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES), target, sourceEntry);
 
   if (rawTo && typeof rawTo === "object" && !Array.isArray(rawTo)) {
     const targetSettings = normalizeObject<{ serialized?: unknown; to?: unknown }>(rawTo);
@@ -185,20 +202,17 @@ export function $source(
     }
   }
 
-  const rawToString = typeof rawTo === "string" ? rawTo : undefined;
   const rawToText = rawToString?.trim();
   if (typeof rawToText === "string" && rawToText.length > 0) {
-    const rawFrom = unwrapValue<unknown>(from);
     const entry: CocogenPersonEntityField = {
       path: rawToText,
-      source: typeof rawFrom === "string" ? rawFrom : normalizeObject<CocogenSourceSettings>(from),
+      source: fromValue,
     };
 
     pushArrayValue(context.program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS), target, entry);
     return;
   }
 
-  const rawFrom = unwrapValue<unknown>(from);
   if (typeof rawFrom === "string") {
     const text = rawFrom.trim();
     if (text.length > 0) {
@@ -207,8 +221,7 @@ export function $source(
     return;
   }
 
-  const normalized = normalizeObject<CocogenSourceSettings>(from);
-  context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE).set(target, normalized);
+  context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE).set(target, fromValue);
 }
 
 export function $noSource(context: DecoratorContext, target: ModelProperty): void {

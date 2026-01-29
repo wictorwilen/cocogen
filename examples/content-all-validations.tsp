@@ -156,7 +156,7 @@ model ComplexContentItem {
   @coco.source("owner upn")
   owner: coco.Principal;
 
-  @coco.content
+  @coco.content({type: "html"})
   @example("This article describes the onboarding process in detail.")
   @minLength(10)
   @maxLength(5000)

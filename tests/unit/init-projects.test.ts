@@ -146,6 +146,44 @@ model PersonProfile {
 }
 `;
 
+const contentSourcesSchema = `using coco;
+
+@coco.connection({
+  name: "Content connector",
+  connectionId: "contentconnector",
+  connectionDescription: "Content connector"
+})
+@coco.item
+model Item {
+  @coco.id
+  id: string;
+
+  @coco.content({ type: "html" })
+  @coco.source("foo")
+  @coco.source("fie", "fum")
+  content: string;
+}
+`;
+
+const contentTextSourcesSchema = `using coco;
+
+@coco.connection({
+  name: "Content connector",
+  connectionId: "contentconnector",
+  connectionDescription: "Content connector"
+})
+@coco.item
+model Item {
+  @coco.id
+  id: string;
+
+  @coco.content({ type: "text" })
+  @coco.source("foo")
+  @coco.source("fie", "fum")
+  content: string;
+}
+`;
+
 const peopleRelatedSchema = `using coco;
 
 @coco.connection({
@@ -294,6 +332,70 @@ describe("project init/update", () => {
     const ingestItem = await readFile(path.join(outDir, "ingest-item.http"), "utf8");
     expect(ingestItem).toContain("\"approvers\": [");
     expect(ingestItem).toContain("\"@odata.type\": \"microsoft.graph.externalConnectors.principal\"");
+  });
+
+  test("initTsProject builds html content from multiple sources", async () => {
+    const tspPath = await writeTempTspFile(contentSourcesSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "content-html-ts");
+
+    await initTsProject({ tspPath, outDir, force: false });
+
+    const transformBase = await readFile(path.join(outDir, "src", "ContentConnector", "propertyTransformBase.ts"), "utf8");
+    expect(transformBase).toContain("<ul>");
+    expect(transformBase).toContain("\"foo\"");
+    expect(transformBase).toContain("\"fum\"");
+
+    const itemPayload = await readFile(path.join(outDir, "src", "ContentConnector", "itemPayload.ts"), "utf8");
+    expect(itemPayload).toContain("type: \"html\"");
+  });
+
+  test("initTsProject builds text content from multiple sources", async () => {
+    const tspPath = await writeTempTspFile(contentTextSourcesSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "content-text-ts");
+
+    await initTsProject({ tspPath, outDir, force: false });
+
+    const transformBase = await readFile(path.join(outDir, "src", "ContentConnector", "propertyTransformBase.ts"), "utf8");
+    expect(transformBase).toContain("\"foo\"");
+    expect(transformBase).toContain("\"fum\"");
+    expect(transformBase).toContain(".join(\"\\n\")");
+
+    const itemPayload = await readFile(path.join(outDir, "src", "ContentConnector", "itemPayload.ts"), "utf8");
+    expect(itemPayload).toContain("type: \"text\"");
+  });
+
+  test("initDotnetProject builds html content from multiple sources", async () => {
+    const tspPath = await writeTempTspFile(contentSourcesSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "content-html-dotnet");
+
+    await initDotnetProject({ tspPath, outDir, force: false });
+
+    const transformBase = await readFile(path.join(outDir, "ContentConnector", "PropertyTransformBase.cs"), "utf8");
+    expect(transformBase).toContain("<ul>");
+    expect(transformBase).toContain("\"foo\"");
+    expect(transformBase).toContain("\"fum\"");
+
+    const itemPayload = await readFile(path.join(outDir, "ContentConnector", "ItemPayload.cs"), "utf8");
+    expect(itemPayload).toContain("ExternalItemContentType.Html");
+  });
+
+  test("initDotnetProject builds text content from multiple sources", async () => {
+    const tspPath = await writeTempTspFile(contentTextSourcesSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "content-text-dotnet");
+
+    await initDotnetProject({ tspPath, outDir, force: false });
+
+    const transformBase = await readFile(path.join(outDir, "ContentConnector", "PropertyTransformBase.cs"), "utf8");
+    expect(transformBase).toContain("string.Join(\"\\n\"");
+    expect(transformBase).toContain("\"foo\"");
+    expect(transformBase).toContain("\"fum\"");
+
+    const itemPayload = await readFile(path.join(outDir, "ContentConnector", "ItemPayload.cs"), "utf8");
+    expect(itemPayload).toContain("ExternalItemContentType.Text");
   });
 
   test("initTsProject includes throttling retries", async () => {

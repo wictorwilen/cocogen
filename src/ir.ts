@@ -40,6 +40,14 @@ export type ConnectorIr = {
     idPropertyName: string;
     idEncoding: "slug" | "base64" | "hash";
     contentPropertyName?: string;
+    contentType?: "text" | "html";
+    contentSources?: Array<{
+      label: string;
+      source: {
+        csvHeaders: string[];
+        jsonPath?: string;
+      };
+    }>;
     doc?: string;
   };
   properties: Array<{

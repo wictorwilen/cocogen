@@ -461,6 +461,30 @@ describe("loadIrFromTypeSpec", () => {
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/@coco.content property cannot be marked #deprecated/i);
   });
 
+  test("captures content type and content sources", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.content({ type: "html" })
+        @coco.source("foo")
+        @coco.source("fie", "fum")
+        content: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.item.contentType).toBe("html");
+    expect(ir.item.contentSources).toEqual(
+      expect.arrayContaining([
+        { label: "foo", source: { csvHeaders: ["foo"] } },
+        { label: "fum", source: { csvHeaders: ["fie"] } },
+      ])
+    );
+  });
+
   test("defaults id encoding to slug", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

@@ -130,7 +130,7 @@ Microsoft Graph connector schema is a **flat** property list (not nested). TypeS
 - `@coco.aliases("...")` repeatable: maps to Graph `aliases`.
 - `@coco.search({ searchable?: boolean, queryable?: boolean, retrievable?: boolean, refinable?: boolean, exactMatchRequired?: boolean })`
 - `@coco.description("...")`: maps to Graph schema property `description` (and may also be used for generated help/docs).
-- `@coco.content({ type?: "text" })` on a property: marks full-text source for `externalItem.content`.
+- `@coco.content({ type?: "text" | "html" })` on a property: marks full-text source for `externalItem.content`.
 Input format is selected at generation time via CLI:
   - `cocogen generate --data-format csv|json|yaml|rest|custom`
 - `@coco.source(...)` on a property: maps the property to a source field (CSV header or JSONPath).
@@ -306,6 +306,10 @@ For each item:
 - `acl`: default `[ { type: "everyone", value: "everyone", accessType: "grant" } ]` (configurable)
 - `properties`: the mapped schema fields
 - `content`: always included. If `@coco.content` is present, `content.value` is derived from it; otherwise `content.value` is an empty string and `content.type` is "text".
+  - `@coco.content({ type: "text" | "html" })` controls `content.type`.
+  - If multiple `@coco.source` entries are applied to the content property, the generated transform builds:
+    - **text**: `label: value` lines joined by `\n`.
+    - **html**: `<ul><li><b>label</b>: value</li>...</ul>`.
 
 People connectors (preview) overrides:
 - Item `acl` MUST grant access to everyone (generated templates should enforce this).

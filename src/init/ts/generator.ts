@@ -324,10 +324,33 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
       const needsManualEntity = isPeopleLabel && !p.personEntity;
       const noSource = Boolean(p.source.noSource);
+      const isContentProperty = p.name === this.ir.item.contentPropertyName;
+      const contentSources = isContentProperty ? this.ir.item.contentSources ?? [] : [];
+      const contentType = this.ir.item.contentType ?? "text";
+      const contentExpression = contentSources.length > 0
+        ? (() => {
+            const entries = contentSources
+              .map((entry) => {
+                const labelLiteral = JSON.stringify(entry.label);
+                const sourceLiteral = buildSourceLiteral(entry.source);
+                if (contentType === "html") {
+                  return `\`<li><b>\${${labelLiteral}}</b>: \${parseString(readSourceValue(row, ${sourceLiteral}))}</li>\``;
+                }
+                return `\`${labelLiteral}: \${parseString(readSourceValue(row, ${sourceLiteral}))}\``;
+              })
+              .join(", ");
+            if (contentType === "html") {
+              return `\`<ul>\${[${entries}].join(\"\")}</ul>\``;
+            }
+            return `[${entries}].join("\\n")`;
+          })()
+        : null;
       const expression = needsManualEntity
         ? `(() => { throw new Error("Missing @coco.source(..., to) mappings for people entity '${p.name}'. Implement transform in propertyTransform.ts."); })()`
         : noSource
         ? `undefined as unknown as ${toTsType(p.type)}`
+        : contentExpression
+        ? contentExpression
         : (p.type === "principal" || p.type === "principalCollection") && principalExpression
         ? principalExpression
         : personEntity
@@ -496,6 +519,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       "utf8"
     );
 
+    const contentType = this.ir.item.contentType ?? "text";
     const contentValueExpression = this.ir.item.contentPropertyName
       ? "String((item as any)[contentPropertyName ?? \"\"] ?? \"\")"
       : "\"\"";
@@ -505,6 +529,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         properties: payloadProperties,
         peopleSerializers: Array.from(serializerImports),
         contentValueExpression,
+        contentType,
         itemTypeName: this.ir.item.typeName,
         idEncoding: this.ir.item.idEncoding,
         usesPrincipal,

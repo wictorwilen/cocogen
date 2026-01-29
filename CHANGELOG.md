@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Warning when a non-people connector schema lacks a `@coco.content` property.
+- `@coco.content` now supports `type: "html"` and multi-source content formatting.
 
 ## [1.0.33] - 2026-01-28
 ### Added

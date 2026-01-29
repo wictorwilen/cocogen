@@ -2,6 +2,7 @@ export const COCOGEN_STATE_ITEM_MODELS = Symbol.for("@wictorwilen/cocogen/itemMo
 export const COCOGEN_STATE_ID_PROPERTIES = Symbol.for("@wictorwilen/cocogen/idProperties");
 export const COCOGEN_STATE_ID_SETTINGS = Symbol.for("@wictorwilen/cocogen/idSettings");
 export const COCOGEN_STATE_CONTENT_PROPERTIES = Symbol.for("@wictorwilen/cocogen/contentProperties");
+export const COCOGEN_STATE_CONTENT_SETTINGS = Symbol.for("@wictorwilen/cocogen/contentSettings");
 export const COCOGEN_STATE_CONNECTION_SETTINGS = Symbol.for("@wictorwilen/cocogen/connectionSettings");
 export const COCOGEN_STATE_PROFILE_SOURCE_SETTINGS = Symbol.for("@wictorwilen/cocogen/profileSourceSettings");
 export const COCOGEN_STATE_PROPERTY_LABELS = Symbol.for("@wictorwilen/cocogen/propertyLabels");
@@ -10,6 +11,7 @@ export const COCOGEN_STATE_PROPERTY_NAME_OVERRIDES = Symbol.for("@wictorwilen/co
 export const COCOGEN_STATE_PROPERTY_DESCRIPTIONS = Symbol.for("@wictorwilen/cocogen/propertyDescriptions");
 export const COCOGEN_STATE_PROPERTY_SEARCH = Symbol.for("@wictorwilen/cocogen/propertySearch");
 export const COCOGEN_STATE_PROPERTY_SOURCE = Symbol.for("@wictorwilen/cocogen/propertySource");
+export const COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES = Symbol.for("@wictorwilen/cocogen/propertySourceEntries");
 export const COCOGEN_STATE_PROPERTY_NO_SOURCE = Symbol.for("@wictorwilen/cocogen/propertyNoSource");
 export const COCOGEN_STATE_PROPERTY_PERSON_FIELDS = Symbol.for("@wictorwilen/cocogen/propertyPersonFields");
 export const COCOGEN_STATE_PROPERTY_SERIALIZED = Symbol.for("@wictorwilen/cocogen/propertySerialized");
@@ -41,6 +43,10 @@ export type CocogenProfileSourceSettings = {
   priority?: "first" | "last";
 };
 
+export type CocogenContentSettings = {
+  type?: "text" | "html";
+};
+
 export type CocogenIdSettings = {
   encoding?: "slug" | "base64" | "hash";
 };
@@ -56,6 +62,11 @@ export type CocogenSearchFlags = {
 export type CocogenSourceSettings = {
   csv?: string;
   jsonPath?: string;
+};
+
+export type CocogenSourceEntry = {
+  from: CocogenSourceSettings | string;
+  to?: string;
 };
 
 export type CocogenSerializedTarget = {

@@ -87,7 +87,7 @@ function buildRestItemPayload(ir: ConnectorIr, itemId: string): Record<string, u
     const contentProp = ir.properties.find((p) => p.name === ir.item.contentPropertyName);
     const exampleValue = contentProp ? exampleValueForPayload(contentProp.example, contentProp.type) : undefined;
     const value = exampleValue ?? "Sample content";
-    payload.content = { type: "text", value: String(value) };
+    payload.content = { type: ir.item.contentType ?? "text", value: String(value) };
   }
 
   return payload;

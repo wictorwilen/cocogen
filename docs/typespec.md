@@ -388,7 +388,7 @@ public abstract class PropertyTransformBase
 }
 ```
 
-### `@coco.content({ type: "text" })`
+### `@coco.content({ type: "text" | "html" })`
 
 Marks a full-text content field, emitted as `externalItem.content.value` during ingestion.
 
@@ -396,6 +396,9 @@ Rules:
 - The content property must be `string`.
 - The content property cannot use `@coco.label`, `@coco.aliases`, `@coco.description`, or `@coco.search`.
 - People connectors (`contentCategory: "people"`) must not use `@coco.content`.
+- If multiple `@coco.source` entries are applied to the content property, the generated transform builds content as:
+  - **text**: `label: value` lines joined by `\n`.
+  - **html**: `<ul><li><b>label</b>: value</li>...</ul>`.
 
 ## Supported property types
 

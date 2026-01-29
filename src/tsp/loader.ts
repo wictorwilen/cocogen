@@ -31,6 +31,7 @@ import {
   COCOGEN_STATE_CONNECTION_SETTINGS,
   COCOGEN_STATE_PROFILE_SOURCE_SETTINGS,
   COCOGEN_STATE_CONTENT_PROPERTIES,
+  COCOGEN_STATE_CONTENT_SETTINGS,
   COCOGEN_STATE_ID_PROPERTIES,
   COCOGEN_STATE_ITEM_MODELS,
   COCOGEN_STATE_PROPERTY_ALIASES,
@@ -39,14 +40,17 @@ import {
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_SEARCH,
   COCOGEN_STATE_PROPERTY_SOURCE,
+  COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   COCOGEN_STATE_PROPERTY_SERIALIZED,
   COCOGEN_STATE_ID_SETTINGS,
   type CocogenConnectionSettings,
+  type CocogenContentSettings,
   type CocogenProfileSourceSettings,
   type CocogenSearchFlags,
   type CocogenSourceSettings,
+  type CocogenSourceEntry,
   type CocogenPersonEntityField,
 } from "../typespec/state.js";
 
@@ -345,6 +349,46 @@ function isContentProperty(program: Program, prop: ModelProperty): boolean {
   return Boolean(program.stateMap(COCOGEN_STATE_CONTENT_PROPERTIES).get(prop));
 }
 
+function getContentSettings(program: Program, prop: ModelProperty): CocogenContentSettings | undefined {
+  return program.stateMap(COCOGEN_STATE_CONTENT_SETTINGS).get(prop) as CocogenContentSettings | undefined;
+}
+
+function getContentSources(
+  program: Program,
+  prop: ModelProperty,
+  sourcePathSyntax: SourcePathSyntax
+): Array<{ label: string; source: { csvHeaders: string[]; jsonPath?: string } }> {
+  const rawEntries = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES).get(prop) as
+    | CocogenSourceEntry[]
+    | undefined;
+  if (!rawEntries || rawEntries.length === 0) return [];
+
+  const normalizeLabel = (entry: CocogenSourceEntry): string => {
+    if (entry.to && entry.to.trim().length > 0) return entry.to.trim();
+    if (typeof entry.from === "string") return entry.from.trim();
+    if (entry.from && typeof entry.from === "object") {
+      if (typeof entry.from.csv === "string") return entry.from.csv.trim();
+      if (typeof entry.from.jsonPath === "string") return entry.from.jsonPath.trim();
+    }
+    return "";
+  };
+
+  return rawEntries
+    .map((entry) => {
+      const label = normalizeLabel(entry);
+      if (!label) return undefined;
+      const sourceSettings = normalizeSourceSettings(entry.from, label, true, false, sourcePathSyntax);
+      return {
+        label,
+        source: {
+          csvHeaders: sourceSettings.csvHeaders,
+          ...(sourceSettings.jsonPath ? { jsonPath: sourceSettings.jsonPath } : {}),
+        },
+      };
+    })
+    .filter((value): value is { label: string; source: { csvHeaders: string[]; jsonPath?: string } } => Boolean(value));
+}
+
 function isIdProperty(program: Program, prop: ModelProperty): boolean {
   return Boolean(program.stateMap(COCOGEN_STATE_ID_PROPERTIES).get(prop));
 }
@@ -502,6 +546,9 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
 
   const contentProps = properties.filter((p) => isContentProperty(program, p));
   const contentPropName = contentProps.length > 0 ? getName(program, contentProps[0]!) : undefined;
+  const contentSettings = contentProps.length > 0 ? getContentSettings(program, contentProps[0]!) : undefined;
+  const contentType = contentSettings?.type;
+  const contentSources = contentProps.length > 0 ? getContentSources(program, contentProps[0]!, sourcePathSyntax) : [];
   if (contentProps.some((prop) => deprecatedProps.has(prop))) {
     throw new CocogenError("The @coco.content property cannot be marked #deprecated.");
   }
@@ -527,7 +574,8 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
     const maxValue = maxValueRaw === undefined ? undefined : Number(maxValueRaw);
 
     const propertyType = mapTypeToPropertyType(program, prop.type);
-    const personEntity = getPersonEntityMapping(program, prop, propertyType, sourcePathSyntax);
+    const isContent = isContentProperty(program, prop);
+    const personEntity = isContent ? undefined : getPersonEntityMapping(program, prop, propertyType, sourcePathSyntax);
     const serialized = getSerializedModel(program, prop);
     if (serialized) {
       const supported = propertyType === "string" || propertyType === "stringCollection";
@@ -582,6 +630,8 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       idPropertyName: getName(program, idProps[0]!),
       idEncoding: getIdEncoding(program, idProps[0]!),
       ...(contentPropName ? { contentPropertyName: contentPropName } : {}),
+      ...(contentType ? { contentType } : {}),
+      ...(contentSources.length > 0 ? { contentSources } : {}),
       ...(itemDoc ? { doc: itemDoc } : {}),
     },
     properties: irProperties,

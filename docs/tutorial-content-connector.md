@@ -199,8 +199,26 @@ model Incident {
 }
 ```
 
+Tip: you can build content directly from multiple sources:
+
+```tsp
+  @coco.content({ type: "html" })
+  @coco.source("title")
+  @coco.source("summary", "details")
+  content: string;
+```
+
+This generates HTML like:
+
+```
+<ul>
+<li><b>title</b>: <value></li>
+<li><b>details</b>: <value></li>
+</ul>
+```
+
 - `sourceSystem` is a computed field (e.g., “IncidentService”).
-- `content` should be a **Markdown** string built from a subset of attributes.
+- `content` should be a **text or html** string built from a subset of attributes.
 
 ---
 

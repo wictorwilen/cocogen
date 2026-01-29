@@ -81,7 +81,7 @@ model PersonProfile {
 ### Common decorators you will use
 - `@coco.label("...")` — marks Graph property labels (including people labels)
 - `@coco.search({ ... })` — search flags for Graph schema
-- `@coco.content({ type: "text" })` — full-text content field (not allowed for people connectors)
+- `@coco.content({ type: "text" | "html" })` — full-text content field (not allowed for people connectors)
 - `@coco.source("csvHeader")` — map a property to a CSV header
 - `@coco.source("csvHeader", "entity.path")` — people entity mapping from CSV to entity path
 - `@coco.noSource` — mark a property as having no CSV source mapping

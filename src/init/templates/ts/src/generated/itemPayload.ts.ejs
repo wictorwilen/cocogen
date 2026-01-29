@@ -43,7 +43,7 @@ export function toExternalItem(item: <%= itemTypeName %>): {
     acl: [{ type: "everyone", value: "everyone", accessType: "grant" }],
     properties,
     content: {
-      type: "text",
+      type: <%= JSON.stringify(contentType ?? "text") %>,
       value: <%- contentValueExpression %>,
     },
   };

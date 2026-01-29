@@ -34,7 +34,7 @@ namespace coco {
   }
 
   model ContentSettings {
-    type?: "text";
+    type?: "text" | "html";
   }
 
   model SourceSettings {
