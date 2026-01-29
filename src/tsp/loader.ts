@@ -631,6 +631,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       type: propertyType,
       ...(description ? { description } : {}),
       ...(schemaDescription.source ? { descriptionSource: schemaDescription.source } : {}),
+      ...(prop.optional ? { optional: true } : {}),
       ...(doc ? { doc } : {}),
       ...(example !== undefined ? { example } : {}),
       ...(format ? { format } : {}),

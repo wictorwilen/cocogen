@@ -60,6 +60,22 @@ describe("loadIrFromTypeSpec", () => {
     expect(titleProp?.descriptionSource).toBe("coco.description");
   });
 
+  test("marks optional properties in IR", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        title?: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    const titleProp = ir.properties.find((p) => p.name === "title");
+    expect(titleProp?.optional).toBe(true);
+  });
+
   test("@coco.noSource disables default CSV mapping", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

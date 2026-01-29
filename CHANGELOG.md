@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `@coco.schemaDescription` for Graph schema property descriptions (preferred over `@coco.description`) to avoid naming collisions with the default TypeSpec `@description`.
 - Validation warning when `@coco.description` is used (deprecated alias).
+- Validation error for optional schema properties.
 
 ### Changed
 - Schema description fallback now uses TypeSpec `@description` instead of doc comments.

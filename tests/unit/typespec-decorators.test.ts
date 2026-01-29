@@ -8,6 +8,7 @@ import {
   $content,
   $description,
   $schemaDescription,
+  $typespecDescription,
   $id,
   $item,
   $label,
@@ -27,6 +28,7 @@ import {
   COCOGEN_STATE_PROPERTY_ALIASES,
   COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS,
   COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS,
+  COCOGEN_STATE_PROPERTY_TYPESPEC_DESCRIPTIONS,
   COCOGEN_STATE_PROPERTY_LABELS,
   COCOGEN_STATE_PROPERTY_NAME_OVERRIDES,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
@@ -120,12 +122,14 @@ describe("TypeSpec decorators", () => {
     $aliases(context, prop, "display");
     $schemaDescription(context, prop, { value: "A schema title" } as unknown as string);
     $description(context, prop, { value: "A legacy title" } as unknown as string);
+    $typespecDescription(context, prop, { value: "A TypeSpec title" } as unknown as string);
     $name(context, prop, { value: "Title" } as unknown as string);
 
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_LABELS).get(prop)).toEqual(["title", "subtitle"]);
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_ALIASES).get(prop)).toEqual(["headline", "display"]);
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_SCHEMA_DESCRIPTIONS).get(prop)).toBe("A schema title");
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_LEGACY_DESCRIPTIONS).get(prop)).toBe("A legacy title");
+    expect(program.stateMap(COCOGEN_STATE_PROPERTY_TYPESPEC_DESCRIPTIONS).get(prop)).toBe("A TypeSpec title");
     expect(program.stateMap(COCOGEN_STATE_PROPERTY_NAME_OVERRIDES).get(prop)).toBe("Title");
   });
 

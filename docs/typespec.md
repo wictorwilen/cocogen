@@ -430,6 +430,7 @@ Collection types:
 
 Not supported:
 - Nested models / objects (flatten your schema)
+- Optional properties (remove the `?` marker)
 
 ## People connectors: mapping to profile shapes
 

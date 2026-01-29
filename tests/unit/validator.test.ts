@@ -119,6 +119,22 @@ describe("validateIr", () => {
     expect(issues.some((i) => i.severity === "warning" && i.message.includes("@coco.description"))).toBe(true);
   });
 
+  test("errors when a property is optional", () => {
+    const ir = baseIr();
+    ir.properties.push({
+      name: "title",
+      type: "string",
+      labels: [],
+      aliases: [],
+      search: {},
+      optional: true,
+      source: { csvHeaders: ["title"] },
+    });
+
+    const issues = validateIr(ir);
+    expect(issues.some((i) => i.severity === "error" && i.message.includes("optional"))).toBe(true);
+  });
+
   test("errors when connection name is missing", () => {
     const ir = baseIr();
     ir.connection = { graphApiVersion: "v1.0", connectionId: "testconnection", connectionDescription: "Test connector" };

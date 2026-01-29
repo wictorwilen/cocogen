@@ -62,6 +62,14 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
 
   const seenNames = new Set<string>();
   for (const prop of ir.properties) {
+    if (prop.optional) {
+      issues.push({
+        severity: "error",
+        message: `Property '${prop.name}' is optional. Optional schema properties are not supported.`,
+        hint: "Remove the optional marker (?) so the property is required.",
+      });
+    }
+
     if (prop.descriptionSource === "coco.description") {
       issues.push({
         severity: "warning",

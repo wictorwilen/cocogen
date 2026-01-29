@@ -79,6 +79,35 @@ describe("cocogen validate (e2e)", () => {
     expect(parsed.errors.some((e) => e.message.includes("must be a string"))).toBe(true);
   });
 
+  test("returns ok=false when properties are optional", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        title?: string;
+      }
+    `);
+
+    const result = await runNode(
+      [distCliPath(), "validate", "--tsp", entry, "--json"],
+      {
+        cwd: repoRoot,
+        env: {
+          NO_COLOR: "1",
+          CI: "1",
+        },
+      }
+    );
+
+    expect(result.code).toBe(1);
+    const parsed = JSON.parse(result.stdout) as { ok: boolean; errors: Array<{ message: string }>; warnings: unknown[] };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors.some((e) => e.message.includes("optional"))).toBe(true);
+  });
+
   test("fails when preview features are required but not enabled", async () => {
     const entry = await writeTempTspFile(`
       @coco.connection({
