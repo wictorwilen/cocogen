@@ -4,9 +4,11 @@ import path from "node:path";
 
 import {
   initDotnetProject,
+  initRestProject,
   initTsProject,
   updateDotnetProject,
   updateProject,
+  updateRestProject,
   updateTsProject,
 } from "../../src/init/init.js";
 import { writeTempDir, writeTempTspFile } from "../test-utils.js";
@@ -78,6 +80,16 @@ describe("init errors", () => {
     );
   });
 
+  test("rest init fails when preview features are required", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "people-rest");
+
+    await expect(initRestProject({ tspPath, outDir, force: false, usePreviewFeatures: false })).rejects.toThrow(
+      /use-preview-features/i
+    );
+  });
+
   test("dotnet init fails when schema validation fails", async () => {
     const tspPath = await writeTempTspFile(
       `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: int64; }`
@@ -86,6 +98,16 @@ describe("init errors", () => {
     const outDir = path.join(outRoot, "dotnet-invalid-schema");
 
     await expect(initDotnetProject({ tspPath, outDir, force: false })).rejects.toThrow(/Schema validation failed/i);
+  });
+
+  test("rest init fails when schema validation fails", async () => {
+    const tspPath = await writeTempTspFile(
+      `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: int64; }`
+    );
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "rest-invalid-schema");
+
+    await expect(initRestProject({ tspPath, outDir, force: false })).rejects.toThrow(/Schema validation failed/i);
   });
 
   test("updateDotnetProject rejects non-dotnet project", async () => {
@@ -98,6 +120,18 @@ describe("init errors", () => {
     await initTsProject({ tspPath, outDir, force: false });
 
     await expect(updateDotnetProject({ outDir })).rejects.toThrow(/Use cocogen generate\/update for that language/i);
+  });
+
+  test("updateRestProject rejects non-rest project", async () => {
+    const tspPath = await writeTempTspFile(
+      `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: string; }`
+    );
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "ts-project-rest");
+
+    await initTsProject({ tspPath, outDir, force: false });
+
+    await expect(updateRestProject({ outDir })).rejects.toThrow(/Use cocogen generate\/update for that language/i);
   });
 
   test("updateTsProject rejects dotnet project", async () => {
@@ -122,6 +156,16 @@ describe("init errors", () => {
     await expect(updateTsProject({ outDir, usePreviewFeatures: false })).rejects.toThrow(/use-preview-features/i);
   });
 
+  test("updateRestProject fails when preview features are required", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "people-rest-update");
+
+    await initRestProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    await expect(updateRestProject({ outDir, usePreviewFeatures: false })).rejects.toThrow(/use-preview-features/i);
+  });
+
   test("updateDotnetProject fails when schema validation fails", async () => {
     const tspPath = await writeTempTspFile(
       `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: string; }`
@@ -138,6 +182,24 @@ describe("init errors", () => {
     );
 
     await expect(updateDotnetProject({ outDir })).rejects.toThrow(/Schema validation failed/i);
+  });
+
+  test("updateRestProject fails when schema validation fails", async () => {
+    const tspPath = await writeTempTspFile(
+      `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: string; }`
+    );
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "rest-invalid-update");
+
+    await initRestProject({ tspPath, outDir, force: false });
+
+    await writeFile(
+      path.join(outDir, "schema.tsp"),
+      `using coco; @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" }) @coco.item model Item { @coco.id id: int64; }`,
+      "utf8"
+    );
+
+    await expect(updateRestProject({ outDir })).rejects.toThrow(/Schema validation failed/i);
   });
 
   test("updateTsProject fails when schema validation fails", async () => {
