@@ -142,9 +142,14 @@ public sealed class ConnectorCore<TItem>
         Console.WriteLine($"info: PUT item (id={itemId})");
         if (verbose)
         {
-            var url = $"{_graph!.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl}/external/connections/{_connectionId}/items/{Uri.EscapeDataString(itemId)}";
+            var baseUrl = _graph!.RequestAdapter.BaseUrl ?? SchemaConstants.GraphBaseUrl;
+            var url = $"{baseUrl}/external/connections/{_connectionId}/items/{Uri.EscapeDataString(itemId)}";
             Console.WriteLine("verbose: PUT " + url);
-            Console.WriteLine("verbose: payload " + JsonSerializer.Serialize(externalItem, new JsonSerializerOptions { WriteIndented = true }));
+            var payloadJson = JsonSerializer.Serialize(
+                externalItem,
+                new JsonSerializerOptions { WriteIndented = true }
+            );
+            Console.WriteLine("verbose: payload " + payloadJson);
         }
 
         var requestInfo = new RequestInformation
@@ -215,7 +220,11 @@ public sealed class ConnectorCore<TItem>
             else if (verbose)
             {
                 var itemId = _itemPayload.GetItemId(item);
-                Console.WriteLine($"verbose: DRY RUN item {count + 1} (id={itemId}) payload " + JsonSerializer.Serialize(_itemPayload.ToExternalItem(item), new JsonSerializerOptions { WriteIndented = true }));
+                var payloadJson = JsonSerializer.Serialize(
+                    _itemPayload.ToExternalItem(item),
+                    new JsonSerializerOptions { WriteIndented = true }
+                );
+                Console.WriteLine($"verbose: DRY RUN item {count + 1} (id={itemId}) payload " + payloadJson);
             }
 
             count++;
@@ -413,7 +422,11 @@ public sealed class ConnectorCore<TItem>
         return token.Token;
     }
 
-    private async Task<HttpResponseMessage> GraphRequestAsync(TokenCredential credential, HttpMethod method, string url, object? body = null)
+    private async Task<HttpResponseMessage> GraphRequestAsync(
+        TokenCredential credential,
+        HttpMethod method,
+        string url,
+        object? body = null)
     {
         using var http = new HttpClient();
         var token = await GetAccessTokenAsync(credential);
@@ -577,7 +590,9 @@ public sealed class ConnectorCore<TItem>
             if (!patchRes.IsSuccessStatusCode)
             {
                 var text = await patchRes.Content.ReadAsStringAsync();
-                throw new InvalidOperationException($"Failed to update profile property setting {id} (HTTP {(int)patchRes.StatusCode}): {text}");
+                throw new InvalidOperationException(
+                    $"Failed to update profile property setting {id} (HTTP {(int)patchRes.StatusCode}): {text}"
+                );
             }
         }
 

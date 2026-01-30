@@ -25,7 +25,11 @@ import { CoreGenerator, type GeneratorContext } from "../generators/core.js";
 import { removeIfExists } from "../helpers/fs.js";
 import { buildTsPersonEntityCollectionExpression, buildTsPersonEntityExpression, type TsPersonEntityTypeInfo } from "./people-entity.js";
 import { buildTsPrincipalCollectionExpression, buildTsPrincipalExpression } from "./principal.js";
-import { applyTsValidationExpression, buildTsStringConstraintsLiteral } from "./validation.js";
+import {
+  applyTsValidationExpression,
+  buildTsStringConstraintsLiteral,
+  buildTsValidationCall,
+} from "./validation.js";
 
 export type TsGeneratorSettings = {
   projectName: string;
@@ -306,7 +310,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
                 (headersLiteral) => {
                   const base = `parseString(readSourceValue(row, ${headersLiteral}))`;
                   return stringConstraints
-                    ? `validateString(${nameLiteral}, ${base}, ${stringConstraints})`
+                    ? buildTsValidationCall("validateString", nameLiteral, base, stringConstraints)
                     : base;
                 },
                 personEntityTypeInfo,
@@ -329,20 +333,19 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       const contentType = this.ir.item.contentType ?? "text";
       const contentExpression = contentSources.length > 0
         ? (() => {
-            const entries = contentSources
-              .map((entry) => {
-                const labelLiteral = JSON.stringify(entry.label);
-                const sourceLiteral = buildSourceLiteral(entry.source);
-                if (contentType === "html") {
-                  return `\`<li><b>\${${labelLiteral}}</b>: \${parseString(readSourceValue(row, ${sourceLiteral}))}</li>\``;
-                }
-                return `\`${labelLiteral}: \${parseString(readSourceValue(row, ${sourceLiteral}))}\``;
-              })
-              .join(", ");
+            const entries = contentSources.map((entry) => {
+              const labelLiteral = JSON.stringify(entry.label);
+              const sourceLiteral = buildSourceLiteral(entry.source);
+              if (contentType === "html") {
+                return `\`<li><b>\${${labelLiteral}}</b>: \${parseString(readSourceValue(row, ${sourceLiteral}))}</li>\``;
+              }
+              return `\`${labelLiteral}: \${parseString(readSourceValue(row, ${sourceLiteral}))}\``;
+            });
+            const entryLines = entries.join(",\n");
             if (contentType === "html") {
-              return `\`<ul>\${[${entries}].join(\"\")}</ul>\``;
+              return `\`<ul>\${[\n${entryLines}\n].join(\"\")}</ul>\``;
             }
-            return `[${entries}].join("\\n")`;
+            return `[\n${entryLines}\n].join("\\n")`;
           })()
         : null;
       const expression = needsManualEntity

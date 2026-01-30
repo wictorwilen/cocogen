@@ -5,7 +5,11 @@ import type { <%= itemTypeName %> } from "./model.js";
 import { contentPropertyName, idPropertyName } from "./constants.js";
 import { getItemId as getItemIdFromCore, type IdEncoding } from "../core/itemId.js";
 <% if (peopleSerializers.length > 0) { -%>
-import { <%= peopleSerializers.join(", ") %> } from "../core/people.js";
+import {
+<% for (const serializer of peopleSerializers) { -%>
+  <%= serializer %>,
+<% } -%>
+} from "../core/people.js";
 <% } -%>
 <% if (usesPrincipal) { -%>
 import { cleanPrincipal, cleanPrincipalCollection } from "../core/principal.js";

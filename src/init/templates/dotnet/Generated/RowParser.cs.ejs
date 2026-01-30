@@ -323,11 +323,16 @@ public static class RowParser
     {
         if (value is JsonArray array)
         {
-            return array.Select((entry) => long.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+            return array
+                .Select((entry) => long.TryParse(ParseString(entry), out var n) ? n : 0)
+                .ToList();
         }
         if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
         {
-            return element.EnumerateArray().Select((entry) => long.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+            return element
+                .EnumerateArray()
+                .Select((entry) => long.TryParse(ParseString(entry), out var n) ? n : 0)
+                .ToList();
         }
         var v = ParseString(value);
         if (v.Length == 0) return new List<long>();
@@ -365,11 +370,16 @@ public static class RowParser
     {
         if (value is JsonArray array)
         {
-            return array.Select((entry) => double.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+            return array
+                .Select((entry) => double.TryParse(ParseString(entry), out var n) ? n : 0)
+                .ToList();
         }
         if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
         {
-            return element.EnumerateArray().Select((entry) => double.TryParse(ParseString(entry), out var n) ? n : 0).ToList();
+            return element
+                .EnumerateArray()
+                .Select((entry) => double.TryParse(ParseString(entry), out var n) ? n : 0)
+                .ToList();
         }
         var v = ParseString(value);
         if (v.Length == 0) return new List<double>();
@@ -407,11 +417,16 @@ public static class RowParser
     {
         if (value is JsonArray array)
         {
-            return array.Select((entry) => DateTimeOffset.TryParse(ParseString(entry), out var dt) ? dt : DateTimeOffset.MinValue).ToList();
+            return array
+                .Select((entry) => DateTimeOffset.TryParse(ParseString(entry), out var dt) ? dt : DateTimeOffset.MinValue)
+                .ToList();
         }
         if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
         {
-            return element.EnumerateArray().Select((entry) => DateTimeOffset.TryParse(ParseString(entry), out var dt) ? dt : DateTimeOffset.MinValue).ToList();
+            return element
+                .EnumerateArray()
+                .Select((entry) => DateTimeOffset.TryParse(ParseString(entry), out var dt) ? dt : DateTimeOffset.MinValue)
+                .ToList();
         }
         var v = ParseString(value);
         if (v.Length == 0) return new List<DateTimeOffset>();
@@ -420,7 +435,9 @@ public static class RowParser
             .Select((x) => DateTimeOffset.TryParse(x, out var dt) ? dt : DateTimeOffset.MinValue)
             .ToList();
     <% } else { -%>
-        return DateTimeOffset.TryParse(v, out var dt) ? new List<DateTimeOffset> { dt } : new List<DateTimeOffset>();
+        return DateTimeOffset.TryParse(v, out var dt)
+            ? new List<DateTimeOffset> { dt }
+            : new List<DateTimeOffset>();
     <% } -%>
     }
 

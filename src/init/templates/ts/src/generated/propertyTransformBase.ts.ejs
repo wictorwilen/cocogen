@@ -9,16 +9,20 @@ import {
   parseNumberCollection,
   parseString,
   parseStringCollection,
-  readSourceValue
+  readSourceValue,
 } from "../datasource/row.js";
 import {
   validateNumber,
   validateNumberCollection,
   validateString,
-  validateStringCollection
+  validateStringCollection,
 } from "../core/validation.js";
 <% if (peopleEntityTypes && peopleEntityTypes.length > 0) { -%>
-import type { <%= peopleEntityTypes.join(", ") %> } from "../core/people.js";
+import type {
+<% for (const typeName of peopleEntityTypes) { -%>
+  <%= typeName %>,
+<% } -%>
+} from "../core/people.js";
 <% } -%>
 <% if (usesPrincipal) { -%>
 import type { Principal } from "../core/principal.js";
@@ -47,7 +51,15 @@ export abstract class PropertyTransformBase {
   protected transform<%= prop.transformName %>(row: Record<string, unknown>): <%= prop.tsType %> {
     return <%- prop.expression
       .split("\n")
-      .map((line, index) => (index === 0 ? line : `    ${line}`))
+      .map((line, index) => {
+        if (index === 0) return line;
+        const trimmed = line.trimStart();
+        const isClosing =
+          trimmed.startsWith(")") ||
+          trimmed.startsWith("]") ||
+          (trimmed.startsWith("}") && !trimmed.includes(" as "));
+        return `${isClosing ? "    " : "      "}${line}`;
+      })
       .join("\n") %>;
   }
 

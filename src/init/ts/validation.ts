@@ -23,6 +23,22 @@ export function buildTsNumberConstraintsLiteral(prop: { minValue?: number; maxVa
   return parts.length > 0 ? `{ ${parts.join(", ")} }` : undefined;
 }
 
+/** Build a multiline validation call expression. */
+export function buildTsValidationCall(
+  method: string,
+  nameLiteral: string,
+  expression: string,
+  constraints: string
+): string {
+  return [
+    `${method}(`,
+    `${nameLiteral},`,
+    `${expression},`,
+    `${constraints}`,
+    ")",
+  ].join("\n");
+}
+
 /** Wrap a parse expression with validation when constraints exist. */
 export function applyTsValidationExpression(
   prop: {
@@ -45,19 +61,23 @@ export function applyTsValidationExpression(
     case "string":
     case "principal":
     case "dateTime":
-      return stringConstraints ? `validateString(${nameLiteral}, ${expression}, ${stringConstraints})` : expression;
+      return stringConstraints
+        ? buildTsValidationCall("validateString", nameLiteral, expression, stringConstraints)
+        : expression;
     case "stringCollection":
     case "dateTimeCollection":
       return stringConstraints
-        ? `validateStringCollection(${nameLiteral}, ${expression}, ${stringConstraints})`
+        ? buildTsValidationCall("validateStringCollection", nameLiteral, expression, stringConstraints)
         : expression;
     case "int64":
     case "double":
-      return numberConstraints ? `validateNumber(${nameLiteral}, ${expression}, ${numberConstraints})` : expression;
+      return numberConstraints
+        ? buildTsValidationCall("validateNumber", nameLiteral, expression, numberConstraints)
+        : expression;
     case "int64Collection":
     case "doubleCollection":
       return numberConstraints
-        ? `validateNumberCollection(${nameLiteral}, ${expression}, ${numberConstraints})`
+        ? buildTsValidationCall("validateNumberCollection", nameLiteral, expression, numberConstraints)
         : expression;
     default:
       return expression;

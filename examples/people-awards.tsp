@@ -31,7 +31,7 @@ model PersonProfile {
   @coco.label("personAwards")
   @coco.source("Awards", "displayName")
   @coco.schemaDescription("Awards and recognitions received by the person.")
-  @description("asdf")
+  @global.description("asdf")
   @example(#["Employee of the Month", "Top Innovator 2024"])
   awards: string[];
 }

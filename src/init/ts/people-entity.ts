@@ -34,6 +34,23 @@ type TsCollectionRenderers = {
 
 const DEFAULT_INDENT_UNIT = TS_INDENT;
 
+const indentMultilineValue = (value: string, indent: string): string => {
+  const lines = value.split("\n");
+  if (lines.length <= 1) return value;
+  return [lines[0]!, ...lines.slice(1).map((line) => `${indent}${line}`)].join("\n");
+};
+
+const formatObjectEntry = (
+  key: string,
+  value: string,
+  childIndent: string,
+  indentUnit: string
+): string => {
+  const valueIndent = `${childIndent}${indentUnit}`;
+  const formattedValue = indentMultilineValue(value, valueIndent);
+  return `${childIndent}${JSON.stringify(key)}: ${formattedValue}`;
+};
+
 /** Build shared renderers for TS people-entity collections. */
 function createTsCollectionRenderers(
   typeMap: TsPersonEntityTypeMap,
@@ -50,7 +67,7 @@ function createTsCollectionRenderers(
     },
     buildEntry: ({ key, value, level }) => {
       const childIndent = indentUnit.repeat(level + 1);
-      return `${childIndent}${JSON.stringify(key)}: ${value}`;
+      return formatObjectEntry(key, value, childIndent, indentUnit);
     },
     wrapObject: (entries, level) => `{
 ${entries.join(",\n")}
@@ -173,21 +190,26 @@ export function buildTsPersonEntityExpression(
         const field = value as PersonEntityField;
         const propType = info?.properties.get(key) ?? null;
         if (propType && propType.endsWith("[]")) {
-          return `${childIndent}${JSON.stringify(key)}: ${fieldCollectionValueBuilder(field)}`;
+          return formatObjectEntry(
+            key,
+            fieldCollectionValueBuilder(field),
+            childIndent,
+            indentUnit
+          );
         }
-        return `${childIndent}${JSON.stringify(key)}: ${fieldValueBuilder(field)}`;
+        return formatObjectEntry(key, fieldValueBuilder(field), childIndent, indentUnit);
       }
       const propType = info?.properties.get(key) ?? null;
       if (propType && propType.endsWith("[]")) {
         const elementType = propType.slice(0, -2);
         const elementInfo = typeMap.get(elementType) ?? null;
         const renderedCollection = renderCollectionNode(value as Record<string, unknown>, level + 1, propType, elementInfo);
-        return `${childIndent}${JSON.stringify(key)}: ${renderedCollection}`;
+        return formatObjectEntry(key, renderedCollection, childIndent, indentUnit);
       }
       const nestedType = propType ? typeMap.get(propType) ?? null : null;
       const renderedChild = renderNode(value as Record<string, unknown>, level + 1, nestedType);
       const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
-      return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
+      return formatObjectEntry(key, typedChild, childIndent, indentUnit);
     });
     return `{
 ${entries.join(",\n")}
@@ -197,7 +219,7 @@ ${indent}}`;
   const objectExpression = renderNode(tree, 0, typeInfo);
   const typedObjectExpression = typeInfo ? `(${objectExpression} as ${typeInfo.alias})` : objectExpression;
 
-  return `JSON.stringify(\n${indentUnit.repeat(2)}${typedObjectExpression}\n${indentUnit.repeat(2)})`;
+  return `JSON.stringify(\n${typedObjectExpression}\n)`;
 }
 
 /** Build a TS JSON string[] expression for person-entity collections. */
@@ -234,21 +256,26 @@ export function buildTsPersonEntityCollectionExpression(
       if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
         const propType = info?.properties.get(key) ?? null;
         if (propType && propType.endsWith("[]")) {
-          return `${childIndent}${JSON.stringify(key)}: (${valueVar} ? [${valueVar}] : [])`;
+          return formatObjectEntry(
+            key,
+            `(${valueVar} ? [${valueVar}] : [])`,
+            childIndent,
+            indentUnit
+          );
         }
-        return `${childIndent}${JSON.stringify(key)}: ${valueVar}`;
+        return formatObjectEntry(key, valueVar, childIndent, indentUnit);
       }
       const propType = info?.properties.get(key) ?? null;
       if (propType && propType.endsWith("[]")) {
         const elementType = propType.slice(0, -2);
         const elementInfo = typeMap.get(elementType) ?? null;
         const renderedCollection = renderCollectionNode(value as Record<string, unknown>, level + 1, propType, elementInfo);
-        return `${childIndent}${JSON.stringify(key)}: ${renderedCollection}`;
+        return formatObjectEntry(key, renderedCollection, childIndent, indentUnit);
       }
       const nestedType = propType ? typeMap.get(propType) ?? null : null;
       const renderedChild = renderNodeWithValueVar(value as Record<string, unknown>, level + 1, valueVar, nestedType);
       const typedChild = nestedType ? `(${renderedChild} as ${nestedType.alias})` : renderedChild;
-      return `${childIndent}${JSON.stringify(key)}: ${typedChild}`;
+      return formatObjectEntry(key, typedChild, childIndent, indentUnit);
     });
     return `{
 ${entries.join(",\n")}

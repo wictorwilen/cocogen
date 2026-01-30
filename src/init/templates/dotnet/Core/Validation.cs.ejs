@@ -10,7 +10,13 @@ namespace <%= namespaceName %>.Core;
 /// </summary>
 public static class Validation
 {
-    public static string ValidateString(string name, string value, int? minLength, int? maxLength, string? pattern, string? format)
+    public static string ValidateString(
+        string name,
+        string value,
+        int? minLength,
+        int? maxLength,
+        string? pattern,
+        string? format)
     {
         if (minLength.HasValue && value.Length < minLength.Value)
             throw new InvalidOperationException($"Invalid {name}: minimum length is {minLength}.");
@@ -76,7 +82,13 @@ public static class Validation
         return value;
     }
 
-    public static List<string> ValidateStringCollection(string name, List<string> values, int? minLength, int? maxLength, string? pattern, string? format)
+    public static List<string> ValidateStringCollection(
+        string name,
+        List<string> values,
+        int? minLength,
+        int? maxLength,
+        string? pattern,
+        string? format)
     {
         if (values.Count == 0) return values;
         for (var index = 0; index < values.Count; index++)

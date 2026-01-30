@@ -159,13 +159,19 @@ public sealed class RestItemSource : IItemSource<ItemModel>
     {
         var value = EvaluateJsonPath(root, path);
         if (value is JsonValue jsonValue && jsonValue.TryGetValue<string>(out var str)) return str;
-        if (value is JsonValue jsonNumber && jsonNumber.TryGetValue<double>(out var num)) return num.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (value is JsonValue jsonNumber && jsonNumber.TryGetValue<double>(out var num))
+        {
+            return num.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
         if (root is JsonObject obj)
         {
             if (obj.TryGetPropertyValue(path, out var direct) && direct is JsonValue directValue)
             {
                 if (directValue.TryGetValue<string>(out var directString)) return directString;
-                if (directValue.TryGetValue<double>(out var directNumber)) return directNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                if (directValue.TryGetValue<double>(out var directNumber))
+                {
+                    return directNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
             }
 
             var extracted = ExtractPathKey(path);
@@ -174,7 +180,10 @@ public sealed class RestItemSource : IItemSource<ItemModel>
                 && fallback is JsonValue fallbackValue)
             {
                 if (fallbackValue.TryGetValue<string>(out var fallbackString)) return fallbackString;
-                if (fallbackValue.TryGetValue<double>(out var fallbackNumber)) return fallbackNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                if (fallbackValue.TryGetValue<double>(out var fallbackNumber))
+                {
+                    return fallbackNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
             }
         }
         return null;
