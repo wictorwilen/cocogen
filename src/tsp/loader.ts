@@ -216,6 +216,64 @@ function getPersonEntityMapping(
   const rawFields =
     (program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS).get(prop) as CocogenPersonEntityField[]) ?? [];
 
+  const extractSourcePath = (source: CocogenSourceSettings | string): string | undefined => {
+    if (typeof source === "string") return source.trim();
+    const jsonPath = typeof source.jsonPath === "string" ? source.jsonPath.trim() : "";
+    return jsonPath.length > 0 ? jsonPath : undefined;
+  };
+
+  const normalizePrefixCandidate = (raw: string): string | undefined => {
+    let text = raw.trim();
+    if (!text) return undefined;
+    if (text.startsWith("$.")) text = text.slice(2);
+    if (text.startsWith("$")) return undefined;
+    if (text.startsWith("[")) return undefined;
+    if (text.includes("[")) return undefined;
+    return text;
+  };
+
+  const computeCommonPrefix = (): string | undefined => {
+    if (sourcePathSyntax !== "jsonpath") return undefined;
+    const candidates = rawFields
+      .map((field) => extractSourcePath(field.source))
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .map((value) => normalizePrefixCandidate(value))
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .map((value) => value.split(".").filter(Boolean))
+      .filter((segments) => segments.length > 1);
+
+    if (candidates.length === 0) return undefined;
+    let prefix = candidates[0]!;
+    for (const segments of candidates.slice(1)) {
+      let index = 0;
+      while (index < prefix.length && index < segments.length && prefix[index] === segments[index]) {
+        index += 1;
+      }
+      prefix = prefix.slice(0, index);
+      if (prefix.length === 0) break;
+    }
+    return prefix.length > 0 ? prefix.join(".") : undefined;
+  };
+
+  const commonPrefix = computeCommonPrefix();
+
+  const applyCommonPrefix = (source: CocogenSourceSettings | string): CocogenSourceSettings | string => {
+    if (!commonPrefix || sourcePathSyntax !== "jsonpath") return source;
+    const rawPath = extractSourcePath(source);
+    if (!rawPath) return source;
+    const trimmed = rawPath.trim();
+    if (
+      trimmed.startsWith("$") ||
+      trimmed.includes("[") ||
+      trimmed.includes(".")
+    ) {
+      return source;
+    }
+    const prefixed = `${commonPrefix}.${trimmed}`;
+    if (typeof source === "string") return prefixed;
+    return { ...source, jsonPath: prefixed };
+  };
+
   const normalizeEntityPath = (rawPath: string): string => {
     const trimmed = rawPath.trim();
     if (!trimmed) return "";
@@ -238,7 +296,13 @@ function getPersonEntityMapping(
     .map((field) => {
       const path = typeof field.path === "string" ? normalizeEntityPath(field.path) : "";
       if (!path) return undefined;
-      const sourceSettings = normalizeSourceSettings(field.source, path, true, false, sourcePathSyntax);
+      const sourceSettings = normalizeSourceSettings(
+        applyCommonPrefix(field.source),
+        path,
+        true,
+        false,
+        sourcePathSyntax
+      );
       return {
         path,
         source: {

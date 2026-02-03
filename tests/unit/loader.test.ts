@@ -435,6 +435,40 @@ describe("loadIrFromTypeSpec", () => {
     );
   });
 
+  test("prefixes single-segment people entity sources with common jsonpath base", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.connection({
+        contentCategory: "people",
+        name: "People connector",
+        connectionId: "peopleconnector"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example people source"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        @coco.label("personAccount")
+        @coco.source("upn", "userPrincipalName")
+        userPrincipalName: string;
+
+        @coco.label("personCurrentPosition")
+        @coco.source("position.secondaryJobTitle", "detail.secondaryJobTitle")
+        @coco.source("position.role,", "detail.role")
+        @coco.source("assistant", "colleagues.userPrincipalName")
+        workPosition: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "json" });
+    const prop = ir.properties.find((p) => p.name === "workPosition");
+    const assistant = prop?.personEntity?.fields.find((field) => field.path === "colleagues.userPrincipalName");
+    expect(assistant?.source.jsonPath).toBe("$.position.assistant");
+  });
+
   test("errors on invalid jsonpath syntax", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

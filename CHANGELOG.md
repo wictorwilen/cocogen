@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `cocogen init` now creates `AGENTS.md` with schema authoring guidance, best practices, and `validate` usage.
 
+### Fixed
+- People entity JSONPath sources now inherit a shared prefix for single-segment mappings (e.g., `assistant` under `position.*`).
+
 ## [1.0.35] - 2026-01-30
 ### Added
 - `@coco.schemaDescription` for Graph schema property descriptions (preferred over `@coco.description`) to avoid naming collisions with the default TypeSpec `@description`.
