@@ -133,6 +133,23 @@ public static class RowParser
     }
 
     /// <summary>
+    /// Apply a default value to a parsed string.
+    /// </summary>
+    public static string ApplyDefault(string value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    /// <summary>
+    /// Apply a default value to a parsed string collection.
+    /// </summary>
+    public static List<string> ApplyDefaultCollection(List<string> values, string fallback)
+    {
+        if (values.Count > 0) return values;
+        return ParseStringCollection(fallback);
+    }
+
+    /// <summary>
     /// Parse a string from a row using the provided headers.
     /// </summary>
     public static string ParseString(object row, string[] headers)

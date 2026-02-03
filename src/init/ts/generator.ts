@@ -276,6 +276,11 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
 
       const nameLiteral = JSON.stringify(p.name);
       const stringConstraints = buildTsStringConstraintsLiteral(p);
+      const sourceDefaultLiteral = p.source.default !== undefined ? JSON.stringify(p.source.default) : null;
+      const applyDefaultStringExpression = (expr: string): string =>
+        sourceDefaultLiteral ? `applyDefaultString(${expr}, ${sourceDefaultLiteral})` : expr;
+      const applyDefaultCollectionExpression = (expr: string): string =>
+        sourceDefaultLiteral ? `applyDefaultCollection(${expr}, ${sourceDefaultLiteral})` : expr;
       const personEntityType = p.personEntity ? toTsIdentifier(p.personEntity.entity) : null;
       const personEntityTypeInfo = personEntityType ? peopleProfileTypeInfoByAlias.get(personEntityType) ?? null : null;
       if (personEntityTypeInfo) {
@@ -336,10 +341,14 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
             const entries = contentSources.map((entry) => {
               const labelLiteral = JSON.stringify(entry.label);
               const sourceLiteral = buildSourceLiteral(entry.source);
+              const entryDefaultLiteral = entry.source.default !== undefined ? JSON.stringify(entry.source.default) : null;
+              const valueExpression = entryDefaultLiteral
+                ? `applyDefaultString(parseString(readSourceValue(row, ${sourceLiteral})), ${entryDefaultLiteral})`
+                : `parseString(readSourceValue(row, ${sourceLiteral}))`;
               if (contentType === "html") {
-                return `\`<li><b>\${${labelLiteral}}</b>: \${parseString(readSourceValue(row, ${sourceLiteral}))}</li>\``;
+                return `\`<li><b>\${${labelLiteral}}</b>: \${${valueExpression}}</li>\``;
               }
-              return `\`${labelLiteral}: \${parseString(readSourceValue(row, ${sourceLiteral}))}\``;
+              return `\`${labelLiteral}: \${${valueExpression}}\``;
             });
             const entryLines = entries.join(",\n");
             if (contentType === "html") {
@@ -358,6 +367,10 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         ? principalExpression
         : personEntity
         ? personEntity
+        : p.type === "string"
+        ? applyDefaultStringExpression(`${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`)
+        : p.type === "stringCollection"
+        ? applyDefaultCollectionExpression(`${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`)
         : `${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`;
 
       const validationMetadata = {
@@ -387,8 +400,11 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
 
     const idProperty = this.ir.properties.find((p) => p.name === this.ir.item.idPropertyName);
     const idRawSource = idProperty?.personEntity?.fields[0]?.source ?? idProperty?.source;
+    const idDefaultLiteral = idRawSource?.default !== undefined ? JSON.stringify(idRawSource.default) : null;
     const idRawExpression = idRawSource
-      ? `parseString(readSourceValue(row, ${buildSourceLiteral(idRawSource)}))`
+      ? (idDefaultLiteral
+        ? `applyDefaultString(parseString(readSourceValue(row, ${buildSourceLiteral(idRawSource)})), ${idDefaultLiteral})`
+        : `parseString(readSourceValue(row, ${buildSourceLiteral(idRawSource)}))`)
       : '""';
 
     const usesPrincipal = this.ir.properties.some(

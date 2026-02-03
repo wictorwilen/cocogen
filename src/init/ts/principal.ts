@@ -8,8 +8,14 @@ export function buildTsPrincipalExpression(
   fallbackSource: SourceDescriptor
 ): string {
   const entries = buildPrincipalFieldEntries(fields, fallbackSource).map(
-    (entry) =>
-      `  ${JSON.stringify(entry.key)}: parseString(readSourceValue(row, ${buildSourceLiteral(entry.source)}))`
+    (entry) => {
+      const sourceLiteral = buildSourceLiteral(entry.source);
+      const base = `parseString(readSourceValue(row, ${sourceLiteral}))`;
+      const withDefault = entry.source.default !== undefined
+        ? `applyDefaultString(${base}, ${JSON.stringify(entry.source.default)})`
+        : base;
+      return `  ${JSON.stringify(entry.key)}: ${withDefault}`;
+    }
   );
 
   return `({\n  "@odata.type": "microsoft.graph.externalConnectors.principal"${
@@ -27,7 +33,9 @@ export function buildTsPrincipalCollectionExpression(
 
   const fieldLines = entries.map(
     (entry, index) =>
-      `  const field${index} = parseStringCollection(readSourceValue(row, ${buildSourceLiteral(entry.source)}));`
+      `  const field${index} = ${entry.source.default !== undefined
+        ? `applyDefaultCollection(parseStringCollection(readSourceValue(row, ${buildSourceLiteral(entry.source)})), ${JSON.stringify(entry.source.default)})`
+        : `parseStringCollection(readSourceValue(row, ${buildSourceLiteral(entry.source)}))`};`
   );
   const lengthVars = entries.length
     ? `  const lengths = [${entries.map((_, index) => `field${index}.length`).join(", ")}];`

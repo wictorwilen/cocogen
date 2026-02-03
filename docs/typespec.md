@@ -266,6 +266,10 @@ Notes:
 - Use `@coco.noSource` when a property has no source mapping.
 - This mapping is source-only and does not change the Graph schema name; use `@coco.name("...")` for schema naming.
 - Multi-column source transforms (merge/compose) are not supported yet; preprocess your data or wait for a future version.
+- Optional defaults can be supplied via the second argument object:
+  - `@coco.source("title", { default: "Untitled" })`
+  - `@coco.source("assistant", { to: "colleagues.userPrincipalName", default: "unknown@contoso.com" })`
+  - Defaults are supported only for `string` and `string[]` properties.
 
 ### `@coco.noSource`
 

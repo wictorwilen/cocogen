@@ -380,6 +380,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       const isCollection = p.type === "stringCollection";
       const nameLiteral = JSON.stringify(p.name);
       const csStringConstraints = buildCsStringConstraintsLiteral(p);
+      const sourceDefaultLiteral = p.source.default !== undefined ? JSON.stringify(p.source.default) : null;
       const personEntity = p.personEntity
         ? {
             entity: p.personEntity.entity,
@@ -410,10 +411,13 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
               .map((entry) => {
                 const labelLiteral = JSON.stringify(entry.label);
                 const sourceLiteral = buildCsSourceLiteral(entry.source);
+                const valueExpression = entry.source.default !== undefined
+                  ? `RowParser.ApplyDefault(RowParser.ParseString(row, ${sourceLiteral}), ${JSON.stringify(entry.source.default)})`
+                  : `RowParser.ParseString(row, ${sourceLiteral})`;
                 if (contentType === "html") {
-                  return `string.Concat("<li><b>", ${labelLiteral}, "</b>: ", RowParser.ParseString(row, ${sourceLiteral}), "</li>")`;
+                  return `string.Concat("<li><b>", ${labelLiteral}, "</b>: ", ${valueExpression}, "</li>")`;
                 }
-                return `string.Concat(${labelLiteral}, ": ", RowParser.ParseString(row, ${sourceLiteral}))`;
+                return `string.Concat(${labelLiteral}, ": ", ${valueExpression})`;
               })
               .join(", ");
             if (contentType === "html") {
@@ -461,6 +465,14 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
               personEntityTypeInfo,
               peopleProfileTypeInfoByName
             )
+        : p.type === "string"
+        ? (sourceDefaultLiteral
+          ? `RowParser.ApplyDefault(${parseFn}(row, ${sourceLiteral}), ${sourceDefaultLiteral})`
+          : `${parseFn}(row, ${sourceLiteral})`)
+        : p.type === "stringCollection"
+        ? (sourceDefaultLiteral
+          ? `RowParser.ApplyDefaultCollection(${parseFn}(row, ${sourceLiteral}), ${sourceDefaultLiteral})`
+          : `${parseFn}(row, ${sourceLiteral})`)
         : `${parseFn}(row, ${sourceLiteral})`;
 
       const validationMetadata = {
@@ -571,8 +583,11 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     const itemIdProperty = properties.find((p) => p.name === this.ir.item.idPropertyName);
     const idRawSourceDotnet =
       itemIdProperty?.personEntity?.fields[0]?.source ?? itemIdProperty?.source;
+    const idDefaultLiteral = idRawSourceDotnet?.default !== undefined ? JSON.stringify(idRawSourceDotnet.default) : null;
     const idRawExpressionDotnet = idRawSourceDotnet
-      ? `RowParser.ParseString(row, ${buildCsSourceLiteral(idRawSourceDotnet)})`
+      ? (idDefaultLiteral
+        ? `RowParser.ApplyDefault(RowParser.ParseString(row, ${buildCsSourceLiteral(idRawSourceDotnet)}), ${idDefaultLiteral})`
+        : `RowParser.ParseString(row, ${buildCsSourceLiteral(idRawSourceDotnet)})`)
       : "string.Empty";
     const constructorArgs = [
       ...properties.map((p) => `(${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row)`),

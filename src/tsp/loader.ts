@@ -43,6 +43,7 @@ import {
   COCOGEN_STATE_PROPERTY_SEARCH,
   COCOGEN_STATE_PROPERTY_SOURCE,
   COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES,
+  COCOGEN_STATE_PROPERTY_SOURCE_DEFAULT,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   COCOGEN_STATE_PROPERTY_SERIALIZED,
@@ -131,11 +132,17 @@ function normalizeSourceSettings(
   fallbackName: string,
   explicit: boolean,
   noSource: boolean,
-  sourcePathSyntax: SourcePathSyntax
-): { csvHeaders: string[]; jsonPath?: string; explicit: boolean; noSource: boolean } {
+  sourcePathSyntax: SourcePathSyntax,
+  defaultValue?: string
+): { csvHeaders: string[]; jsonPath?: string; explicit: boolean; noSource: boolean; default?: string } {
   const settings = (raw ?? {}) as CocogenSourceSettings | string | undefined;
   const csv = typeof settings === "string" ? settings : settings?.csv;
   const jsonPath = typeof settings === "string" ? settings : settings?.jsonPath;
+  const rawDefault = defaultValue ?? (typeof settings === "object" ? settings?.default : undefined);
+  if (rawDefault !== undefined && typeof rawDefault !== "string") {
+    throw new CocogenError("@coco.source default values must be strings.");
+  }
+  const normalizedDefault = typeof rawDefault === "string" ? rawDefault : undefined;
 
   if (sourcePathSyntax === "jsonpath") {
     if (settings && typeof settings === "object" && "csv" in settings && settings.csv) {
@@ -151,6 +158,7 @@ function normalizeSourceSettings(
       jsonPath: normalized,
       explicit,
       noSource,
+      ...(normalizedDefault !== undefined ? { default: normalizedDefault } : {}),
     };
   }
 
@@ -175,6 +183,7 @@ function normalizeSourceSettings(
     csvHeaders,
     explicit,
     noSource,
+    ...(normalizedDefault !== undefined ? { default: normalizedDefault } : {}),
   };
 }
 
@@ -188,15 +197,17 @@ function getSourceSettings(
   jsonPath?: string;
   explicit: boolean;
   noSource: boolean;
+  default?: string;
 } {
   const map = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE);
   const raw = map.get(prop) as CocogenSourceSettings | string | undefined;
   const explicit = map.has(prop);
+  const defaultOverride = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_DEFAULT).get(prop) as string | undefined;
   const noSource = Boolean(program.stateMap(COCOGEN_STATE_PROPERTY_NO_SOURCE).get(prop));
   if (noSource) {
-    return normalizeSourceSettings(undefined, fallbackName, true, true, sourcePathSyntax);
+    return normalizeSourceSettings(undefined, fallbackName, true, true, sourcePathSyntax, defaultOverride);
   }
-  return normalizeSourceSettings(raw, fallbackName, explicit, false, sourcePathSyntax);
+  return normalizeSourceSettings(raw, fallbackName, explicit, false, sourcePathSyntax, defaultOverride);
 }
 
 function getPersonEntityMapping(
@@ -301,13 +312,15 @@ function getPersonEntityMapping(
         path,
         true,
         false,
-        sourcePathSyntax
+        sourcePathSyntax,
+        field.default
       );
       return {
         path,
         source: {
           csvHeaders: sourceSettings.csvHeaders,
           ...(sourceSettings.jsonPath ? { jsonPath: sourceSettings.jsonPath } : {}),
+          ...(sourceSettings.default !== undefined ? { default: sourceSettings.default } : {}),
         },
       };
     })
@@ -479,12 +492,13 @@ function getContentSources(
     .map((entry) => {
       const label = normalizeLabel(entry);
       if (!label) return undefined;
-      const sourceSettings = normalizeSourceSettings(entry.from, label, true, false, sourcePathSyntax);
+      const sourceSettings = normalizeSourceSettings(entry.from, label, true, false, sourcePathSyntax, entry.default);
       return {
         label,
         source: {
           csvHeaders: sourceSettings.csvHeaders,
           ...(sourceSettings.jsonPath ? { jsonPath: sourceSettings.jsonPath } : {}),
+          ...(sourceSettings.default !== undefined ? { default: sourceSettings.default } : {}),
         },
       };
     })
@@ -680,6 +694,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
     const isContent = isContentProperty(program, prop);
     const personEntity = isContent ? undefined : getPersonEntityMapping(program, prop, propertyType, sourcePathSyntax);
     const serialized = getSerializedModel(program, prop);
+    const source = getSourceSettings(program, prop, name, sourcePathSyntax);
     if (serialized) {
       const supported = propertyType === "string" || propertyType === "stringCollection";
       if (!supported) {
@@ -687,6 +702,13 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       }
       if (personEntity) {
         throw new CocogenError("Serialized @coco.source targets are not supported for people entity mappings.");
+      }
+    }
+
+    if (source.default !== undefined) {
+      const supportsDefault = propertyType === "string" || propertyType === "stringCollection";
+      if (!supportsDefault) {
+        throw new CocogenError("@coco.source default values are only supported for string or string[] properties.");
       }
     }
 
@@ -709,7 +731,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       search: getSearchFlags(program, prop),
       ...(personEntity ? { personEntity } : {}),
       ...(serialized ? { serialized } : {}),
-      source: getSourceSettings(program, prop, name, sourcePathSyntax),
+      source,
     };
   });
 

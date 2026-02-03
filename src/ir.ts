@@ -46,6 +46,7 @@ export type ConnectorIr = {
       source: {
         csvHeaders: string[];
         jsonPath?: string;
+        default?: string;
       };
     }>;
     doc?: string;
@@ -91,6 +92,7 @@ export type ConnectorIr = {
         source: {
           csvHeaders: string[];
           jsonPath?: string;
+          default?: string;
         };
       }>;
     };
@@ -107,6 +109,7 @@ export type ConnectorIr = {
       jsonPath?: string;
       explicit?: boolean;
       noSource?: boolean;
+      default?: string;
     };
   }>;
 };

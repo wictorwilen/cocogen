@@ -435,6 +435,76 @@ describe("loadIrFromTypeSpec", () => {
     );
   });
 
+  test("captures @coco.source default values for string properties", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("title", { default: "Untitled" })
+        title: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "csv" });
+    const title = ir.properties.find((p) => p.name === "title");
+    expect(title?.source.default).toBe("Untitled");
+  });
+
+  test("captures defaults for people entity field mappings", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.connection({
+        contentCategory: "people",
+        name: "People connector",
+        connectionId: "peopleconnector"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example people source"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        @coco.label("personAccount")
+        @coco.source("upn", "userPrincipalName")
+        userPrincipalName: string;
+
+        @coco.label("personCurrentPosition")
+        @coco.source("assistant", { to: "colleagues.userPrincipalName", default: "unknown@contoso.com" })
+        workPosition: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "json" });
+    const prop = ir.properties.find((p) => p.name === "workPosition");
+    const assistant = prop?.personEntity?.fields.find((field) => field.path === "colleagues.userPrincipalName");
+    expect(assistant?.source.default).toBe("unknown@contoso.com");
+  });
+
+  test("rejects non-string @coco.source defaults", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("title", { default: 123 })
+        title: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "csv" })).rejects.toThrow(
+      /default values must be strings/i
+    );
+  });
+
   test("prefixes single-segment people entity sources with common jsonpath base", async () => {
     const entry = await writeTempTspFile(`
       using coco;

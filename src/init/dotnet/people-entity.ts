@@ -37,6 +37,12 @@ type CollectionRenderers = {
 
 const DEFAULT_INDENT_UNIT = CS_INDENT;
 
+const applyDefaultStringExpression = (value: string, source: { default?: string }): string =>
+  source.default !== undefined ? `RowParser.ApplyDefault(${value}, ${JSON.stringify(source.default)})` : value;
+
+const applyDefaultCollectionExpression = (value: string, source: { default?: string }): string =>
+  source.default !== undefined ? `RowParser.ApplyDefaultCollection(${value}, ${JSON.stringify(source.default)})` : value;
+
 /** Build shared renderers for C# people-entity collections. */
 function createCollectionRenderers(
   typeMap: CsPersonEntityTypeMap,
@@ -137,7 +143,10 @@ function createCollectionRenderers(
 
     if (!elementInfo && elementType === "string") {
       const sourceLiteral = buildCsSourceLiteral(collected[0]!.source);
-      return `new Func<List<string>?>(() =>\n${indent}{\n${bodyIndent}var values = RowParser.ParseStringCollection(row, ${sourceLiteral});\n${bodyIndent}return values.Count == 0 ? null : values;\n${indent}}).Invoke()`;
+      return `new Func<List<string>?>(() =>\n${indent}{\n${bodyIndent}var values = ${applyDefaultCollectionExpression(
+        `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
+        collected[0]!.source
+      )};\n${bodyIndent}return values.Count == 0 ? null : values;\n${indent}}).Invoke()`;
     }
 
     if (collected.length === 1) {
@@ -145,7 +154,10 @@ function createCollectionRenderers(
       const sourceLiteral = buildCsSourceLiteral(field.source);
       const objectExpression = renderNodeForCollection(node, level + 2, "value", elementInfo);
 
-      return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${bodyIndent}var values = RowParser.ParseStringCollection(row, ${sourceLiteral});\n${bodyIndent}if (values.Count == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}foreach (var value in values)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
+      return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${bodyIndent}var values = ${applyDefaultCollectionExpression(
+        `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
+        field.source
+      )};\n${bodyIndent}if (values.Count == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}foreach (var value in values)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
     }
 
     const fieldVarByPath = new Map<string, string>();
@@ -153,7 +165,10 @@ function createCollectionRenderers(
       const varName = `field${index}`;
       fieldVarByPath.set(field.path, varName);
       const sourceLiteral = buildCsSourceLiteral(field.source);
-      return `${bodyIndent}var ${varName} = RowParser.ParseStringCollection(row, ${sourceLiteral});`;
+      return `${bodyIndent}var ${varName} = ${applyDefaultCollectionExpression(
+        `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
+        field.source
+      )};`;
     });
     const fieldVars = [...fieldVarByPath.values()];
     const lengthLines = fieldVars.length > 0
@@ -183,7 +198,10 @@ export function buildCsPersonEntityObjectExpression(
   indentLevel = 2,
   fieldCollectionValueBuilder: (field: PersonEntityField) => string = (field) => {
     const sourceLiteral = buildCsSourceLiteral(field.source);
-    return `RowParser.ParseStringCollection(row, ${sourceLiteral})`;
+    return applyDefaultCollectionExpression(
+      `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
+      field.source
+    );
   }
 ): string {
   const tree = buildObjectTree(fields);
@@ -208,7 +226,10 @@ export function buildCsPersonEntityObjectExpression(
         if (listElement === "string") {
           return `${childIndent}[${JSON.stringify(key)}] = ${fieldCollectionValueBuilder(field)}`;
         }
-        return `${childIndent}[${JSON.stringify(key)}] = ${fieldValueBuilder(field)}`;
+        return `${childIndent}[${JSON.stringify(key)}] = ${applyDefaultStringExpression(
+          fieldValueBuilder(field),
+          field.source
+        )}`;
       }
       const info = parentInfo?.properties.get(key);
       if (info && extractListElementType(info.csType)) {
@@ -251,7 +272,10 @@ export function buildCsPersonEntityObjectExpression(
           if (listElement === "string") {
             return `${childIndent}${propInfo.csName} = ${fieldCollectionValueBuilder(field)}`;
           }
-          return `${childIndent}${propInfo.csName} = ${fieldValueBuilder(field)}`;
+          return `${childIndent}${propInfo.csName} = ${applyDefaultStringExpression(
+            fieldValueBuilder(field),
+            field.source
+          )}`;
         }
         const nestedType = typeMap.get(listElement) ?? null;
         const renderedValue = renderCollectionNode(value as Record<string, unknown>, level + 1, propInfo.csType, nestedType);

@@ -22,6 +22,7 @@ import {
   COCOGEN_STATE_PROPERTY_SEARCH,
   COCOGEN_STATE_PROPERTY_SOURCE,
   COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES,
+  COCOGEN_STATE_PROPERTY_SOURCE_DEFAULT,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   COCOGEN_STATE_PROPERTY_SERIALIZED,
@@ -195,23 +196,36 @@ export function $source(
   context: DecoratorContext,
   target: ModelProperty,
   from: CocogenSourceSettings | string,
-  to?: string | { serialized?: Model; to?: string }
+  to?: string | { serialized?: Model; to?: string; default?: string }
 ): void {
   if (!isModelProperty(target)) return;
 
   const rawTo = unwrapValue<unknown>(to);
   const rawFrom = unwrapValue<unknown>(from);
   const fromValue = typeof rawFrom === "string" ? rawFrom : normalizeObject<CocogenSourceSettings>(from);
-  const rawToString = typeof rawTo === "string" ? rawTo.trim() : "";
+  const toSettings = rawTo && typeof rawTo === "object" && !Array.isArray(rawTo)
+    ? normalizeObject<{ serialized?: unknown; to?: unknown; default?: unknown }>(rawTo)
+    : undefined;
+  const rawToString = typeof rawTo === "string" ? rawTo.trim() : typeof toSettings?.to === "string" ? toSettings.to.trim() : "";
+  if (toSettings && "default" in toSettings && toSettings.default !== undefined && typeof toSettings.default !== "string") {
+    throw new Error("@coco.source default values must be strings.");
+  }
+  const defaultOverride = typeof toSettings?.default === "string" ? toSettings.default : undefined;
+  const defaultFromValue = typeof fromValue === "object" && fromValue && "default" in fromValue
+    ? (fromValue as { default?: unknown }).default
+    : undefined;
+  if (defaultFromValue !== undefined && typeof defaultFromValue !== "string") {
+    throw new Error("@coco.source default values must be strings.");
+  }
+  const defaultValue = typeof defaultOverride === "string" ? defaultOverride : typeof defaultFromValue === "string" ? defaultFromValue : undefined;
   const sourceEntry: CocogenSourceEntry = rawToString
-    ? { from: fromValue, to: rawToString }
+    ? { from: fromValue, to: rawToString, ...(defaultValue !== undefined ? { default: defaultValue } : {}) }
     : { from: fromValue };
   pushArrayValue(context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES), target, sourceEntry);
 
   if (rawTo && typeof rawTo === "object" && !Array.isArray(rawTo)) {
-    const targetSettings = normalizeObject<{ serialized?: unknown; to?: unknown }>(rawTo);
-    const serialized = targetSettings.serialized;
-    const path = typeof targetSettings.to === "string" ? targetSettings.to.trim() : "";
+    const serialized = toSettings?.serialized;
+    const path = typeof toSettings?.to === "string" ? toSettings.to.trim() : "";
 
     if (serialized) {
       if (path.length > 0) {
@@ -229,10 +243,15 @@ export function $source(
     const entry: CocogenPersonEntityField = {
       path: rawToText,
       source: fromValue,
+      ...(defaultValue !== undefined ? { default: defaultValue } : {}),
     };
 
     pushArrayValue(context.program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS), target, entry);
     return;
+  }
+
+  if (defaultValue !== undefined) {
+    context.program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_DEFAULT).set(target, defaultValue);
   }
 
   if (typeof rawFrom === "string") {

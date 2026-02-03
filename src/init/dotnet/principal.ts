@@ -25,11 +25,15 @@ export function buildCsPrincipalExpression(
   for (const entry of entries) {
     const sourceLiteral = buildCsSourceLiteral(entry.source);
     const propertyName = knownMap.get(entry.key);
+    const base = `RowParser.ParseString(row, ${sourceLiteral})`;
+    const withDefault = entry.source.default !== undefined
+      ? `RowParser.ApplyDefault(${base}, ${JSON.stringify(entry.source.default)})`
+      : base;
     if (propertyName) {
-      knownAssignments.push(`    ${propertyName} = RowParser.ParseString(row, ${sourceLiteral}),`);
+      knownAssignments.push(`    ${propertyName} = ${withDefault},`);
     } else {
       additionalDataEntries.push(
-        `        [${JSON.stringify(entry.key)}] = RowParser.ParseString(row, ${sourceLiteral}),`
+        `        [${JSON.stringify(entry.key)}] = ${withDefault},`
       );
     }
   }
@@ -63,7 +67,11 @@ export function buildCsPrincipalCollectionExpression(
 
   const fieldLines = entries.map((entry, index) => {
     const sourceLiteral = buildCsSourceLiteral(entry.source);
-    return `        var field${index} = RowParser.ParseStringCollection(row, ${sourceLiteral});`;
+    const base = `RowParser.ParseStringCollection(row, ${sourceLiteral})`;
+    const withDefault = entry.source.default !== undefined
+      ? `RowParser.ApplyDefaultCollection(${base}, ${JSON.stringify(entry.source.default)})`
+      : base;
+    return `        var field${index} = ${withDefault};`;
   });
 
   const knownMap = new Map<string, string>([

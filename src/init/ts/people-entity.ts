@@ -51,6 +51,12 @@ const formatObjectEntry = (
   return `${childIndent}${JSON.stringify(key)}: ${formattedValue}`;
 };
 
+const applyDefaultStringExpression = (value: string, source: { default?: string }): string =>
+  source.default !== undefined ? `applyDefaultString(${value}, ${JSON.stringify(source.default)})` : value;
+
+const applyDefaultCollectionExpression = (value: string, source: { default?: string }): string =>
+  source.default !== undefined ? `applyDefaultCollection(${value}, ${JSON.stringify(source.default)})` : value;
+
 /** Build shared renderers for TS people-entity collections. */
 function createTsCollectionRenderers(
   typeMap: TsPersonEntityTypeMap,
@@ -121,7 +127,10 @@ ${indentUnit.repeat(level)}}`,
 
     if (!elementInfo && elementType === "string") {
       const sourceLiteral = buildSourceLiteral(collected[0]!.source);
-      return `(() => {\n${bodyIndent}const values = parseStringCollection(readSourceValue(row, ${sourceLiteral}));\n${bodyIndent}return values.length > 0 ? values : undefined;\n${indent}})()`;
+      return `(() => {\n${bodyIndent}const values = ${applyDefaultCollectionExpression(
+        `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
+        collected[0]!.source
+      )};\n${bodyIndent}return values.length > 0 ? values : undefined;\n${indent}})()`;
     }
 
     if (collected.length === 1) {
@@ -129,7 +138,10 @@ ${indentUnit.repeat(level)}}`,
       const sourceLiteral = buildSourceLiteral(field.source);
       const rendered = renderNodeForCollection(node, level + 1, "value", elementInfo);
       const typed = elementInfo ? `(${rendered} as ${elementInfo.alias})` : rendered;
-      return `(() => {\n${bodyIndent}const values = parseStringCollection(readSourceValue(row, ${sourceLiteral}));\n${bodyIndent}if (values.length === 0) return undefined;\n${bodyIndent}return values.map((value) => ${typed});\n${indent}})()`;
+      return `(() => {\n${bodyIndent}const values = ${applyDefaultCollectionExpression(
+        `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
+        field.source
+      )};\n${bodyIndent}if (values.length === 0) return undefined;\n${bodyIndent}return values.map((value) => ${typed});\n${indent}})()`;
     }
 
     const fieldVarByPath = new Map<string, string>();
@@ -137,7 +149,10 @@ ${indentUnit.repeat(level)}}`,
       const varName = `field${index}`;
       fieldVarByPath.set(field.path, varName);
       const sourceLiteral = buildSourceLiteral(field.source);
-      return `${bodyIndent}const ${varName} = parseStringCollection(readSourceValue(row, ${sourceLiteral}));`;
+      return `${bodyIndent}const ${varName} = ${applyDefaultCollectionExpression(
+        `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
+        field.source
+      )};`;
     });
     const fieldVars = [...fieldVarByPath.values()].join(", ");
     const lengthVars = fieldVars
@@ -170,12 +185,16 @@ export function buildTsPersonEntityExpression(
 
   const fieldValueBuilder = (field: PersonEntityField): string => {
     const sourceLiteral = buildSourceLiteral(field.source);
-    return valueExpressionBuilder(sourceLiteral);
+    const base = valueExpressionBuilder(sourceLiteral);
+    return applyDefaultStringExpression(base, field.source);
   };
 
   const fieldCollectionValueBuilder = (field: PersonEntityField): string => {
     const sourceLiteral = buildSourceLiteral(field.source);
-    return `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`;
+    return applyDefaultCollectionExpression(
+      `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
+      field.source
+    );
   };
 
   const renderNode = (

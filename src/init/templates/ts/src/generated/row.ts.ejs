@@ -49,6 +49,18 @@ function parseStringCollection(value: unknown): string[] {
   return splitCollection(value);
 }
 
+/** Apply a default to a parsed string value. */
+function applyDefaultString(value: string, fallback?: string): string {
+  if (fallback === undefined) return value;
+  return value.length === 0 ? fallback : value;
+}
+
+/** Apply a default to a parsed string collection value. */
+function applyDefaultCollection(values: string[], fallback?: string): string[] {
+  if (fallback === undefined) return values;
+  return values.length === 0 ? parseStringCollection(fallback) : values;
+}
+
 /** Parse a number collection from a row value. */
 function parseNumberCollection(value: unknown): number[] {
   if (Array.isArray(value)) {
@@ -83,5 +95,7 @@ export {
   parseBoolean,
   parseStringCollection,
   parseNumberCollection,
-  readSourceValue
+  readSourceValue,
+  applyDefaultString,
+  applyDefaultCollection
 };
