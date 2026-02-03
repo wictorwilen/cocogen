@@ -27,6 +27,11 @@ describe("initStarterTsp", () => {
 
     const tspConfig = await readFile(path.join(dir, "tspconfig.yaml"), "utf8");
     expect(tspConfig).toContain("@wictorwilen/cocogen");
+
+    const agents = await readFile(path.join(dir, "AGENTS.md"), "utf8");
+    expect(agents).toContain("How to write a schema");
+    expect(agents).toContain("npx cocogen validate --tsp schema.tsp");
+    expect(agents).toContain("Validation (cocogen validate)");
   });
 
   test("creates a people starter file", async () => {
@@ -46,6 +51,11 @@ describe("initStarterTsp", () => {
     expect(contents).toContain("model Profile");
     expect(contents).toContain("@coco.source(\"UPN\", \"userPrincipalName\")");
     expect(contents).toContain("account: string;");
+
+    const agents = await readFile(path.join(dir, "AGENTS.md"), "utf8");
+    expect(agents).toContain("People connectors (preview)");
+    expect(agents).toContain("--use-preview-features");
+    expect(agents).toContain("Microsoft Graph **/beta**");
   });
 
   test("fails when file exists and force is false", async () => {

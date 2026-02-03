@@ -2,6 +2,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { input, select } from "@inquirer/prompts";
+import { renderTemplate } from "../init/template.js";
 
 export type StarterTspKind = "content" | "people";
 
@@ -47,6 +48,7 @@ function defaultPackageJsonContents(): string {
 function tspConfigContents(): string {
   return "imports:\n  - \"@wictorwilen/cocogen\"\n";
 }
+
 
 async function writeFileIfMissing(filePath: string, contents: string, options: FileWriteOptions): Promise<void> {
   try {
@@ -208,8 +210,11 @@ export async function initStarterTsp(options: StarterTspOptions): Promise<{ outP
 
   const packageJsonPath = path.join(dir, "package.json");
   const tspConfigPath = path.join(dir, "tspconfig.yaml");
+  const agentsMdPath = path.join(dir, "AGENTS.md");
+  const agentsMd = await renderTemplate("starter/AGENTS.md.ejs", { kind });
   await writeFileIfMissing(packageJsonPath, defaultPackageJsonContents(), { force: options.force ?? false });
   await writeFileIfMissing(tspConfigPath, tspConfigContents(), { force: options.force ?? false });
+  await writeFileIfMissing(agentsMdPath, agentsMd, { force: options.force ?? false });
 
   return { outPath: resolved, kind };
 }

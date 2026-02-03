@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `cocogen init` now creates `AGENTS.md` with schema authoring guidance, best practices, and `validate` usage.
+
 ## [1.0.35] - 2026-01-30
 ### Added
 - `@coco.schemaDescription` for Graph schema property descriptions (preferred over `@coco.description`) to avoid naming collisions with the default TypeSpec `@description`.

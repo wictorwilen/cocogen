@@ -28,6 +28,7 @@ Build `cocogen`: an `npx`-runnable generator that reads TypeSpec (`.tsp`) and sc
 - Generated project(s) must be runnable.
 - CSV ingestion must be implemented behind a swappable datasource interface.
 - People connectors (preview) support must follow docs/architecture.md rules.
+- **Generated files should come from EJS templates** under `src/init/templates/**` and be rendered via `renderTemplate` (avoid large inline string assembly for emitted files).
 
 ## Coding style
 - Prefer explicit names over cleverness.

@@ -37,6 +37,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- `cocogen init` now creates an `AGENTS.md` schema+validation guide ✅
 - Add @coco.schemaDescription + deprecate @coco.description (warning + fallback to @description) ✅
 - Add multi-source @coco.content formatting + html content type ✅
 - Add warning for content connectors missing @coco.content ✅
