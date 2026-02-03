@@ -42,6 +42,7 @@ model PeopleAllLabelsProfile {
   @coco.source("company", "detail.company.displayName")
   @coco.source("employee id", "detail.employeeId")
   @coco.source("assistant", "colleagues.userPrincipalName")
+  @coco.source("assistantType", {to: "colleagues.relationship", default: "assistant"})
   currentPosition: string;
 
   @coco.label("personAddresses")

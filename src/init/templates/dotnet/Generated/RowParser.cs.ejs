@@ -458,6 +458,31 @@ public static class RowParser
     <% } -%>
     }
 
+    /// <summary>
+    /// Parse an enum value from a string (case-insensitive).
+    /// </summary>
+    public static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct, Enum
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return Enum.TryParse<TEnum>(value, true, out var parsed) ? parsed : null;
+    }
+
+    /// <summary>
+    /// Parse an enum collection from a list of strings (case-insensitive).
+    /// </summary>
+    public static List<TEnum> ParseEnumCollection<TEnum>(IEnumerable<string> values) where TEnum : struct, Enum
+    {
+        var results = new List<TEnum>();
+        foreach (var value in values)
+        {
+            if (Enum.TryParse<TEnum>(value, true, out var parsed))
+            {
+                results.Add(parsed);
+            }
+        }
+        return results;
+    }
+
 <% if (inputFormat !== "csv") { -%>
     private static object? EvaluateJsonPath(JsonNode node, string jsonPath)
     {

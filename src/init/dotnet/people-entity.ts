@@ -4,6 +4,7 @@ import type { PersonEntityField } from "../shared-types.js";
 import { buildCsSourceLiteral } from "../helpers/source.js";
 import { collectPersonEntityFields, CS_INDENT } from "../helpers/people-entity.js";
 import { createCollectionRenderer } from "../people/entity-renderer.js";
+import { buildGraphEnumTemplates } from "../people/graph-types.js";
 
 export type CsPersonEntityTypeInfo = {
   typeName: string;
@@ -42,6 +43,21 @@ const applyDefaultStringExpression = (value: string, source: { default?: string 
 
 const applyDefaultCollectionExpression = (value: string, source: { default?: string }): string =>
   source.default !== undefined ? `RowParser.ApplyDefaultCollection(${value}, ${JSON.stringify(source.default)})` : value;
+
+const graphEnumNames = new Set(buildGraphEnumTemplates().map((entry) => entry.csName));
+
+const normalizeCsType = (value: string): string => value.replace("?", "");
+
+const resolveEnumType = (propType: string | null): { name: string; isCollection: boolean } | null => {
+  if (!propType) return null;
+  const trimmed = normalizeCsType(propType);
+  const listMatch = /^List<(.+)>$/.exec(trimmed);
+  if (listMatch) {
+    const elementType = listMatch[1]!;
+    return graphEnumNames.has(elementType) ? { name: elementType, isCollection: true } : null;
+  }
+  return graphEnumNames.has(trimmed) ? { name: trimmed, isCollection: false } : null;
+};
 
 /** Build shared renderers for C# people-entity collections. */
 function createCollectionRenderers(
@@ -101,8 +117,15 @@ function createCollectionRenderers(
       renderCollectionNode,
       (propType, value) => {
         const listElement = propType ? extractListElementType(propType) : null;
+        const enumInfo = resolveEnumType(propType ?? null);
         if (listElement === "string") {
           return `new List<string> { ${value} }`;
+        }
+        if (enumInfo?.isCollection) {
+          return `RowParser.ParseEnumCollection<${enumInfo.name}>(new List<string> { ${value} })`;
+        }
+        if (enumInfo && !enumInfo.isCollection) {
+          return `RowParser.ParseEnum<${enumInfo.name}>(${value})`;
         }
         return value;
       }
@@ -122,8 +145,15 @@ function createCollectionRenderers(
       renderCollectionNode,
       (propType, value) => {
         const listElement = propType ? extractListElementType(propType) : null;
+        const enumInfo = resolveEnumType(propType ?? null);
         if (listElement === "string") {
           return `GetCollectionValue(${value}, index)`;
+        }
+        if (enumInfo?.isCollection) {
+          return `RowParser.ParseEnumCollection<${enumInfo.name}>(GetCollectionValue(${value}, index))`;
+        }
+        if (enumInfo && !enumInfo.isCollection) {
+          return `RowParser.ParseEnum<${enumInfo.name}>(GetValue(${value}, index))`;
         }
         return `GetValue(${value}, index)`;
       }
@@ -223,8 +253,16 @@ export function buildCsPersonEntityObjectExpression(
         const field = value as PersonEntityField;
         const info = parentInfo?.properties.get(key);
         const listElement = info ? extractListElementType(info.csType) : null;
+        const enumInfo = resolveEnumType(info?.csType ?? null);
         if (listElement === "string") {
           return `${childIndent}[${JSON.stringify(key)}] = ${fieldCollectionValueBuilder(field)}`;
+        }
+        if (listElement && enumInfo?.isCollection) {
+          return `${childIndent}[${JSON.stringify(key)}] = RowParser.ParseEnumCollection<${enumInfo.name}>(${fieldCollectionValueBuilder(field)})`;
+        }
+        if (enumInfo && !enumInfo.isCollection) {
+          const stringValue = applyDefaultStringExpression(fieldValueBuilder(field), field.source);
+          return `${childIndent}[${JSON.stringify(key)}] = RowParser.ParseEnum<${enumInfo.name}>(${stringValue})`;
         }
         return `${childIndent}[${JSON.stringify(key)}] = ${applyDefaultStringExpression(
           fieldValueBuilder(field),
@@ -269,8 +307,12 @@ export function buildCsPersonEntityObjectExpression(
       if (listElement) {
         if (typeof value === "object" && value && "path" in (value as PersonEntityField)) {
           const field = value as PersonEntityField;
+          const enumInfo = resolveEnumType(propInfo.csType);
           if (listElement === "string") {
             return `${childIndent}${propInfo.csName} = ${fieldCollectionValueBuilder(field)}`;
+          }
+          if (enumInfo?.isCollection) {
+            return `${childIndent}${propInfo.csName} = RowParser.ParseEnumCollection<${enumInfo.name}>(${fieldCollectionValueBuilder(field)})`;
           }
           return `${childIndent}${propInfo.csName} = ${applyDefaultStringExpression(
             fieldValueBuilder(field),
@@ -283,9 +325,18 @@ export function buildCsPersonEntityObjectExpression(
       }
       const typeName = propInfo.csType.replace("?", "");
       const nestedType = typeMap.get(typeName) ?? null;
+      const enumInfo = resolveEnumType(propInfo.csType);
       const rawValue =
         typeof value === "object" && value && "path" in (value as PersonEntityField)
-          ? fieldValueBuilder(value as PersonEntityField)
+          ? (enumInfo && !enumInfo.isCollection
+            ? `RowParser.ParseEnum<${enumInfo.name}>(${applyDefaultStringExpression(
+                fieldValueBuilder(value as PersonEntityField),
+                (value as PersonEntityField).source
+              )})`
+            : applyDefaultStringExpression(
+                fieldValueBuilder(value as PersonEntityField),
+                (value as PersonEntityField).source
+              ))
           : renderDictionary(value as Record<string, unknown>, level + 1, nestedType);
       const renderedValue =
         nestedType && typeof value === "object" && value && !("path" in (value as PersonEntityField))
