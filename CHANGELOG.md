@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.37] - 2026-02-03
+
 ### Added
 - Support `default` values in `@coco.source` mappings via the second argument object.
 
@@ -232,6 +234,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.37]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.37
 [1.0.36]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.36
 [1.0.35]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.35
 [1.0.34]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.34
