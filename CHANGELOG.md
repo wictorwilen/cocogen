@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.40] - 2026-02-04
+
 ### Fixed
 - Remove redundant casts when serializing people entity collection payloads in .NET.
 - Fixed serialization issues for Principals for dotnet
@@ -246,6 +248,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.40]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.40
 [1.0.39]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.39
 [1.0.38]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.38
 [1.0.37]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.37
