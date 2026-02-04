@@ -309,7 +309,7 @@ ${indent}}`;
     const typed = typeInfo ? `(${rendered} as ${typeInfo.alias})` : rendered;
     const typedIndented = indentLines(typed, indentUnit.repeat(4));
 
-    return `${collectionExpressionBuilder(sourceLiteral)}
+    return `${applyDefaultCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
   ${indentUnit.repeat(2)}.map((value) => JSON.stringify(\n${typedIndented}\n${indentUnit.repeat(2)}))`;
   }
 
@@ -319,7 +319,10 @@ ${indent}}`;
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
     const sourceLiteral = buildSourceLiteral(field.source);
-    return `${bodyIndent}const ${varName} = ${collectionExpressionBuilder(sourceLiteral)};`;
+    return `${bodyIndent}const ${varName} = ${applyDefaultCollectionExpression(
+      collectionExpressionBuilder(sourceLiteral),
+      field.source
+    )};`;
   });
 
   const fieldVars = [...fieldVarByPath.values()].join(", ");

@@ -454,6 +454,7 @@ describe("loadIrFromTypeSpec", () => {
     expect(title?.source.default).toBe("Untitled");
   });
 
+
   test("captures defaults for people entity field mappings", async () => {
     const entry = await writeTempTspFile(`
       using coco;

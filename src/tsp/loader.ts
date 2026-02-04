@@ -280,6 +280,9 @@ function getPersonEntityMapping(
     ) {
       return source;
     }
+    if (trimmed === commonPrefix || commonPrefix.startsWith(`${trimmed}.`)) {
+      return source;
+    }
     const prefixed = `${commonPrefix}.${trimmed}`;
     if (typeof source === "string") return prefixed;
     return { ...source, jsonPath: prefixed };

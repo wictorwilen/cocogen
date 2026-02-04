@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Apply people-entity string collection defaults consistently in generated .NET transforms.
+- Avoid accidental JSONPath prefixing for people-entity source paths.
+
 ## [1.0.38] - 2026-02-03
 
 ## [1.0.37] - 2026-02-03

@@ -304,6 +304,19 @@ describe("init people entity builders", () => {
       expect(expression).toContain(".map((value) => JSON.stringify(");
     });
 
+    test("applies defaults for single-field collections", () => {
+      const fields: PersonEntityField[] = [
+        { path: "tags", source: { csvHeaders: ["Tag"], default: "fallback" } },
+      ];
+      const typeInfo: TsPersonEntityTypeInfo = {
+        alias: "Record",
+        properties: new Map([["tags", "string[]"]]),
+      };
+      const expression = buildTsPersonEntityCollectionExpression(fields, undefined, typeInfo, new Map());
+      expect(expression).toContain("applyDefaultCollection(");
+      expect(expression).toContain("\"fallback\"");
+    });
+
     test("handles single string-collection fields", () => {
       const fields = [csvField("tags", "Tag Value")];
       const expression = buildTsPersonEntityCollectionExpression(fields, undefined, tsPersonType, tsTypeMap);
@@ -319,6 +332,16 @@ describe("init people entity builders", () => {
       const expression = buildTsPersonEntityCollectionExpression(fields, undefined, tsPersonType, tsTypeMap);
       expect(expression).toContain("getCollectionValue");
       expect(expression).toContain("const maxLen = Math.max(0, ...lengths);");
+    });
+
+    test("applies defaults for multi-field collections", () => {
+      const fields: PersonEntityField[] = [
+        { path: "tags", source: { csvHeaders: ["Tag"], default: "fallback" } },
+        csvField("skills.name", "Skill Name"),
+      ];
+      const expression = buildTsPersonEntityCollectionExpression(fields, undefined, tsPersonType, tsTypeMap);
+      expect(expression).toContain("applyDefaultCollection(");
+      expect(expression).toContain("\"fallback\"");
     });
 
     test("wraps scalar references for string arrays", () => {

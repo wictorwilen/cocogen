@@ -430,9 +430,10 @@ export function buildCsPersonEntityCollectionExpression(
         2,
         (field) => {
           const relative = common.relativeByPath.get(field.path) ?? "";
-          return relative
+          const base = relative
             ? `RowParser.ParseStringCollection(entry, ${JSON.stringify(relative)})`
             : "RowParser.ParseStringCollection(entry)";
+          return applyDefaultCollectionExpression(base, field.source);
         }
       );
 
@@ -460,7 +461,7 @@ export function buildCsPersonEntityCollectionExpression(
       ? `(${typeInfo.typeName})(${objectExpression})`
       : objectExpression;
 
-    return `${collectionExpressionBuilder(sourceLiteral)}
+    return `${applyDefaultCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
                 .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${typedObjectExpression}\n${indentUnit.repeat(3)}))
             .ToList()`;
   }
@@ -471,7 +472,8 @@ export function buildCsPersonEntityCollectionExpression(
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
     const sourceLiteral = buildCsSourceLiteral(field.source);
-    return `        var ${varName} = ${collectionExpressionBuilder(sourceLiteral)};`;
+    const parsed = applyDefaultCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source);
+    return `        var ${varName} = ${parsed};`;
   });
 
   const fieldVars = [...fieldVarByPath.values()];
