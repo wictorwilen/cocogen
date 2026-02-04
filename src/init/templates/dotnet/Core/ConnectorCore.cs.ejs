@@ -269,8 +269,10 @@ public sealed class ConnectorCore<TItem>
             await RetryAsync(
                 () => _graph!.External.Connections[_connectionId].GetAsync(),
                 ex => ex.ResponseStatusCode,
-                "GET connection"
+                "GET connection",
+                passThroughStatuses: new HashSet<int> { 404 }
             );
+            Console.WriteLine("ok: connection exists");
             return;
         }
         catch (ApiException ex) when (IsStatus(ex, 404))
@@ -296,6 +298,8 @@ public sealed class ConnectorCore<TItem>
             ex => ex.ResponseStatusCode,
             "POST connection"
         );
+
+        Console.WriteLine("ok: connection created");
     }
 
     private async Task PatchSchemaAsync()
@@ -315,7 +319,11 @@ public sealed class ConnectorCore<TItem>
         return ex.ResponseStatusCode is int sc && sc == statusCode;
     }
 
-    private async Task RetryAsync(Func<Task> action, Func<ApiException, int?>? getStatusCode, string operation)
+    private async Task RetryAsync(
+        Func<Task> action,
+        Func<ApiException, int?>? getStatusCode,
+        string operation,
+        ISet<int>? passThroughStatuses = null)
     {
         for (var attempt = 0; attempt <= MaxRetries; attempt++)
         {
@@ -327,6 +335,10 @@ public sealed class ConnectorCore<TItem>
             catch (ApiException ex)
             {
                 int? status = getStatusCode?.Invoke(ex) ?? ex.ResponseStatusCode;
+                if (status.HasValue && passThroughStatuses?.Contains(status.Value) == true)
+                {
+                    throw;
+                }
                 if (status is null || !ShouldRetry(status.Value) || attempt == MaxRetries)
                 {
                     throw new InvalidOperationException(BuildApiErrorMessage(ex, operation), ex);

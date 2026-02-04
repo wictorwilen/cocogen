@@ -69,6 +69,19 @@ export class ConnectorCore<Item> {
    */
   async ensureConnection(options: ProvisionOptions): Promise<void> {
     console.log("info: ensuring connection exists...");
+    const existing = await this.graphRequest(
+      "GET",
+      `${this.graphBaseUrl}/external/connections/${options.connectionId}`
+    );
+    if (existing.ok) {
+      console.log("ok: connection exists");
+      return;
+    }
+    if (existing.status !== 404) {
+      const details = await readGraphError(existing);
+      throw new Error(`Failed to check connection (HTTP ${formatStatus(existing)}): ${details}`);
+    }
+
     const payload: any = {
       id: options.connectionId,
       name: options.connectionName,
@@ -82,6 +95,12 @@ export class ConnectorCore<Item> {
     if (!create.ok && create.status !== 409) {
       const details = await readGraphError(create);
       throw new Error(`Failed to create connection (HTTP ${formatStatus(create)}): ${details}`);
+    }
+
+    if (create.status === 409) {
+      console.log("ok: connection already exists");
+    } else {
+      console.log("ok: connection created");
     }
   }
 
