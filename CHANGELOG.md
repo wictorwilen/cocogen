@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Stop retrying 404s when checking external connection existence so missing connections are created (TS + .NET templates).
 
+### Added
+- `cocogen update --include-scaffold` to optionally regenerate scaffold/runtime files in existing projects.
+
 ## [1.0.40] - 2026-02-04
 
 ### Fixed

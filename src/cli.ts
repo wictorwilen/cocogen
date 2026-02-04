@@ -415,7 +415,11 @@ export async function main(argv: string[]): Promise<void> {
     .description("Regenerate TypeSpec-derived code inside an existing generated project")
     .requiredOption("--out <dir>", "Project directory (must contain cocogen.json)")
     .option("--tsp <path>", "Override TypeSpec entrypoint (also updates cocogen.json)")
-    .action(async (options: { out: string; tsp?: string }) => {
+    .option(
+      "--include-scaffold",
+      "Regenerate scaffold/runtime files too (overwrites non-TypeSpec files)"
+    )
+    .action(async (options: { out: string; tsp?: string; includeScaffold?: boolean }) => {
       await runCommand({
         spinnerText: "Updating generated files...",
         action: async (spinner) => {
@@ -423,6 +427,7 @@ export async function main(argv: string[]): Promise<void> {
         const result = await updateProject({
           outDir: options.out,
           ...(options.tsp ? { tspPath: options.tsp } : {}),
+          includeScaffold: Boolean(options.includeScaffold),
           usePreviewFeatures,
         });
 

@@ -36,6 +36,7 @@ export type UpdateOptions = {
   outDir: string;
   tspPath?: string;
   usePreviewFeatures?: boolean;
+  includeScaffold?: boolean;
 };
 
 /** Build the REST connection payload from the IR. */
@@ -200,6 +201,9 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
     ir,
     settings: { projectName: path.basename(outDir), tspPath },
   });
+  if (options.includeScaffold) {
+    await generator.writeScaffold();
+  }
   await generator.writeGenerated();
 
   if (options.tspPath) {
@@ -241,6 +245,9 @@ export async function updateDotnetProject(
     ir,
     settings: { projectName: path.basename(outDir), tspPath },
   });
+  if (options.includeScaffold) {
+    await generator.writeScaffold();
+  }
   await generator.writeGenerated();
 
   if (options.tspPath) {
