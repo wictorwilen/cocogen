@@ -3,6 +3,21 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
+export const baseSchema = `using coco;
+
+@coco.connection({
+  name: "Test connector",
+  connectionId: "testconnection",
+  connectionDescription: "Test connector"
+})
+@coco.item
+model Item {
+  @coco.id
+  id: string;
+  title: string;
+}
+`;
+
 export async function writeTempDir(prefix = "cocogen-test-"): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), prefix));
 }

@@ -514,6 +514,19 @@ model Item {
     expect(core).toContain("throttled");
   });
 
+  test("initDotnetProject logs existing and created connection paths", async () => {
+    const tspPath = await writeTempTspFile(baseSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "dotnet-ensure-connection");
+
+    await initDotnetProject({ tspPath, outDir, force: false });
+
+    const core = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
+    expect(core).toContain("passThroughStatuses: new HashSet<int> { 404 }");
+    expect(core).toContain("ok: connection exists");
+    expect(core).toContain("ok: connection created");
+  });
+
   test("initDotnetProject provisions profile source separately", async () => {
     const tspPath = await writeTempTspFile(peopleSchema);
     const outRoot = await writeTempDir();

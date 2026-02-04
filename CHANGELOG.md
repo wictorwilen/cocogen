@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `cocogen update --include-scaffold` to optionally regenerate scaffold/runtime files in existing projects.
+- Tests covering TS connector connection provisioning (GET 200 vs 404 create) with mocked Graph responses.
+- Tests ensuring .NET ConnectorCore templates log exists/created and pass through 404 before creation.
 
 ## [1.0.40] - 2026-02-04
 
