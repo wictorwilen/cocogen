@@ -50,7 +50,7 @@ export function buildCsPrincipalExpression(
   return [
     "new Principal",
     "{",
-    "    OdataType = \"microsoft.graph.externalConnectors.principal\",",
+    "    OdataType = \"#microsoft.graph.externalConnectors.principal\",",
     ...knownAssignments,
     ...additionalDataBlock,
     "}",
@@ -131,7 +131,7 @@ export function buildCsPrincipalCollectionExpression(
     "        {",
     "            var principal = new Principal",
     "            {",
-    "                OdataType = \"microsoft.graph.externalConnectors.principal\",",
+    "                OdataType = \"#microsoft.graph.externalConnectors.principal\",",
     ...knownAssignments,
     ...additionalDataBlock,
     "            };",

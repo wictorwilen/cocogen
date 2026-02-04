@@ -331,7 +331,7 @@ describe("project init/update", () => {
 
     const ingestItem = await readFile(path.join(outDir, "ingest-item.http"), "utf8");
     expect(ingestItem).toContain("\"approvers\": [");
-    expect(ingestItem).toContain("\"@odata.type\": \"microsoft.graph.externalConnectors.principal\"");
+    expect(ingestItem).toContain("\"@odata.type\": \"#microsoft.graph.externalConnectors.principal\"");
   });
 
   test("initTsProject builds html content from multiple sources", async () => {
@@ -678,7 +678,7 @@ model Item {
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("Detail = new PositionDetail");
-    expect(transforms).toContain("JsonSerializer.Serialize((SkillProficiency)(new SkillProficiency");
+    expect(transforms).toContain("JsonSerializer.Serialize(new SkillProficiency");
   });
 
   test("initTsProject includes related person graph types", async () => {

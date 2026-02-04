@@ -437,9 +437,7 @@ export function buildCsPersonEntityCollectionExpression(
         }
       );
 
-      const typedObjectExpression = typeInfo
-        ? `(${typeInfo.typeName})(${objectExpression})`
-        : objectExpression;
+      const typedObjectExpression = objectExpression;
 
       return `new Func<List<string>>(() =>\n    {\n        var results = new List<string>();\n        foreach (var entry in RowParser.ReadArrayEntries(row, ${JSON.stringify(common.root)}))\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
     }
@@ -457,9 +455,7 @@ export function buildCsPersonEntityCollectionExpression(
       () => "new List<string> { value }"
     );
 
-    const typedObjectExpression = typeInfo
-      ? `(${typeInfo.typeName})(${objectExpression})`
-      : objectExpression;
+    const typedObjectExpression = objectExpression;
 
     return `${applyDefaultCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
                 .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${typedObjectExpression}\n${indentUnit.repeat(3)}))
@@ -483,9 +479,7 @@ export function buildCsPersonEntityCollectionExpression(
 
   const objectExpression = renderNodeForCollectionMany(tree, 2, typeInfo, fieldVarByPath);
 
-  const typedObjectExpression = typeInfo
-    ? `(${typeInfo.typeName})(${objectExpression})`
-    : objectExpression;
+  const typedObjectExpression = objectExpression;
 
   return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n        List<string> GetCollectionValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return new List<string>();\n            if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n            return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
 }

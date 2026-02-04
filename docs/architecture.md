@@ -331,7 +331,7 @@ Type conversion rules (generated code):
 - `string`: pass through.
 - `int64`, `double`, `boolean`, `dateTime`: parse from string with clear error messages (row/column context).
 - `...Collection`: accept either a JSON array string (preferred) or a delimiter-split string (semicolon-only).
-- `principal`: emit a typed object compatible with Microsoft Graph `externalConnectors.principal` (`{ "@odata.type": "microsoft.graph.externalConnectors.principal", externalName?: string, externalId?: string, entraDisplayName?: string, entraId?: string, email?: string, upn?: string, tenantId?: string, ... }`).
+- `principal`: emit a typed object compatible with Microsoft Graph `externalConnectors.principal` (`{ "@odata.type": "#microsoft.graph.externalConnectors.principal", externalName?: string, externalId?: string, entraDisplayName?: string, entraId?: string, email?: string, upn?: string, tenantId?: string, ... }`).
   - Use `@coco.source(..., to)` to map CSV headers to principal properties (`upn`, `email`, `externalName`, `externalId`, `entraDisplayName`, `entraId`, `tenantId`, or other supported fields).
   - If no explicit `to` mapping exists, use the first CSV header as `userPrincipalName`.
   - Validation should ensure this property is *not* marked `searchable`.

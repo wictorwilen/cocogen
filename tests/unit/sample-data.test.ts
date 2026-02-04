@@ -31,7 +31,7 @@ test("sample payload values include principal data", () => {
   const fields = [{ path: "userPrincipalName", source }];
 
   const principal = samplePayloadValueForType("principal", fields, source) as Record<string, unknown>;
-  expect(principal["@odata.type"]).toBe("microsoft.graph.externalConnectors.principal");
+  expect(principal["@odata.type"]).toBe("#microsoft.graph.externalConnectors.principal");
   expect(principal.upn).toBe("user@contoso.com");
 
   const principalCollection = samplePayloadValueForType(

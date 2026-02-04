@@ -18,7 +18,7 @@ describe("init principal builders", () => {
       fallbackSource("fallback")
     );
 
-    expect(expression).toContain(`"@odata.type": "microsoft.graph.externalConnectors.principal"`);
+    expect(expression).toContain(`"@odata.type": "#microsoft.graph.externalConnectors.principal"`);
     expect(expression).toContain(`"upn": parseString(readSourceValue(row, ["account"]))`);
     expect(expression).toContain(`"email": parseString(readSourceValue(row, ["email"]))`);
   });
@@ -48,7 +48,7 @@ describe("init principal builders", () => {
     expect(expression).toBe(
       [
         "({",
-        '  "@odata.type": "microsoft.graph.externalConnectors.principal"',
+        '  "@odata.type": "#microsoft.graph.externalConnectors.principal"',
         "})",
       ].join("\n")
     );
@@ -60,7 +60,7 @@ describe("init principal builders", () => {
       fallbackSource("fallback")
     );
 
-    expect(expression).toContain(`OdataType = "microsoft.graph.externalConnectors.principal"`);
+    expect(expression).toContain(`OdataType = "#microsoft.graph.externalConnectors.principal"`);
     expect(expression).toContain(`Upn = RowParser.ParseString(row, new[] { "User Principal" })`);
     expect(expression).toContain(`["alias"] = RowParser.ParseString(row, new[] { "Alias" })`);
   });

@@ -18,7 +18,7 @@ export function buildTsPrincipalExpression(
     }
   );
 
-  return `({\n  "@odata.type": "microsoft.graph.externalConnectors.principal"${
+  return `({\n  "@odata.type": "#microsoft.graph.externalConnectors.principal"${
     entries.length ? ",\n" + entries.join(",\n") : ""
   }\n})`;
 }
@@ -45,5 +45,5 @@ export function buildTsPrincipalCollectionExpression(
     .map((entry, index) => `      ${JSON.stringify(entry.key)}: getValue(field${index}, index)`)
     .join(",\n");
 
-  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return "";\n    if (values.length === 1) return values[0] ?? "";\n    return values[index] ?? "";\n  };\n  const results: Principal[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push({\n      "@odata.type": "microsoft.graph.externalConnectors.principal",\n${fieldsBlock}\n    });\n  }\n  return results;\n})()`;
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n  const maxLen = Math.max(0, ...lengths);\n  const getValue = (values: string[], index: number): string => {\n    if (values.length === 0) return "";\n    if (values.length === 1) return values[0] ?? "";\n    return values[index] ?? "";\n  };\n  const results: Principal[] = [];\n  for (let index = 0; index < maxLen; index++) {\n    results.push({\n      "@odata.type": "#microsoft.graph.externalConnectors.principal",\n${fieldsBlock}\n    });\n  }\n  return results;\n})()`;
 }

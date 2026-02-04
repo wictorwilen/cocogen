@@ -319,7 +319,7 @@ function buildSamplePrincipalObject(
   const entries = buildPrincipalFieldEntries(fields, fallbackSource);
   const keys = entries.length > 0 ? entries.map((entry) => entry.key) : ["upn"];
   const principal: Record<string, unknown> = {
-    "@odata.type": "microsoft.graph.externalConnectors.principal",
+    "@odata.type": "#microsoft.graph.externalConnectors.principal",
   };
   for (const key of keys) {
     principal[key] = sampleValueForPrincipalKey(key, index);

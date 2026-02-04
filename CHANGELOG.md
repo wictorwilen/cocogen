@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Remove redundant casts when serializing people entity collection payloads in .NET.
+- Fixed serialization issues for Principals for dotnet
+
 ## [1.0.39] - 2026-02-04
 
 ### Fixed
