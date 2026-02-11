@@ -37,6 +37,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Allow arbitrary extension data on generated people payload models (TS + .NET).
 - Apply people entity collection defaults consistently in .NET transforms ✅
 - Prevent accidental JSONPath prefixing for people entity source paths ✅
 - Add `@coco.source` default-value support (string, string[]) ✅

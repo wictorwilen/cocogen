@@ -191,6 +191,10 @@ public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type
     public <%= prop.csType %> <%= prop.csName %> { get; init; }
 
 <% } -%>
+<% if (!type.baseType) { -%>
+    [JsonExtensionData]
+    public Dictionary<string, object?>? AdditionalData { get; set; }
+<% } -%>
 }
 
 <% } -%>

@@ -4,6 +4,8 @@
 
 type UnknownObject = { [key: string]: unknown };
 
+type Open<T> = T & Record<string, unknown>;
+
 const isRecord = (value: unknown): value is UnknownObject =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -84,11 +86,16 @@ const is<%= enumDef.tsName %> = (value: unknown): value is <%= enumDef.tsName %>
 <% } -%>
 
 <% for (const type of graphTypes) { -%>
-export type <%= type.alias %> = <%= type.baseAlias ? `${type.baseAlias} & ` : "" %>{
+export type <%= type.alias %> = Open<
+<% if (type.baseAlias) { -%>
+  <%= type.baseAlias %> &
+<% } -%>
+{
 <% for (const field of type.fields) { -%>
   <%= field.name %><%= field.optional ? "?" : "" %>: <%= field.optional ? `${field.tsType} | null` : field.tsType %>;
 <% } -%>
-};
+}
+>;
 
 export function validate<%= type.alias %>(value: unknown, fieldPath: string): <%= type.alias %> {
 <% if (type.baseAlias) { -%>

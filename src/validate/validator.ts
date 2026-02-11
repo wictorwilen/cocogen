@@ -370,7 +370,13 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
         const requiredFields = labelDefinition.requiredFields ?? [];
 
         if (!prop.personEntity) {
-          if (requiredFields.length > 0) {
+          if (prop.source?.noSource) {
+            issues.push({
+              severity: "warning",
+              message: `People label '${label}' on property '${prop.name}' is marked @coco.noSource; implement required Graph field mappings in PropertyTransform manually.`,
+              hint: "Add explicit mappings in PropertyTransform (TS/.NET) for required fields.",
+            });
+          } else if (requiredFields.length > 0) {
             issues.push({
               severity: "error",
               message: `People label '${label}' on property '${prop.name}' must map required Graph field(s) ${requiredFields.join(
