@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.42] - 2026-02-11
+
+### Changed
+- Generated people payload models now allow extension data (`AdditionalData` in .NET, `Open<T>` wrappers in TS) so arbitrary fields can be ingested.
+- People label validation no longer errors when a required-field label is intentionally marked @coco.noSource; emits a warning so manual transforms can supply the fields.
+
 ## [1.0.41] - 2026-02-04
 
 ### Fixed
@@ -258,6 +264,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.42]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.42
 [1.0.41]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.41
 [1.0.40]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.40
 [1.0.39]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.39
