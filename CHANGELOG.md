@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.43] - 2026-02-12
+
 ### Fixed
 - REST sample now creates connections with POST /external/connections instead of PUT per Graph guidance.
 - REST profile source sample now merges existing prioritizedSourceUrls and patches the profile settings automatically.
@@ -268,6 +270,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.43]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.43
 [1.0.42]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.42
 [1.0.41]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.41
 [1.0.40]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.40
