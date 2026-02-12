@@ -5,7 +5,6 @@
 @profileSourceDisplayName = <%= profileSourceDisplayName %>
 @profileSourcePriority = <%= profileSourcePriority %>
 @sourceUrl = {{graphBaseUrl}}/admin/people/profileSources(sourceId='{{connectionId}}')
-@settingsId = {{settingsId}}
 
 ### Register profile source (people connectors)
 POST {{graphBaseUrl}}/admin/people/profileSources
@@ -19,16 +18,20 @@ Content-Type: application/json
 }
 
 ### List profile property settings
+# @name getProfileSettings
 GET {{graphBaseUrl}}/admin/people/profilePropertySettings
 Authorization: Bearer {{token}}
 
+### Capture settings values from previous response
+@profilePropertySettingsId = {{getProfileSettings.response.body.value[0].id}}
+# Paste the existing prioritizedSourceUrls from the getProfileSettings response after sourceUrl (comma-separated, quoted)
+@mergedPrioritizedSourceUrls = ["{{sourceUrl}}", "<paste-url-1>", "<paste-url-2>"]
+
 ### Update profile source precedence (set @settingsId after listing)
-PATCH {{graphBaseUrl}}/admin/people/profilePropertySettings/{{settingsId}}
+PATCH {{graphBaseUrl}}/admin/people/profilePropertySettings/{{profilePropertySettingsId}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "prioritizedSourceUrls": [
-    "{{sourceUrl}}"
-  ]
+  "prioritizedSourceUrls": {{mergedPrioritizedSourceUrls}}
 }

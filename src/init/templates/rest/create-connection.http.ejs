@@ -2,8 +2,8 @@
 @connectionId = <%= connectionId %>
 @token = {{token}}
 
-### Create or replace connection
-PUT {{graphBaseUrl}}/external/connections/{{connectionId}}
+### Create connection (POST)
+POST {{graphBaseUrl}}/external/connections
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

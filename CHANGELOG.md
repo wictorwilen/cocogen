@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- REST sample now creates connections with POST /external/connections instead of PUT per Graph guidance.
+- REST profile source sample now merges existing prioritizedSourceUrls and patches the profile settings automatically.
+
 ## [1.0.42] - 2026-02-11
 
 ### Changed
