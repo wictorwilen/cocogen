@@ -14,6 +14,12 @@
 **You bring:** a `.tsp` schema.  
 **You get:** a runnable TypeScript or C# connector project with clear defaults, great structure, and a friendly CLI. ✨
 
+
+> **Disclaimer**
+> This is a personal open‑source project and is **not affiliated with, endorsed by, or supported by Microsoft**.
+> Microsoft, Microsoft 365, Copilot, and Graph are trademarks of Microsoft Corporation
+
+
 ## Why cocogen? 💡
 - **Schema-first workflow** — define your external item once in TypeSpec.
 - **Runnables out of the box** — provision connections, register schemas, and ingest data.
