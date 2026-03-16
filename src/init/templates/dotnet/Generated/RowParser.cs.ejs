@@ -583,14 +583,25 @@ public static class RowParser
     private static bool TryParseJsonPath(string jsonPath, out JsonPath path, out string canonical)
     {
         canonical = "";
-        if (JsonPath.TryParse(jsonPath, out path)) return true;
+        path = null!;
+        if (JsonPath.TryParse(jsonPath, out var parsedPath))
+        {
+            path = parsedPath!;
+            return true;
+        }
 
         if (!TryBuildCanonicalJsonPath(jsonPath, out canonical))
         {
             return false;
         }
 
-        return JsonPath.TryParse(canonical, out path);
+        if (JsonPath.TryParse(canonical, out parsedPath))
+        {
+            path = parsedPath!;
+            return true;
+        }
+
+        return false;
     }
 
 

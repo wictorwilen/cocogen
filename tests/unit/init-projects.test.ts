@@ -727,6 +727,20 @@ model Item {
     expect(dotnetRowParser).toContain('case "uppercase":');
   });
 
+  test("initDotnetProject emits nullable-safe TryParseJsonPath for json input", async () => {
+    const tspPath = await writeTempTspFile(baseSchema);
+    const outRoot = await writeTempDir();
+    const outDotnet = path.join(outRoot, "json-dotnet");
+
+    await initDotnetProject({ tspPath, outDir: outDotnet, force: false, usePreviewFeatures: false, inputFormat: "json" });
+
+    const dotnetRowParser = await readFile(path.join(outDotnet, "Datasource", "RowParser.cs"), "utf8");
+    expect(dotnetRowParser).toContain("if (JsonPath.TryParse(jsonPath, out var parsedPath))");
+    expect(dotnetRowParser).toContain("path = parsedPath!;");
+    expect(dotnetRowParser).toContain("if (JsonPath.TryParse(canonical, out parsedPath))");
+    expect(dotnetRowParser).toContain("return false;");
+  });
+
   test("initDotnetProject emits nested person entity transforms", async () => {
     const tspPath = await writeTempTspFile(peopleNestedSchema);
     const outRoot = await writeTempDir();
