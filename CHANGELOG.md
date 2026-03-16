@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.45] - 2026-03-16
+
 ## [1.0.44] - 2026-03-16
 
 ### Added
 - `@coco.source` now supports `transforms: ["trim" | "lowercase" | "uppercase"]` for generated TS and .NET ingestion pipelines, including people/principal mappings.
+
+### Changed
+- `@coco.source` transform examples and preferred usage now place `transforms` in the second argument object with `to`/`default`.
 
 ## [1.0.43] - 2026-02-12
 
@@ -275,6 +280,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.45]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.45
 [1.0.44]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.44
 [1.0.43]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.43
 [1.0.42]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.42
