@@ -510,10 +510,11 @@ function buildSampleItem(ir: ConnectorIr): Record<string, unknown> {
   const item: Record<string, unknown> = {};
 
   for (const prop of ir.properties) {
-    if (prop.personEntity) {
+    const structuredFields = prop.personEntity?.fields ?? prop.mappedObject?.fields;
+    if (structuredFields) {
       const arrayGroups = new Map<string, Array<{ key: string; values: string[] }>>();
 
-      for (const field of prop.personEntity.fields) {
+      for (const field of structuredFields) {
         const path = field.source.jsonPath ?? field.source.csvHeaders[0] ?? field.path;
         if (path.includes("[*]")) {
           const root = path.split("[*]")[0] ?? "";
@@ -581,8 +582,9 @@ function buildSampleCsv(ir: ConnectorIr): string {
   };
 
   for (const prop of ir.properties) {
-    if (prop.personEntity) {
-      for (const field of prop.personEntity.fields) addHeader(field.source.csvHeaders[0] ?? field.path);
+    const structuredFields = prop.personEntity?.fields ?? prop.mappedObject?.fields;
+    if (structuredFields) {
+      for (const field of structuredFields) addHeader(field.source.csvHeaders[0] ?? field.path);
       continue;
     }
 
@@ -591,13 +593,14 @@ function buildSampleCsv(ir: ConnectorIr): string {
 
   const valueByHeader = new Map<string, string>();
   for (const prop of ir.properties) {
-    if (prop.personEntity) {
+    const structuredFields = prop.personEntity?.fields ?? prop.mappedObject?.fields;
+    if (structuredFields) {
       const exampleValue = exampleValueForType(prop.example, prop.type);
-      if (exampleValue && prop.personEntity.fields.length === 1) {
-        const header = prop.personEntity.fields[0]?.source.csvHeaders[0] ?? prop.personEntity.fields[0]?.path ?? prop.name;
+      if (exampleValue && structuredFields.length === 1) {
+        const header = structuredFields[0]?.source.csvHeaders[0] ?? structuredFields[0]?.path ?? prop.name;
         valueByHeader.set(header, exampleValue);
       }
-      for (const field of prop.personEntity.fields) {
+      for (const field of structuredFields) {
         const header = field.source.csvHeaders[0] ?? field.path;
         if (!valueByHeader.has(header)) {
           valueByHeader.set(header, sampleValueForHeader(header, prop.type));

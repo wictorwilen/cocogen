@@ -1,6 +1,12 @@
 import type { ConnectorIr } from "../../ir.js";
 import { PEOPLE_LABEL_DEFINITIONS } from "../../people/label-registry.js";
-import { graphProfileSchema, getProfileType, type GraphProfileProperty } from "../../people/profile-schema.js";
+import {
+  graphProfileSchema,
+  getProfileEnum,
+  getProfileType,
+  isProfileEnum,
+  type GraphProfileProperty,
+} from "../../people/profile-schema.js";
 import { buildObjectTree } from "../object-tree.js";
 import { toCsPascal, toTsIdentifier } from "../naming.js";
 import type { PersonEntityField } from "../shared-types.js";
@@ -37,35 +43,7 @@ export type DerivedPeopleGraphType = {
 };
 
 export const GRAPH_STRING_TYPES = new Set<string>([
-  "graph.emailType",
-  "graph.phoneType",
-  "graph.skillProficiencyLevel",
-  "graph.personAnnualEventType",
   "graph.itemBody",
-]);
-
-export const GRAPH_ENUM_TYPES = new Map<string, string[]>([
-  [
-    "personRelationship",
-    [
-      "manager",
-      "colleague",
-      "directReport",
-      "dotLineReport",
-      "assistant",
-      "dotLineManager",
-      "alternateContact",
-      "friend",
-      "spouse",
-      "sibling",
-      "child",
-      "parent",
-      "sponsor",
-      "emergencyContact",
-      "other",
-      "unknownFutureValue",
-    ],
-  ],
 ]);
 
 /** Strip the graph. prefix to get a profile schema type name. */
@@ -113,6 +91,7 @@ export function buildPeopleGraphTypes(ir: ConnectorIr): {
     if (GRAPH_STRING_TYPES.has(elementType)) return null;
     if (elementType.startsWith("Edm.")) return null;
     const graphName = resolveGraphTypeName(elementType);
+    if (graphName && isProfileEnum(graphName)) return null;
     return graphName && schemaTypeByName.has(graphName) ? graphName : null;
   };
 
@@ -172,13 +151,12 @@ export function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
   }));
 }
 
-/** Build enum templates for Graph enum-like types. */
 export function buildGraphEnumTemplates(): Array<{ name: string; tsName: string; csName: string; values: string[] }> {
-  return [...GRAPH_ENUM_TYPES.entries()].map(([name, values]) => ({
-    name,
-    tsName: toTsIdentifier(name),
-    csName: toCsPascal(name),
-    values: [...values],
+  return graphProfileSchema.enums.map((entry) => ({
+    name: entry.name,
+    tsName: toTsIdentifier(entry.name),
+    csName: toCsPascal(entry.name),
+    values: entry.members.map((member) => member.name),
   }));
 }
 
@@ -342,7 +320,7 @@ function buildDerivedPeopleGraphTypes(ir: ConnectorIr): DerivedPeopleGraphType[]
       const graphName = resolveGraphTypeName(propType);
       const isCollection = /^Collection\(/.test(propType);
       const node = tree[prop.name];
-      if (!graphName || isCollection || GRAPH_STRING_TYPES.has(propType) || GRAPH_ENUM_TYPES.has(graphName)) continue;
+      if (!graphName || isCollection || GRAPH_STRING_TYPES.has(propType) || isProfileEnum(graphName)) continue;
       if (schemaTypes.has(graphName)) continue;
       if (!node || typeof node !== "object") continue;
       buildDerivedFromTree(graphName, node as Record<string, unknown>);
@@ -357,7 +335,7 @@ function buildDerivedPeopleGraphTypes(ir: ConnectorIr): DerivedPeopleGraphType[]
       if (GRAPH_STRING_TYPES.has(elementType)) continue;
       const graphName = resolveGraphTypeName(elementType);
       if (!graphName) continue;
-      if (GRAPH_ENUM_TYPES.has(graphName)) continue;
+      if (isProfileEnum(graphName)) continue;
       if (schemaTypes.has(graphName)) continue;
       if (derived.has(graphName)) continue;
       referencedGraphTypes.add(graphName);
@@ -419,15 +397,16 @@ export function parseGraphTypeDescriptor(
   if (collectionMatch) {
     const elementType = collectionMatch[1]!;
     const elementGraphName = resolveGraphTypeName(elementType);
-    if (elementGraphName && GRAPH_ENUM_TYPES.has(elementGraphName)) {
-      const alias = toTsIdentifier(elementGraphName);
+    const elementEnum = elementGraphName ? getProfileEnum(elementGraphName) : undefined;
+    if (elementEnum) {
+      const alias = toTsIdentifier(elementEnum.name);
       return {
         tsType: `${alias}[]`,
         isCollection: true,
         typeCheck: "Array.isArray(value)",
         expected: "an array",
         elementTypeCheck: `is${alias}(entry)`,
-        elementExpected: `${elementGraphName} value`,
+        elementExpected: `${elementEnum.name} value`,
       };
     }
     if (GRAPH_STRING_TYPES.has(elementType)) {
@@ -471,13 +450,14 @@ export function parseGraphTypeDescriptor(
     };
   }
   const enumName = resolveGraphTypeName(typeName);
-  if (enumName && GRAPH_ENUM_TYPES.has(enumName)) {
-    const alias = toTsIdentifier(enumName);
+  const profileEnum = enumName ? getProfileEnum(enumName) : undefined;
+  if (profileEnum) {
+    const alias = toTsIdentifier(profileEnum.name);
     return {
       tsType: alias,
       isCollection: false,
       typeCheck: `is${alias}(value)`,
-      expected: `${enumName} value`,
+      expected: `${profileEnum.name} value`,
     };
   }
   const graphName = resolveGraphTypeName(typeName);

@@ -754,7 +754,7 @@ describe("loadIrFromTypeSpec", () => {
     await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/Multiple @coco.id/);
   });
 
-  test("errors when people entity mappings are missing labels", async () => {
+  test("captures anonymous structured mappings without people labels", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
       model Item {
@@ -765,7 +765,24 @@ describe("loadIrFromTypeSpec", () => {
       }
     `);
 
-    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/missing a people label/i);
+    const ir = await loadIrFromTypeSpec(entry);
+    const account = ir.properties.find((p) => p.name === "account");
+    expect(account?.mappedObject?.fields[0]?.path).toBe("userPrincipalName");
+  });
+
+  test("errors when anonymous structured mappings use unsupported property types", async () => {
+    const entry = await writeTempTspFile(`
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("layer", "detail.layer")
+        rank: int64;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry)).rejects.toThrow(/anonymous structured mappings are only supported for string or string\[\]/i);
   });
 
   test("allows principal entity mapping without people labels", async () => {

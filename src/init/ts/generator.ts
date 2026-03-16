@@ -327,6 +327,37 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
                 peopleProfileTypeInfoByAlias
               ))
         : null;
+      const mappedObject = p.mappedObject
+        ? (p.type === "stringCollection"
+            ? buildTsPersonEntityCollectionExpression(
+                p.mappedObject.fields.map((field) => ({
+                  path: field.path,
+                  source: field.source,
+                })),
+                (headersLiteral) => {
+                  const base = `parseStringCollection(readSourceValue(row, ${headersLiteral}))`;
+                  return stringConstraints
+                    ? `validateStringCollection(${nameLiteral}, ${base}, ${stringConstraints})`
+                    : base;
+                },
+                null,
+                new Map()
+              )
+            : buildTsPersonEntityExpression(
+                p.mappedObject.fields.map((field) => ({
+                  path: field.path,
+                  source: field.source,
+                })),
+                (headersLiteral) => {
+                  const base = `parseString(readSourceValue(row, ${headersLiteral}))`;
+                  return stringConstraints
+                    ? buildTsValidationCall("validateString", nameLiteral, base, stringConstraints)
+                    : base;
+                },
+                null,
+                new Map()
+              ))
+        : null;
 
       const principalExpression =
         p.type === "principal"
@@ -376,6 +407,8 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         ? principalExpression
         : personEntity
         ? personEntity
+        : mappedObject
+        ? mappedObject
         : p.type === "string"
         ? applySourceStringExpression(`${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`)
         : p.type === "stringCollection"
@@ -393,7 +426,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         ...(p.maxValue !== undefined ? { maxValue: p.maxValue } : {}),
       };
 
-      const validatedExpression = needsManualEntity || noSource || personEntity || p.type === "principal" || p.type === "principalCollection"
+      const validatedExpression = needsManualEntity || noSource || personEntity || mappedObject || p.type === "principal" || p.type === "principalCollection"
         ? expression
         : applyTsValidationExpression(validationMetadata, expression);
 

@@ -94,6 +94,7 @@ describe("people label serialization (e2e)", () => {
 
     const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
     expect(peopleTs).toContain("type PersonRelationship");
+    expect(peopleTs).toContain("relationship?: PersonRelationship | null;");
   });
 
   test("dotnet output includes JSON enforcement for people payloads", async () => {

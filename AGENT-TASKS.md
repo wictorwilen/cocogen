@@ -37,8 +37,12 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Extract Graph `EnumType` members into the people profile snapshot and generate TS/.NET enums from that metadata ✅
+- Add a regression test for Graph profile snapshot enums ✅
+- Add direct unit tests for Graph metadata sync parsing and snapshot writing ✅
 - Add `@coco.source` lowercase transforms to generated TS/.NET runtimes ✅
 - Fix TS/.NET people entity typed scalar parsing and normalize `physicalAddress.country` aliases ✅
+- Support anonymous structured JSON output for unlabeled `@coco.source(..., to)` mappings ✅
 - Allow arbitrary extension data on generated people payload models (TS + .NET).
 - Apply people entity collection defaults consistently in .NET transforms ✅
 - Prevent accidental JSONPath prefixing for people entity source paths ✅

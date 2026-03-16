@@ -98,6 +98,17 @@ export type ConnectorIr = {
         };
       }>;
     };
+    mappedObject?: {
+      fields: Array<{
+        path: string;
+        source: {
+          csvHeaders: string[];
+          jsonPath?: string;
+          default?: string;
+          transforms?: Array<"trim" | "lowercase" | "uppercase">;
+        };
+      }>;
+    };
     serialized?: {
       name: string;
       fields: Array<{

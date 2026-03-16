@@ -801,6 +801,48 @@ model Item {
     expect(transforms).not.toContain("GetValue");
   });
 
+  test("init projects generate anonymous structured JSON mappings without people labels", async () => {
+    const tspPath = await writeTempTspFile(`
+      using coco;
+
+      @coco.connection({
+        name: "Language connector",
+        connectionId: "languageconnector",
+        connectionDescription: "Language connector"
+      })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.schemaDescription("The languages known by the user")
+        @coco.source("Languages[*].DisplayName", "displayName")
+        @coco.source("Languages[*].Reading", "reading")
+        @coco.source("Languages[*].Writing", "writing")
+        @coco.source("Languages[*].Spoken", "spoken")
+        languages: string[];
+      }
+    `);
+    const outRoot = await writeTempDir();
+    const outTs = path.join(outRoot, "languages-ts");
+    const outDotnet = path.join(outRoot, "languages-dotnet");
+    const schemaFolder = "LanguageConnector";
+
+    await initTsProject({ tspPath, outDir: outTs, force: false, usePreviewFeatures: true, inputFormat: "json" });
+    await initDotnetProject({ tspPath, outDir: outDotnet, force: false, usePreviewFeatures: true, inputFormat: "json" });
+
+    const tsTransforms = await readFile(path.join(outTs, "src", schemaFolder, "propertyTransformBase.ts"), "utf8");
+    expect(tsTransforms).toContain('const field3 = parseStringCollection(readSourceValue(row, "$.Languages[*].DisplayName"))');
+    expect(tsTransforms).toContain('"displayName": getValue(field3, index)');
+    expect(tsTransforms).toContain('"reading": getValue(field2, index)');
+    expect(tsTransforms).toContain("JSON.stringify(");
+
+    const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
+    expect(dotnetTransforms).toContain('JsonSerializer.Serialize(');
+    expect(dotnetTransforms).toContain('RowParser.ReadArrayEntries(row, "$.Languages[*]")');
+    expect(dotnetTransforms).toContain('RowParser.ParseString(entry, "DisplayName")');
+  });
+
   test("initTsProject generates sample CSV with special headers", async () => {
     const tspPath = await writeTempTspFile(sampleCsvSchema);
     const outRoot = await writeTempDir();

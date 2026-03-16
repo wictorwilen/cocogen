@@ -58,9 +58,10 @@ function buildRestItemPayload(ir: ConnectorIr, itemId: string): Record<string, u
   for (const prop of ir.properties) {
     if (prop.name === ir.item.contentPropertyName) continue;
     const exampleValue = exampleValueForPayload(prop.example, prop.type);
-    if (prop.personEntity && prop.type !== "principal" && prop.type !== "principalCollection") {
+    const structuredFields = prop.personEntity?.fields ?? prop.mappedObject?.fields;
+    if (structuredFields && prop.type !== "principal" && prop.type !== "principalCollection") {
       const isCollection = prop.type.endsWith("Collection");
-      properties[prop.name] = buildSamplePersonEntityPayload(prop.personEntity.fields, isCollection);
+      properties[prop.name] = buildSamplePersonEntityPayload(structuredFields, isCollection);
     } else {
       const value =
         exampleValue ??

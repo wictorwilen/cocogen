@@ -355,6 +355,31 @@ Notes:
 
 Generated projects include a `PropertyTransformBase` (regenerated) and `PropertyTransform` override (kept) under the schema folder (TS: `src/<ConnectionName>` derived from `@coco.connection.name`, .NET: `<ConnectionName>/` derived from `@coco.connection.name`). Customize `PropertyTransform` to shape entity JSON (for example, combine a skill name and proficiency into `skillProficiency`).
 
+### Anonymous JSON objects with `@coco.source(..., to)`
+
+When the property type is `string` or `string[]` and you use repeated `@coco.source(..., to)` entries without a people label, `cocogen` now emits anonymous JSON objects instead of requiring a people label.
+
+Example:
+
+```tsp
+@coco.source("Languages[*].DisplayName", "displayName")
+@coco.source("Languages[*].Reading", "reading")
+@coco.source("Languages[*].Writing", "writing")
+@coco.source("Languages[*].Spoken", "spoken")
+languages: string[];
+```
+
+This produces a `string[]` of JSON objects like:
+
+```json
+{"displayName":"English","reading":"native","writing":"native","spoken":"native"}
+```
+
+Notes:
+- This is not strongly typed against Microsoft Graph unless a people label is present.
+- Use a people label only when you want Graph-aware typing and validation for a supported people entity.
+- Anonymous structured mappings are only supported for `string` and `string[]` properties.
+
 Multi-value CSV handling:
 - For people entity **collections** (`string[]`), CSV values can be separated with `;` (for example, `TypeScript;Python`).
 - Collections are always split on semicolons only (`,` is reserved for CSV column separation).

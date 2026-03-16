@@ -118,6 +118,16 @@ export type LoadIrOptions = {
   inputFormat?: "csv" | "json" | "yaml" | "rest" | "custom" | undefined;
 };
 
+type StructuredMappingField = {
+  path: string;
+  source: {
+    csvHeaders: string[];
+    jsonPath?: string;
+    default?: string;
+    transforms?: Array<"trim" | "lowercase" | "uppercase">;
+  };
+};
+
 type SourcePathSyntax = "csv" | "jsonpath";
 
 function requireSingleItemModel(program: Program): Model {
@@ -294,13 +304,57 @@ function getPersonEntityMapping(
   sourcePathSyntax: SourcePathSyntax
 ): {
   entity: PersonEntityName;
-  fields: Array<{ path: string; source: { csvHeaders: string[]; jsonPath?: string; default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> } }>;
+  fields: StructuredMappingField[];
 } | undefined {
   const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
   const entity = labels
     .map((label) => getPeopleLabelDefinition(label)?.graphTypeName)
     .find((value): value is PersonEntityName => typeof value === "string");
+  const fields = collectStructuredMappingFields(program, prop, sourcePathSyntax, entity);
+  if (!fields) return undefined;
+  if (!entity) {
+    if (propertyType === "principal" || propertyType === "principalCollection") {
+      return {
+        entity: "userAccountInformation",
+        fields,
+      };
+    }
+    return undefined;
+  }
+  return {
+    entity,
+    fields,
+  };
+}
 
+function getMappedObjectMapping(
+  program: Program,
+  prop: ModelProperty,
+  propertyType: PropertyType,
+  sourcePathSyntax: SourcePathSyntax
+): { fields: StructuredMappingField[] } | undefined {
+  if (propertyType !== "string" && propertyType !== "stringCollection") {
+    return undefined;
+  }
+
+  const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
+  const entity = labels
+    .map((label) => getPeopleLabelDefinition(label)?.graphTypeName)
+    .find((value): value is PersonEntityName => typeof value === "string");
+  if (entity) {
+    return undefined;
+  }
+
+  const fields = collectStructuredMappingFields(program, prop, sourcePathSyntax);
+  return fields ? { fields } : undefined;
+}
+
+function collectStructuredMappingFields(
+  program: Program,
+  prop: ModelProperty,
+  sourcePathSyntax: SourcePathSyntax,
+  entity?: PersonEntityName
+): StructuredMappingField[] | undefined {
   const rawFields =
     (program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS).get(prop) as CocogenPersonEntityField[]) ?? [];
 
@@ -350,11 +404,7 @@ function getPersonEntityMapping(
     const rawPath = extractSourcePath(source);
     if (!rawPath) return source;
     const trimmed = rawPath.trim();
-    if (
-      trimmed.startsWith("$") ||
-      trimmed.includes("[") ||
-      trimmed.includes(".")
-    ) {
+    if (trimmed.startsWith("$") || trimmed.includes("[") || trimmed.includes(".")) {
       return source;
     }
     if (trimmed === commonPrefix || commonPrefix.startsWith(`${trimmed}.`)) {
@@ -409,29 +459,14 @@ function getPersonEntityMapping(
         },
       };
     })
-    .filter((value): value is {
-      path: string;
-      source: { csvHeaders: string[]; jsonPath?: string; default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> };
-    } => Boolean(value));
+    .filter((value): value is StructuredMappingField => Boolean(value));
 
-  if (fields.length === 0) return undefined;
-  if (!entity) {
-    if (propertyType === "principal" || propertyType === "principalCollection") {
-      return {
-        entity: "userAccountInformation",
-        fields,
-      };
-    }
+  return fields.length > 0 ? fields : undefined;
+}
 
-    throw new CocogenError(
-      `Property '${prop.name}' maps people entity fields but is missing a people label. Add @coco.label("person...").`
-    );
-  }
-
-  return {
-    entity,
-    fields,
-  };
+function hasStructuredMappingEntries(program: Program, prop: ModelProperty): boolean {
+  const rawFields = program.stateMap(COCOGEN_STATE_PROPERTY_PERSON_FIELDS).get(prop) as CocogenPersonEntityField[] | undefined;
+  return Boolean(rawFields && rawFields.length > 0);
 }
 
 function getSerializedModel(program: Program, prop: ModelProperty): {
@@ -795,8 +830,15 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
     const propertyType = mapTypeToPropertyType(program, prop.type);
     const isContent = isContentProperty(program, prop);
     const personEntity = isContent ? undefined : getPersonEntityMapping(program, prop, propertyType, sourcePathSyntax);
+    const mappedObject = isContent ? undefined : getMappedObjectMapping(program, prop, propertyType, sourcePathSyntax);
+    const hasStructuredMappings = isContent ? false : hasStructuredMappingEntries(program, prop);
     const serialized = getSerializedModel(program, prop);
     const source = getSourceSettings(program, prop, name, sourcePathSyntax);
+    if (hasStructuredMappings && !personEntity && !mappedObject && propertyType !== "principal" && propertyType !== "principalCollection") {
+      throw new CocogenError(
+        `Property '${prop.name}' uses @coco.source(..., to) mappings on unsupported type '${propertyType}'. Anonymous structured mappings are only supported for string or string[] properties; add a people label for strongly typed people entities.`
+      );
+    }
     if (serialized) {
       const supported = propertyType === "string" || propertyType === "stringCollection";
       if (!supported) {
@@ -804,6 +846,9 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       }
       if (personEntity) {
         throw new CocogenError("Serialized @coco.source targets are not supported for people entity mappings.");
+      }
+      if (mappedObject) {
+        throw new CocogenError("Serialized @coco.source targets are not supported for anonymous structured mappings.");
       }
     }
 
@@ -832,6 +877,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       aliases,
       search: getSearchFlags(program, prop),
       ...(personEntity ? { personEntity } : {}),
+      ...(mappedObject ? { mappedObject } : {}),
       ...(serialized ? { serialized } : {}),
       source,
     };

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-16T09:52:30.929Z",
+  "generatedAt": "2026-03-16T12:00:23.091Z",
   "graphVersion": "beta",
   "types": [
     {
@@ -999,6 +999,319 @@
         }
       ],
       "required": []
+    }
+  ],
+  "enums": [
+    {
+      "name": "userPersona",
+      "fullName": "microsoft.graph.userPersona",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "unknown",
+          "value": "0"
+        },
+        {
+          "name": "externalMember",
+          "value": "1"
+        },
+        {
+          "name": "externalGuest",
+          "value": "2"
+        },
+        {
+          "name": "internalMember",
+          "value": "3"
+        },
+        {
+          "name": "internalGuest",
+          "value": "4"
+        },
+        {
+          "name": "unknownFutureValue",
+          "value": "5"
+        }
+      ]
+    },
+    {
+      "name": "emailType",
+      "fullName": "microsoft.graph.emailType",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "unknown",
+          "value": "0"
+        },
+        {
+          "name": "work",
+          "value": "1"
+        },
+        {
+          "name": "personal",
+          "value": "2"
+        },
+        {
+          "name": "main",
+          "value": "3"
+        },
+        {
+          "name": "other",
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "name": "phoneType",
+      "fullName": "microsoft.graph.phoneType",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "home",
+          "value": "0"
+        },
+        {
+          "name": "business",
+          "value": "1"
+        },
+        {
+          "name": "mobile",
+          "value": "2"
+        },
+        {
+          "name": "other",
+          "value": "3"
+        },
+        {
+          "name": "assistant",
+          "value": "4"
+        },
+        {
+          "name": "homeFax",
+          "value": "5"
+        },
+        {
+          "name": "businessFax",
+          "value": "6"
+        },
+        {
+          "name": "otherFax",
+          "value": "7"
+        },
+        {
+          "name": "pager",
+          "value": "8"
+        },
+        {
+          "name": "radio",
+          "value": "9"
+        }
+      ]
+    },
+    {
+      "name": "skillProficiencyLevel",
+      "fullName": "microsoft.graph.skillProficiencyLevel",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "elementary",
+          "value": "0"
+        },
+        {
+          "name": "limitedWorking",
+          "value": "1"
+        },
+        {
+          "name": "generalProfessional",
+          "value": "2"
+        },
+        {
+          "name": "advancedProfessional",
+          "value": "3"
+        },
+        {
+          "name": "expert",
+          "value": "4"
+        },
+        {
+          "name": "unknownFutureValue",
+          "value": "5"
+        }
+      ]
+    },
+    {
+      "name": "personAnnualEventType",
+      "fullName": "microsoft.graph.personAnnualEventType",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "birthday",
+          "value": "0"
+        },
+        {
+          "name": "wedding",
+          "value": "1"
+        },
+        {
+          "name": "work",
+          "value": "2"
+        },
+        {
+          "name": "other",
+          "value": "3"
+        },
+        {
+          "name": "unknownFutureValue",
+          "value": "5"
+        }
+      ]
+    },
+    {
+      "name": "allowedAudiences",
+      "fullName": "microsoft.graph.allowedAudiences",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "me",
+          "value": "0"
+        },
+        {
+          "name": "family",
+          "value": "1"
+        },
+        {
+          "name": "contacts",
+          "value": "2"
+        },
+        {
+          "name": "groupMembers",
+          "value": "4"
+        },
+        {
+          "name": "organization",
+          "value": "8"
+        },
+        {
+          "name": "federatedOrganizations",
+          "value": "16"
+        },
+        {
+          "name": "everyone",
+          "value": "32"
+        },
+        {
+          "name": "unknownFutureValue",
+          "value": "64"
+        }
+      ]
+    },
+    {
+      "name": "personRelationship",
+      "fullName": "microsoft.graph.personRelationship",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "manager",
+          "value": "0"
+        },
+        {
+          "name": "colleague",
+          "value": "1"
+        },
+        {
+          "name": "directReport",
+          "value": "2"
+        },
+        {
+          "name": "dotLineReport",
+          "value": "3"
+        },
+        {
+          "name": "assistant",
+          "value": "4"
+        },
+        {
+          "name": "dotLineManager",
+          "value": "5"
+        },
+        {
+          "name": "alternateContact",
+          "value": "6"
+        },
+        {
+          "name": "friend",
+          "value": "7"
+        },
+        {
+          "name": "spouse",
+          "value": "8"
+        },
+        {
+          "name": "sibling",
+          "value": "9"
+        },
+        {
+          "name": "child",
+          "value": "10"
+        },
+        {
+          "name": "parent",
+          "value": "11"
+        },
+        {
+          "name": "sponsor",
+          "value": "12"
+        },
+        {
+          "name": "emergencyContact",
+          "value": "13"
+        },
+        {
+          "name": "other",
+          "value": "14"
+        },
+        {
+          "name": "unknownFutureValue",
+          "value": "15"
+        }
+      ]
+    },
+    {
+      "name": "physicalAddressType",
+      "fullName": "microsoft.graph.physicalAddressType",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "unknown",
+          "value": "0"
+        },
+        {
+          "name": "home",
+          "value": "1"
+        },
+        {
+          "name": "business",
+          "value": "2"
+        },
+        {
+          "name": "other",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "name": "bodyType",
+      "fullName": "microsoft.graph.bodyType",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "text",
+          "value": "0"
+        },
+        {
+          "name": "html",
+          "value": "1"
+        }
+      ]
     }
   ],
   "aliases": {

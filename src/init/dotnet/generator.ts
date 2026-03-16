@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 import { getPeopleLabelInfo, supportedPeopleLabels } from "../../people/label-registry.js";
-import { graphProfileSchema } from "../../people/profile-schema.js";
+import { getProfileEnum, graphProfileSchema } from "../../people/profile-schema.js";
 import {
   toCsIdentifier,
   toCsNamespace,
@@ -23,7 +23,6 @@ import {
   toOdataCollectionType,
 } from "../helpers/schema.js";
 import {
-  GRAPH_ENUM_TYPES,
   GRAPH_STRING_TYPES,
   buildGraphEnumTemplates,
   buildPeopleGraphTypes,
@@ -241,8 +240,9 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
           return { csType: "List<string>", isCollection: true };
         }
         const enumGraphName = resolveGraphTypeName(elementType);
-        if (enumGraphName && GRAPH_ENUM_TYPES.has(enumGraphName)) {
-          return { csType: `List<${toCsPascal(enumGraphName)}>`, isCollection: true };
+        const profileEnum = enumGraphName ? getProfileEnum(enumGraphName) : undefined;
+        if (profileEnum) {
+          return { csType: `List<${toCsPascal(profileEnum.name)}>`, isCollection: true };
         }
         const graphName = resolveGraphTypeName(elementType);
         if (graphName && graphAliases.has(graphName)) {
@@ -277,8 +277,9 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       }
 
       const enumGraphName = resolveGraphTypeName(rawType);
-      if (enumGraphName && GRAPH_ENUM_TYPES.has(enumGraphName)) {
-        return { csType: toCsPascal(enumGraphName), isCollection: false };
+      const profileEnum = enumGraphName ? getProfileEnum(enumGraphName) : undefined;
+      if (profileEnum) {
+        return { csType: toCsPascal(profileEnum.name), isCollection: false };
       }
 
       const graphName = resolveGraphTypeName(rawType);
@@ -400,6 +401,14 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
             ),
           }
         : null;
+      const mappedObject = p.mappedObject
+        ? {
+            fields: p.mappedObject.fields.map((field) => ({
+              path: field.path,
+              source: field.source,
+            })),
+          }
+        : null;
       const isPeopleLabel = p.labels.some((label) => label.startsWith("person"));
       const needsManualEntity = isPeopleLabel && !p.personEntity;
       const noSource = Boolean(p.source.noSource);
@@ -470,6 +479,31 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
               personEntityTypeInfo,
               peopleProfileTypeInfoByName
             )
+        : mappedObject
+        ? isCollection
+          ? buildCsPersonEntityCollectionExpression(
+              mappedObject.fields,
+              (headersLiteral) => {
+                const base = `RowParser.ParseStringCollection(row, ${headersLiteral})`;
+                return csStringConstraints.hasAny
+                  ? `Validation.ValidateStringCollection(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
+                  : base;
+              },
+              null,
+              new Map(),
+              this.ir.connection.inputFormat
+            )
+          : buildCsPersonEntityExpression(
+              mappedObject.fields,
+              (headersLiteral) => {
+                const base = `RowParser.ParseString(row, ${headersLiteral})`;
+                return csStringConstraints.hasAny
+                  ? `Validation.ValidateString(${nameLiteral}, ${base}, ${csStringConstraints.minLength}, ${csStringConstraints.maxLength}, ${csStringConstraints.pattern}, ${csStringConstraints.format})`
+                  : base;
+              },
+              null,
+              new Map()
+            )
         : p.type === "string"
         ? (() => {
           const parsedExpression = sourceDefaultLiteral
@@ -501,7 +535,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         ...(p.maxValue !== undefined ? { maxValue: p.maxValue } : {}),
       };
 
-      const validatedExpression = needsManualEntity || noSource || personEntity || p.type === "principal" || p.type === "principalCollection"
+      const validatedExpression = needsManualEntity || noSource || personEntity || mappedObject || p.type === "principal" || p.type === "principalCollection"
         ? transformExpression
         : applyCsValidationExpression(validationMetadata, transformExpression, sourceLiteral);
 
@@ -720,7 +754,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         namespaceName,
         schemaNamespace,
         properties,
-        usesPersonEntity: properties.some((p) => p.personEntity),
+        usesPersonEntity: this.ir.properties.some((p) => p.personEntity || p.mappedObject),
         usesLinq: properties.some(
           (p) =>
             p.type === "dateTimeCollection" &&

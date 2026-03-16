@@ -1,6 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { XMLParser } from "fast-xml-parser";
+import { fileURLToPath } from "node:url";
+
+import type { GraphProfileSchemaSnapshot } from "../src/people/profile-schema.js";
 
 const METADATA_URL = "https://graph.microsoft.com/beta/$metadata";
 
@@ -25,11 +28,6 @@ const graphAliases: Record<string, string> = {
   personAnniversary: "personAnnualEvent",
   webSite: "personWebsite"
 };
-
-const graphTypeNames = new Set(
-  Object.values(labelTypeMap).map((typeName) => graphAliases[typeName] ?? typeName)
-);
-graphTypeNames.add("itemFacet");
 
 const toArray = <T>(value: T | T[] | undefined | null): T[] => {
   if (!value) return [];
@@ -58,6 +56,13 @@ type RawEntityType = {
   fullName: string;
   baseType?: string;
   properties: Array<{ name: string; type: string; nullable: boolean }>;
+};
+
+type RawEnumType = {
+  name: string;
+  namespace: string;
+  fullName: string;
+  members: Array<{ name: string; value?: string }>;
 };
 
 const buildEntityIndex = (schemas: any[]): Map<string, RawEntityType> => {
@@ -95,6 +100,31 @@ const buildEntityIndex = (schemas: any[]): Map<string, RawEntityType> => {
   return map;
 };
 
+const buildEnumIndex = (schemas: any[]): Map<string, RawEnumType> => {
+  const map = new Map<string, RawEnumType>();
+  for (const schema of schemas) {
+    const namespace = schema?.["@_Namespace"] ?? schema?.["@_namespace"];
+    if (!namespace) continue;
+    const enumTypes = toArray(schema?.EnumType ?? schema?.["edm:EnumType"]);
+    for (const entry of enumTypes) {
+      const name = entry?.["@_Name"] ?? entry?.["@_name"];
+      if (!name) continue;
+      const fullName = `${namespace}.${name}`;
+      const members = toArray(entry?.Member).map((member: any) => ({
+        name: member?.["@_Name"] ?? member?.["@_name"],
+        value: member?.["@_Value"] ?? member?.["@_value"],
+      })).filter((member) => Boolean(member.name));
+      map.set(fullName, {
+        name,
+        namespace,
+        fullName,
+        members,
+      });
+    }
+  }
+  return map;
+};
+
 const findTypeByName = (index: Map<string, RawEntityType>, name: string): RawEntityType => {
   const matches = Array.from(index.values()).filter((entry) => entry.name === name);
   if (matches.length === 0) {
@@ -106,6 +136,14 @@ const findTypeByName = (index: Map<string, RawEntityType>, name: string): RawEnt
 };
 
 const tryFindTypeByName = (index: Map<string, RawEntityType>, name: string): RawEntityType | undefined => {
+  const matches = Array.from(index.values()).filter((entry) => entry.name === name);
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0];
+  const preferred = matches.find((entry) => entry.namespace === "microsoft.graph");
+  return preferred ?? matches[0];
+};
+
+const tryFindEnumByName = (index: Map<string, RawEnumType>, name: string): RawEnumType | undefined => {
   const matches = Array.from(index.values()).filter((entry) => entry.name === name);
   if (matches.length === 0) return undefined;
   if (matches.length === 1) return matches[0];
@@ -145,16 +183,18 @@ const resolvePropertyTypeName = (typeName: string): string | null => {
   return parts.length ? parts[parts.length - 1]! : null;
 };
 
-const main = async (): Promise<void> => {
-  const res = await fetch(METADATA_URL, {
-    headers: {
-      Accept: "application/xml"
-    }
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to download Graph metadata: ${res.status} ${res.statusText}`);
-  }
-  const xml = await res.text();
+const createInitialGraphTypeNames = (): Set<string> => {
+  const graphTypeNames = new Set(
+    Object.values(labelTypeMap).map((typeName) => graphAliases[typeName] ?? typeName)
+  );
+  graphTypeNames.add("itemFacet");
+  return graphTypeNames;
+};
+
+export const parseGraphMetadataSnapshot = (
+  xml: string,
+  generatedAt = new Date().toISOString()
+): GraphProfileSchemaSnapshot => {
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_"
@@ -167,6 +207,9 @@ const main = async (): Promise<void> => {
     throw new Error("No schemas found in Graph metadata.");
   }
   const entityIndex = buildEntityIndex(schemas);
+  const enumIndex = buildEnumIndex(schemas);
+  const enumTypeNames = new Set<string>();
+  const graphTypeNames = createInitialGraphTypeNames();
 
   const addBaseTypes = (name: string): void => {
     const entry = findTypeByName(entityIndex, name);
@@ -194,6 +237,10 @@ const main = async (): Promise<void> => {
       for (const prop of properties) {
         const referenced = resolvePropertyTypeName(prop.type);
         if (!referenced) continue;
+        if (tryFindEnumByName(enumIndex, referenced)) {
+          enumTypeNames.add(referenced);
+          continue;
+        }
         if (graphTypeNames.has(referenced)) continue;
         if (!tryFindTypeByName(entityIndex, referenced)) continue;
         graphTypeNames.add(referenced);
@@ -226,26 +273,66 @@ const main = async (): Promise<void> => {
     };
   });
 
-  const snapshot = {
-    generatedAt: new Date().toISOString(),
+  const enums = Array.from(enumTypeNames)
+    .map((enumName) => tryFindEnumByName(enumIndex, enumName))
+    .filter((entry): entry is RawEnumType => Boolean(entry))
+    .map((entry) => ({
+      name: entry.name,
+      fullName: entry.fullName,
+      namespace: entry.namespace,
+      members: entry.members,
+    }));
+
+  return {
+    generatedAt,
     graphVersion: "beta",
     types,
+    enums,
     aliases: graphAliases,
     labelTypeMap
   };
+};
 
-  const outDir = path.join(process.cwd(), "data");
+export const writeGraphProfileSnapshot = async (
+  snapshot: GraphProfileSchemaSnapshot,
+  cwd = process.cwd()
+): Promise<string> => {
+  const outDir = path.join(cwd, "data");
   await mkdir(outDir, { recursive: true });
+  const outPath = path.join(outDir, "graph-profile-schema.json");
   await writeFile(
-    path.join(outDir, "graph-profile-schema.json"),
+    outPath,
     JSON.stringify(snapshot, null, 2) + "\n",
     "utf8"
   );
-
-  console.log(`Wrote snapshot with ${types.length} types to data/graph-profile-schema.json`);
+  return outPath;
 };
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+export const fetchGraphMetadataXml = async (url = METADATA_URL): Promise<string> => {
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/xml"
+    }
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to download Graph metadata: ${res.status} ${res.statusText}`);
+  }
+  return res.text();
+};
+
+export const main = async (): Promise<void> => {
+  const xml = await fetchGraphMetadataXml();
+  const snapshot = parseGraphMetadataSnapshot(xml);
+  await writeGraphProfileSnapshot(snapshot);
+
+  console.log(`Wrote snapshot with ${snapshot.types.length} types and ${snapshot.enums.length} enums to data/graph-profile-schema.json`);
+};
+
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

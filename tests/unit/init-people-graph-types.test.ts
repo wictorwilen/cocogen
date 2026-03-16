@@ -61,8 +61,8 @@ describe("init/people/graph-types", () => {
     const result = buildPeopleGraphTypes(baseIr);
     expect(result.templates.length).toBeGreaterThan(0);
     expect(result.aliases.size).toBeGreaterThan(0);
-    expect(result.derived.length).toBeGreaterThan(0);
     expect(result.templates.some((template) => template.fields.length > 0)).toBe(true);
+    expect(result.templates.some((template) => template.alias === "UserAccountInformation")).toBe(true);
   });
 
   test("buildPeopleLabelSerializers emits entries for every label", () => {
@@ -72,11 +72,13 @@ describe("init/people/graph-types", () => {
     expect(accountSerializer?.serializerName).toBe("serializePersonAccount");
   });
 
-  test("buildGraphEnumTemplates exposes enum metadata", () => {
+  test("buildGraphEnumTemplates exposes enum metadata from the snapshot", () => {
     const enums = buildGraphEnumTemplates();
     const relationship = enums.find((entry) => entry.name === "personRelationship");
+    const addressType = enums.find((entry) => entry.name === "physicalAddressType");
     expect(relationship?.values).toContain("manager");
     expect(relationship?.tsName).toBe("PersonRelationship");
+    expect(addressType?.values.length).toBeGreaterThan(0);
   });
 
   test("parseGraphTypeDescriptor handles collections, enums, aliases, and scalars", () => {
@@ -84,9 +86,14 @@ describe("init/people/graph-types", () => {
       ["userAccountInformation", { tsAlias: "userAccountInformation", csName: "UserAccountInformation" }],
     ]);
 
-    const enumDescriptor = parseGraphTypeDescriptor("Collection(graph.personRelationship)", aliases);
-    expect(enumDescriptor.isCollection).toBe(true);
-    expect(enumDescriptor.elementExpected).toBe("personRelationship value");
+    const relationshipDescriptor = parseGraphTypeDescriptor("Collection(graph.personRelationship)", aliases);
+    expect(relationshipDescriptor.isCollection).toBe(true);
+    expect(relationshipDescriptor.tsType).toBe("PersonRelationship[]");
+    expect(relationshipDescriptor.elementExpected).toBe("personRelationship value");
+
+    const addressTypeDescriptor = parseGraphTypeDescriptor("graph.physicalAddressType", aliases);
+    expect(addressTypeDescriptor.tsType).toBe("PhysicalAddressType");
+    expect(addressTypeDescriptor.expected).toBe("physicalAddressType value");
 
     const aliasDescriptor = parseGraphTypeDescriptor("graph.userAccountInformation", aliases);
     expect(aliasDescriptor.tsType).toBe("userAccountInformation");
@@ -305,12 +312,12 @@ describe("init/people/graph-types", () => {
     expect(entity?.fields.map((f) => f.varName)).toContain("other");
   });
 
-  test("parseGraphTypeDescriptor handles GRAPH_STRING_TYPES in collections", () => {
+  test("parseGraphTypeDescriptor handles extracted enum collections", () => {
     const aliases = new Map<string, PeopleGraphTypeAlias>();
     const descriptor = parseGraphTypeDescriptor("Collection(graph.emailType)", aliases);
-    expect(descriptor.tsType).toBe("string[]");
-    expect(descriptor.elementTypeCheck).toBe('typeof entry === "string"');
-    expect(descriptor.elementExpected).toBe("a string");
+    expect(descriptor.tsType).toBe("EmailType[]");
+    expect(descriptor.elementTypeCheck).toBe("isEmailType(entry)");
+    expect(descriptor.elementExpected).toBe("emailType value");
   });
 
   test("parseGraphTypeDescriptor handles graph entity collections with aliases", () => {

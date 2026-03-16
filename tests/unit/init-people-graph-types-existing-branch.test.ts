@@ -42,6 +42,7 @@ describe("init/people/graph-types existing branch", () => {
     }));
     vi.doMock("../../src/people/profile-schema.js", () => {
       const graphProfileSchema = {
+        enums: [],
         types: [
           { name: "itemFacet", properties: [] },
           {
@@ -55,7 +56,9 @@ describe("init/people/graph-types existing branch", () => {
       } as const;
       const getProfileType = (name: string) =>
         graphProfileSchema.types.find((type) => type.name === name) ?? null;
-      return { graphProfileSchema, getProfileType };
+      const getProfileEnum = () => undefined;
+      const isProfileEnum = () => false;
+      return { graphProfileSchema, getProfileType, getProfileEnum, isProfileEnum };
     });
 
     const { buildPeopleGraphTypes } = await import("../../src/init/people/graph-types.js");
