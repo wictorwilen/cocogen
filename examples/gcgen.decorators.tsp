@@ -76,7 +76,11 @@ namespace coco {
   extern dec content(target: ModelProperty, settings?: { type?: "text" });
 
   // Maps a CSV header to a destination property or entity path.
-  extern dec source(target: ModelProperty, from: { csv?: string } | string, to?: string);
+  extern dec source(
+    target: ModelProperty,
+    from: { csv?: string; jsonPath?: string; default?: string; transforms?: ("trim" | "lowercase" | "uppercase")[] } | string,
+    to?: string | { serialized?: Model; to?: string; default?: string; transforms?: ("trim" | "lowercase" | "uppercase")[] }
+  );
 
   // A custom scalar we map to Graph schema propertyType = principal.
   scalar Principal;

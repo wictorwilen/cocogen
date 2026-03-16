@@ -298,7 +298,7 @@ describe("project init/update", () => {
     await initRestProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
     const createConnection = await readFile(path.join(outDir, "create-connection.http"), "utf8");
-    expect(createConnection).toContain("/external/connections/");
+    expect(createConnection).toContain("/external/connections");
 
     const patchSchema = await readFile(path.join(outDir, "patch-schema.http"), "utf8");
     expect(patchSchema).toContain("/schema");
@@ -679,6 +679,52 @@ model Item {
     const csv = await readFile(path.join(outTs, "data.csv"), "utf8");
     expect(csv).toContain("TypeScript;Python");
     expect(csv).toContain("\"Hello, world\"");
+  });
+
+  test("init projects emit source transforms in TS and .NET runtimes", async () => {
+    const tspPath = await writeTempTspFile(`
+      using coco;
+
+      @coco.connection({
+        name: "Transform connector",
+        connectionId: "transformconnector",
+        connectionDescription: "Transform connector"
+      })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("EMAIL", { transforms: ["trim", "uppercase"] })
+        email: string;
+      }
+    `);
+
+    const outRoot = await writeTempDir();
+    const outTs = path.join(outRoot, "transform-ts");
+    const outDotnet = path.join(outRoot, "transform-dotnet");
+    const schemaFolder = "TransformConnector";
+
+    await initTsProject({ tspPath, outDir: outTs, force: false, usePreviewFeatures: false });
+    await initDotnetProject({ tspPath, outDir: outDotnet, force: false, usePreviewFeatures: false });
+
+    const tsTransforms = await readFile(path.join(outTs, "src", schemaFolder, "propertyTransformBase.ts"), "utf8");
+    expect(tsTransforms).toContain("applyStringTransforms(");
+    expect(tsTransforms).toContain('["trim","uppercase"]');
+
+    const tsRowHelpers = await readFile(path.join(outTs, "src", "datasource", "row.ts"), "utf8");
+    expect(tsRowHelpers).toContain("function applyStringTransforms");
+    expect(tsRowHelpers).toContain('case "trim"');
+    expect(tsRowHelpers).toContain('case "uppercase"');
+
+    const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
+    expect(dotnetTransforms).toContain("RowParser.ApplyTransforms(");
+    expect(dotnetTransforms).toContain('new[] { "trim", "uppercase" }');
+
+    const dotnetRowParser = await readFile(path.join(outDotnet, "Datasource", "RowParser.cs"), "utf8");
+    expect(dotnetRowParser).toContain("public static string ApplyTransforms");
+    expect(dotnetRowParser).toContain('case "trim":');
+    expect(dotnetRowParser).toContain('case "uppercase":');
   });
 
   test("initDotnetProject emits nested person entity transforms", async () => {

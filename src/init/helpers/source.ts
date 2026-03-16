@@ -15,3 +15,19 @@ export function buildCsSourceLiteral(source: SourceDescriptor): string {
   }
   return `new[] { ${source.csvHeaders.map((h) => JSON.stringify(h)).join(", ")} }`;
 }
+
+/** Emit a TS literal for source transforms. */
+export function buildSourceTransformsLiteral(source: Pick<SourceDescriptor, "transforms">): string | null {
+  if (!source.transforms || source.transforms.length === 0) {
+    return null;
+  }
+  return JSON.stringify(source.transforms);
+}
+
+/** Emit a C# literal for source transforms. */
+export function buildCsSourceTransformsLiteral(source: Pick<SourceDescriptor, "transforms">): string | null {
+  if (!source.transforms || source.transforms.length === 0) {
+    return null;
+  }
+  return `new[] { ${source.transforms.map((transform) => JSON.stringify(transform)).join(", ")} }`;
+}

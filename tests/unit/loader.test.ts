@@ -454,6 +454,42 @@ describe("loadIrFromTypeSpec", () => {
     expect(title?.source.default).toBe("Untitled");
   });
 
+  test("captures @coco.source transforms for string properties and people entity fields", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.connection({
+        contentCategory: "people",
+        name: "People connector",
+        connectionId: "peopleconnector"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example people source"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        id: string;
+
+        @coco.source("EMAIL", { transforms: ["trim", "lowercase"] })
+        email: string;
+
+        @coco.label("personAccount")
+        @coco.source("UPN", { to: "userPrincipalName", transforms: ["trim", "uppercase"] })
+        account: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "csv" });
+    const email = ir.properties.find((p) => p.name === "email");
+    expect(email?.source.transforms).toEqual(["trim", "lowercase"]);
+
+    const account = ir.properties.find((p) => p.name === "account");
+    const upn = account?.personEntity?.fields.find((field) => field.path === "userPrincipalName");
+    expect(upn?.source.transforms).toEqual(["trim", "uppercase"]);
+  });
+
 
   test("captures defaults for people entity field mappings", async () => {
     const entry = await writeTempTspFile(`
@@ -503,6 +539,25 @@ describe("loadIrFromTypeSpec", () => {
 
     await expect(loadIrFromTypeSpec(entry, { inputFormat: "csv" })).rejects.toThrow(
       /default values must be strings/i
+    );
+  });
+
+  test("rejects unsupported @coco.source transforms", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        @coco.source("title", { transforms: ["capitalize"] })
+        title: string;
+      }
+    `);
+
+    await expect(loadIrFromTypeSpec(entry, { inputFormat: "csv" })).rejects.toThrow(
+      /supported transforms: trim, lowercase, uppercase/i
     );
   });
 

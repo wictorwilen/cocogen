@@ -1,6 +1,22 @@
 import type { PersonEntityField, SourceDescriptor } from "../shared-types.js";
-import { buildSourceLiteral } from "../helpers/source.js";
+import { buildSourceLiteral, buildSourceTransformsLiteral } from "../helpers/source.js";
 import { buildPrincipalFieldEntries } from "../helpers/principal.js";
+
+const applySourceStringExpression = (value: string, source: SourceDescriptor): string => {
+  const withDefault = source.default !== undefined
+    ? `applyDefaultString(${value}, ${JSON.stringify(source.default)})`
+    : value;
+  const transformsLiteral = buildSourceTransformsLiteral(source);
+  return transformsLiteral ? `applyStringTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
+
+const applySourceCollectionExpression = (value: string, source: SourceDescriptor): string => {
+  const withDefault = source.default !== undefined
+    ? `applyDefaultCollection(${value}, ${JSON.stringify(source.default)})`
+    : value;
+  const transformsLiteral = buildSourceTransformsLiteral(source);
+  return transformsLiteral ? `applyCollectionTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
 
 /** Build a principal JSON expression for a single item. */
 export function buildTsPrincipalExpression(
@@ -11,10 +27,7 @@ export function buildTsPrincipalExpression(
     (entry) => {
       const sourceLiteral = buildSourceLiteral(entry.source);
       const base = `parseString(readSourceValue(row, ${sourceLiteral}))`;
-      const withDefault = entry.source.default !== undefined
-        ? `applyDefaultString(${base}, ${JSON.stringify(entry.source.default)})`
-        : base;
-      return `  ${JSON.stringify(entry.key)}: ${withDefault}`;
+      return `  ${JSON.stringify(entry.key)}: ${applySourceStringExpression(base, entry.source)}`;
     }
   );
 
@@ -33,9 +46,10 @@ export function buildTsPrincipalCollectionExpression(
 
   const fieldLines = entries.map(
     (entry, index) =>
-      `  const field${index} = ${entry.source.default !== undefined
-        ? `applyDefaultCollection(parseStringCollection(readSourceValue(row, ${buildSourceLiteral(entry.source)})), ${JSON.stringify(entry.source.default)})`
-        : `parseStringCollection(readSourceValue(row, ${buildSourceLiteral(entry.source)}))`};`
+      `  const field${index} = ${applySourceCollectionExpression(
+        `parseStringCollection(readSourceValue(row, ${buildSourceLiteral(entry.source)}))`,
+        entry.source
+      )};`
   );
   const lengthVars = entries.length
     ? `  const lengths = [${entries.map((_, index) => `field${index}.length`).join(", ")}];`

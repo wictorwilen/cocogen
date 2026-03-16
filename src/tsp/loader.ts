@@ -44,6 +44,7 @@ import {
   COCOGEN_STATE_PROPERTY_SOURCE,
   COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES,
   COCOGEN_STATE_PROPERTY_SOURCE_DEFAULT,
+  COCOGEN_STATE_PROPERTY_SOURCE_TRANSFORMS,
   COCOGEN_STATE_PROPERTY_NO_SOURCE,
   COCOGEN_STATE_PROPERTY_PERSON_FIELDS,
   COCOGEN_STATE_PROPERTY_SERIALIZED,
@@ -133,15 +134,36 @@ function normalizeSourceSettings(
   explicit: boolean,
   noSource: boolean,
   sourcePathSyntax: SourcePathSyntax,
-  defaultValue?: string
-): { csvHeaders: string[]; jsonPath?: string; explicit: boolean; noSource: boolean; default?: string } {
+  defaultValue?: string,
+  transformsValue?: Array<"trim" | "lowercase" | "uppercase">
+): {
+  csvHeaders: string[];
+  jsonPath?: string;
+  explicit: boolean;
+  noSource: boolean;
+  default?: string;
+  transforms?: Array<"trim" | "lowercase" | "uppercase">;
+} {
   const settings = (raw ?? {}) as CocogenSourceSettings | string | undefined;
   const csv = typeof settings === "string" ? settings : settings?.csv;
   const jsonPath = typeof settings === "string" ? settings : settings?.jsonPath;
   const rawDefault = defaultValue ?? (typeof settings === "object" ? settings?.default : undefined);
+  const rawTransforms = transformsValue ?? (typeof settings === "object" ? settings?.transforms : undefined);
   if (rawDefault !== undefined && typeof rawDefault !== "string") {
     throw new CocogenError("@coco.source default values must be strings.");
   }
+  if (rawTransforms !== undefined && !Array.isArray(rawTransforms)) {
+    throw new CocogenError("@coco.source transforms must be an array of strings.");
+  }
+  const supportedTransforms = new Set(["trim", "lowercase", "uppercase"] as const);
+  const normalizedTransforms = rawTransforms?.map((transform) => {
+    if (typeof transform !== "string" || !supportedTransforms.has(transform as "trim" | "lowercase" | "uppercase")) {
+      throw new CocogenError(
+        `@coco.source transform '${String(transform)}' is not supported. Supported transforms: trim, lowercase, uppercase.`
+      );
+    }
+    return transform as "trim" | "lowercase" | "uppercase";
+  });
   const normalizedDefault = typeof rawDefault === "string" ? rawDefault : undefined;
 
   if (sourcePathSyntax === "jsonpath") {
@@ -159,6 +181,7 @@ function normalizeSourceSettings(
       explicit,
       noSource,
       ...(normalizedDefault !== undefined ? { default: normalizedDefault } : {}),
+      ...(normalizedTransforms && normalizedTransforms.length > 0 ? { transforms: normalizedTransforms } : {}),
     };
   }
 
@@ -184,6 +207,7 @@ function normalizeSourceSettings(
     explicit,
     noSource,
     ...(normalizedDefault !== undefined ? { default: normalizedDefault } : {}),
+    ...(normalizedTransforms && normalizedTransforms.length > 0 ? { transforms: normalizedTransforms } : {}),
   };
 }
 
@@ -198,16 +222,20 @@ function getSourceSettings(
   explicit: boolean;
   noSource: boolean;
   default?: string;
+  transforms?: Array<"trim" | "lowercase" | "uppercase">;
 } {
   const map = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE);
   const raw = map.get(prop) as CocogenSourceSettings | string | undefined;
   const explicit = map.has(prop);
   const defaultOverride = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_DEFAULT).get(prop) as string | undefined;
+  const transformsOverride = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_TRANSFORMS).get(prop) as
+    | Array<"trim" | "lowercase" | "uppercase">
+    | undefined;
   const noSource = Boolean(program.stateMap(COCOGEN_STATE_PROPERTY_NO_SOURCE).get(prop));
   if (noSource) {
-    return normalizeSourceSettings(undefined, fallbackName, true, true, sourcePathSyntax, defaultOverride);
+    return normalizeSourceSettings(undefined, fallbackName, true, true, sourcePathSyntax, defaultOverride, transformsOverride);
   }
-  return normalizeSourceSettings(raw, fallbackName, explicit, false, sourcePathSyntax, defaultOverride);
+  return normalizeSourceSettings(raw, fallbackName, explicit, false, sourcePathSyntax, defaultOverride, transformsOverride);
 }
 
 function getPersonEntityMapping(
@@ -217,7 +245,7 @@ function getPersonEntityMapping(
   sourcePathSyntax: SourcePathSyntax
 ): {
   entity: PersonEntityName;
-  fields: Array<{ path: string; source: { csvHeaders: string[]; jsonPath?: string } }>;
+  fields: Array<{ path: string; source: { csvHeaders: string[]; jsonPath?: string; default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> } }>;
 } | undefined {
   const labels = getStringArray(program, COCOGEN_STATE_PROPERTY_LABELS, prop);
   const entity = labels
@@ -316,7 +344,8 @@ function getPersonEntityMapping(
         true,
         false,
         sourcePathSyntax,
-        field.default
+        field.default,
+        field.transforms
       );
       return {
         path,
@@ -324,10 +353,16 @@ function getPersonEntityMapping(
           csvHeaders: sourceSettings.csvHeaders,
           ...(sourceSettings.jsonPath ? { jsonPath: sourceSettings.jsonPath } : {}),
           ...(sourceSettings.default !== undefined ? { default: sourceSettings.default } : {}),
+          ...(sourceSettings.transforms && sourceSettings.transforms.length > 0
+            ? { transforms: sourceSettings.transforms }
+            : {}),
         },
       };
     })
-    .filter((value): value is { path: string; source: { csvHeaders: string[]; jsonPath?: string } } => Boolean(value));
+    .filter((value): value is {
+      path: string;
+      source: { csvHeaders: string[]; jsonPath?: string; default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> };
+    } => Boolean(value));
 
   if (fields.length === 0) return undefined;
   if (!entity) {
@@ -475,7 +510,15 @@ function getContentSources(
   program: Program,
   prop: ModelProperty,
   sourcePathSyntax: SourcePathSyntax
-): Array<{ label: string; source: { csvHeaders: string[]; jsonPath?: string } }> {
+): Array<{
+  label: string;
+  source: {
+    csvHeaders: string[];
+    jsonPath?: string;
+    default?: string;
+    transforms?: Array<"trim" | "lowercase" | "uppercase">;
+  };
+}> {
   const rawEntries = program.stateMap(COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES).get(prop) as
     | CocogenSourceEntry[]
     | undefined;
@@ -495,17 +538,23 @@ function getContentSources(
     .map((entry) => {
       const label = normalizeLabel(entry);
       if (!label) return undefined;
-      const sourceSettings = normalizeSourceSettings(entry.from, label, true, false, sourcePathSyntax, entry.default);
+      const sourceSettings = normalizeSourceSettings(entry.from, label, true, false, sourcePathSyntax, entry.default, entry.transforms);
       return {
         label,
         source: {
           csvHeaders: sourceSettings.csvHeaders,
           ...(sourceSettings.jsonPath ? { jsonPath: sourceSettings.jsonPath } : {}),
           ...(sourceSettings.default !== undefined ? { default: sourceSettings.default } : {}),
+          ...(sourceSettings.transforms && sourceSettings.transforms.length > 0
+            ? { transforms: sourceSettings.transforms }
+            : {}),
         },
       };
     })
-    .filter((value): value is { label: string; source: { csvHeaders: string[]; jsonPath?: string } } => Boolean(value));
+    .filter((value): value is {
+      label: string;
+      source: { csvHeaders: string[]; jsonPath?: string; default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> };
+    } => Boolean(value));
 }
 
 function isIdProperty(program: Program, prop: ModelProperty): boolean {

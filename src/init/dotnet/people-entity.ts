@@ -1,7 +1,7 @@
 import type { ConnectorIr } from "../../ir.js";
 import { buildObjectTree } from "../object-tree.js";
 import type { PersonEntityField } from "../shared-types.js";
-import { buildCsSourceLiteral } from "../helpers/source.js";
+import { buildCsSourceLiteral, buildCsSourceTransformsLiteral } from "../helpers/source.js";
 import { collectPersonEntityFields, CS_INDENT } from "../helpers/people-entity.js";
 import { createCollectionRenderer } from "../people/entity-renderer.js";
 import { buildGraphEnumTemplates } from "../people/graph-types.js";
@@ -38,11 +38,23 @@ type CollectionRenderers = {
 
 const DEFAULT_INDENT_UNIT = CS_INDENT;
 
-const applyDefaultStringExpression = (value: string, source: { default?: string }): string =>
-  source.default !== undefined ? `RowParser.ApplyDefault(${value}, ${JSON.stringify(source.default)})` : value;
+const applySourceStringExpression = (
+  value: string,
+  source: { default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> }
+): string => {
+  const withDefault = source.default !== undefined ? `RowParser.ApplyDefault(${value}, ${JSON.stringify(source.default)})` : value;
+  const transformsLiteral = buildCsSourceTransformsLiteral(source);
+  return transformsLiteral ? `RowParser.ApplyTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
 
-const applyDefaultCollectionExpression = (value: string, source: { default?: string }): string =>
-  source.default !== undefined ? `RowParser.ApplyDefaultCollection(${value}, ${JSON.stringify(source.default)})` : value;
+const applySourceCollectionExpression = (
+  value: string,
+  source: { default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> }
+): string => {
+  const withDefault = source.default !== undefined ? `RowParser.ApplyDefaultCollection(${value}, ${JSON.stringify(source.default)})` : value;
+  const transformsLiteral = buildCsSourceTransformsLiteral(source);
+  return transformsLiteral ? `RowParser.ApplyCollectionTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
 
 const graphEnumNames = new Set(buildGraphEnumTemplates().map((entry) => entry.csName));
 
@@ -173,7 +185,7 @@ function createCollectionRenderers(
 
     if (!elementInfo && elementType === "string") {
       const sourceLiteral = buildCsSourceLiteral(collected[0]!.source);
-      return `new Func<List<string>?>(() =>\n${indent}{\n${bodyIndent}var values = ${applyDefaultCollectionExpression(
+      return `new Func<List<string>?>(() =>\n${indent}{\n${bodyIndent}var values = ${applySourceCollectionExpression(
         `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
         collected[0]!.source
       )};\n${bodyIndent}return values.Count == 0 ? null : values;\n${indent}}).Invoke()`;
@@ -184,7 +196,7 @@ function createCollectionRenderers(
       const sourceLiteral = buildCsSourceLiteral(field.source);
       const objectExpression = renderNodeForCollection(node, level + 2, "value", elementInfo);
 
-      return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${bodyIndent}var values = ${applyDefaultCollectionExpression(
+      return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${bodyIndent}var values = ${applySourceCollectionExpression(
         `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
         field.source
       )};\n${bodyIndent}if (values.Count == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}foreach (var value in values)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
@@ -195,7 +207,7 @@ function createCollectionRenderers(
       const varName = `field${index}`;
       fieldVarByPath.set(field.path, varName);
       const sourceLiteral = buildCsSourceLiteral(field.source);
-      return `${bodyIndent}var ${varName} = ${applyDefaultCollectionExpression(
+      return `${bodyIndent}var ${varName} = ${applySourceCollectionExpression(
         `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
         field.source
       )};`;
@@ -228,7 +240,7 @@ export function buildCsPersonEntityObjectExpression(
   indentLevel = 2,
   fieldCollectionValueBuilder: (field: PersonEntityField) => string = (field) => {
     const sourceLiteral = buildCsSourceLiteral(field.source);
-    return applyDefaultCollectionExpression(
+    return applySourceCollectionExpression(
       `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
       field.source
     );
@@ -261,10 +273,10 @@ export function buildCsPersonEntityObjectExpression(
           return `${childIndent}[${JSON.stringify(key)}] = RowParser.ParseEnumCollection<${enumInfo.name}>(${fieldCollectionValueBuilder(field)})`;
         }
         if (enumInfo && !enumInfo.isCollection) {
-          const stringValue = applyDefaultStringExpression(fieldValueBuilder(field), field.source);
+          const stringValue = applySourceStringExpression(fieldValueBuilder(field), field.source);
           return `${childIndent}[${JSON.stringify(key)}] = RowParser.ParseEnum<${enumInfo.name}>(${stringValue})`;
         }
-        return `${childIndent}[${JSON.stringify(key)}] = ${applyDefaultStringExpression(
+        return `${childIndent}[${JSON.stringify(key)}] = ${applySourceStringExpression(
           fieldValueBuilder(field),
           field.source
         )}`;
@@ -314,7 +326,7 @@ export function buildCsPersonEntityObjectExpression(
           if (enumInfo?.isCollection) {
             return `${childIndent}${propInfo.csName} = RowParser.ParseEnumCollection<${enumInfo.name}>(${fieldCollectionValueBuilder(field)})`;
           }
-          return `${childIndent}${propInfo.csName} = ${applyDefaultStringExpression(
+          return `${childIndent}${propInfo.csName} = ${applySourceStringExpression(
             fieldValueBuilder(field),
             field.source
           )}`;
@@ -329,11 +341,11 @@ export function buildCsPersonEntityObjectExpression(
       const rawValue =
         typeof value === "object" && value && "path" in (value as PersonEntityField)
           ? (enumInfo && !enumInfo.isCollection
-            ? `RowParser.ParseEnum<${enumInfo.name}>(${applyDefaultStringExpression(
+            ? `RowParser.ParseEnum<${enumInfo.name}>(${applySourceStringExpression(
                 fieldValueBuilder(value as PersonEntityField),
                 (value as PersonEntityField).source
               )})`
-            : applyDefaultStringExpression(
+            : applySourceStringExpression(
                 fieldValueBuilder(value as PersonEntityField),
                 (value as PersonEntityField).source
               ))
@@ -433,7 +445,7 @@ export function buildCsPersonEntityCollectionExpression(
           const base = relative
             ? `RowParser.ParseStringCollection(entry, ${JSON.stringify(relative)})`
             : "RowParser.ParseStringCollection(entry)";
-          return applyDefaultCollectionExpression(base, field.source);
+          return applySourceCollectionExpression(base, field.source);
         }
       );
 
@@ -457,7 +469,7 @@ export function buildCsPersonEntityCollectionExpression(
 
     const typedObjectExpression = objectExpression;
 
-    return `${applyDefaultCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
+    return `${applySourceCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
                 .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${typedObjectExpression}\n${indentUnit.repeat(3)}))
             .ToList()`;
   }
@@ -468,7 +480,7 @@ export function buildCsPersonEntityCollectionExpression(
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
     const sourceLiteral = buildCsSourceLiteral(field.source);
-    const parsed = applyDefaultCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source);
+    const parsed = applySourceCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source);
     return `        var ${varName} = ${parsed};`;
   });
 

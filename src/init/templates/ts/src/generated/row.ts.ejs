@@ -7,6 +7,7 @@ import { normalizeJsonPath } from "./inputPath.js";
 <% } -%>
 
 type SourceKey = string | string[];
+type SourceTransform = "trim" | "lowercase" | "uppercase";
 /** Parse any row value into a string (empty when nullish). */
 function parseString(value: unknown): string {
   if (value === undefined || value === null) return "";
@@ -61,6 +62,34 @@ function applyDefaultCollection(values: string[], fallback?: string): string[] {
   return values.length === 0 ? parseStringCollection(fallback) : values;
 }
 
+/** Apply configured string transforms in order. */
+function applyStringTransforms(value: string, transforms?: SourceTransform[]): string {
+  if (!transforms || transforms.length === 0) return value;
+  let result = value;
+  for (const transform of transforms) {
+    switch (transform) {
+      case "trim":
+        result = result.trim();
+        break;
+      case "lowercase":
+        result = result.toLowerCase();
+        break;
+      case "uppercase":
+        result = result.toUpperCase();
+        break;
+      default:
+        break;
+    }
+  }
+  return result;
+}
+
+/** Apply configured string transforms to a collection. */
+function applyCollectionTransforms(values: string[], transforms?: SourceTransform[]): string[] {
+  if (!transforms || transforms.length === 0) return values;
+  return values.map((value) => applyStringTransforms(value, transforms));
+}
+
 /** Parse a number collection from a row value. */
 function parseNumberCollection(value: unknown): number[] {
   if (Array.isArray(value)) {
@@ -97,5 +126,7 @@ export {
   parseNumberCollection,
   readSourceValue,
   applyDefaultString,
-  applyDefaultCollection
+  applyDefaultCollection,
+  applyStringTransforms,
+  applyCollectionTransforms
 };

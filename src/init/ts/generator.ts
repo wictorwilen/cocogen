@@ -12,7 +12,7 @@ import { buildObjectTree } from "../object-tree.js";
 import type { PersonEntityField } from "../shared-types.js";
 import { renderTemplate } from "../template.js";
 import { formatDocComment } from "../helpers/format.js";
-import { buildSourceLiteral } from "../helpers/source.js";
+import { buildSourceLiteral, buildSourceTransformsLiteral } from "../helpers/source.js";
 import { graphBaseUrl, schemaPayload, toOdataCollectionType } from "../helpers/schema.js";
 import {
   buildGraphEnumTemplates,
@@ -277,10 +277,15 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       const nameLiteral = JSON.stringify(p.name);
       const stringConstraints = buildTsStringConstraintsLiteral(p);
       const sourceDefaultLiteral = p.source.default !== undefined ? JSON.stringify(p.source.default) : null;
-      const applyDefaultStringExpression = (expr: string): string =>
-        sourceDefaultLiteral ? `applyDefaultString(${expr}, ${sourceDefaultLiteral})` : expr;
-      const applyDefaultCollectionExpression = (expr: string): string =>
-        sourceDefaultLiteral ? `applyDefaultCollection(${expr}, ${sourceDefaultLiteral})` : expr;
+      const sourceTransformsLiteral = buildSourceTransformsLiteral(p.source);
+      const applySourceStringExpression = (expr: string): string => {
+        const withDefault = sourceDefaultLiteral ? `applyDefaultString(${expr}, ${sourceDefaultLiteral})` : expr;
+        return sourceTransformsLiteral ? `applyStringTransforms(${withDefault}, ${sourceTransformsLiteral})` : withDefault;
+      };
+      const applySourceCollectionExpression = (expr: string): string => {
+        const withDefault = sourceDefaultLiteral ? `applyDefaultCollection(${expr}, ${sourceDefaultLiteral})` : expr;
+        return sourceTransformsLiteral ? `applyCollectionTransforms(${withDefault}, ${sourceTransformsLiteral})` : withDefault;
+      };
       const personEntityType = p.personEntity ? toTsIdentifier(p.personEntity.entity) : null;
       const personEntityTypeInfo = personEntityType ? peopleProfileTypeInfoByAlias.get(personEntityType) ?? null : null;
       if (personEntityTypeInfo) {
@@ -342,9 +347,13 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
               const labelLiteral = JSON.stringify(entry.label);
               const sourceLiteral = buildSourceLiteral(entry.source);
               const entryDefaultLiteral = entry.source.default !== undefined ? JSON.stringify(entry.source.default) : null;
-              const valueExpression = entryDefaultLiteral
+              const entryTransformsLiteral = buildSourceTransformsLiteral(entry.source);
+              const parsedValueExpression = entryDefaultLiteral
                 ? `applyDefaultString(parseString(readSourceValue(row, ${sourceLiteral})), ${entryDefaultLiteral})`
                 : `parseString(readSourceValue(row, ${sourceLiteral}))`;
+              const valueExpression = entryTransformsLiteral
+                ? `applyStringTransforms(${parsedValueExpression}, ${entryTransformsLiteral})`
+                : parsedValueExpression;
               if (contentType === "html") {
                 return `\`<li><b>\${${labelLiteral}}</b>: \${${valueExpression}}</li>\``;
               }
@@ -368,9 +377,9 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         : personEntity
         ? personEntity
         : p.type === "string"
-        ? applyDefaultStringExpression(`${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`)
+        ? applySourceStringExpression(`${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`)
         : p.type === "stringCollection"
-        ? applyDefaultCollectionExpression(`${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`)
+        ? applySourceCollectionExpression(`${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`)
         : `${parser}(readSourceValue(row, ${buildSourceLiteral(p.source)}))`;
 
       const validationMetadata = {

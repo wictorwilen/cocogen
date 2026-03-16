@@ -47,6 +47,7 @@ export type ConnectorIr = {
         csvHeaders: string[];
         jsonPath?: string;
         default?: string;
+        transforms?: Array<"trim" | "lowercase" | "uppercase">;
       };
     }>;
     doc?: string;
@@ -93,6 +94,7 @@ export type ConnectorIr = {
           csvHeaders: string[];
           jsonPath?: string;
           default?: string;
+          transforms?: Array<"trim" | "lowercase" | "uppercase">;
         };
       }>;
     };
@@ -110,6 +112,7 @@ export type ConnectorIr = {
       explicit?: boolean;
       noSource?: boolean;
       default?: string;
+      transforms?: Array<"trim" | "lowercase" | "uppercase">;
     };
   }>;
 };

@@ -136,6 +136,7 @@ Microsoft Graph connector schema is a **flat** property list (not nested). TypeS
 Input format is selected at generation time via CLI:
   - `cocogen generate --data-format csv|json|yaml|rest|custom`
 - `@coco.source(...)` on a property: maps the property to a source field (CSV header or JSONPath).
+  - Source mapping options in the second argument object support `default?: string` and `transforms?: ["trim" | "lowercase" | "uppercase"]` for generated runtime parsing.
   - `@coco.noSource` marks a property as having no source mapping (value computed elsewhere).
 Notes on People connectors:
 - People connectors do not support `externalItem.content`; all data must be represented as schema properties.
@@ -326,10 +327,12 @@ People connectors (preview) overrides:
 - Override mapping with TypeSpec:
   - `@coco.source("headerName")` to map a different CSV column.
   - `@coco.source("firstName")` to map a CSV column to a property.
+  - `@coco.source("EMAIL", { transforms: ["trim", "lowercase"] })` to normalize source values in generated runtimes.
   - `@coco.source("job title", "detail.jobTitle")` to map CSV columns into a JSON entity payload (people connectors only).
 
 Type conversion rules (generated code):
 - `string`: pass through.
+- Source transforms run after parsing and after applying any configured default values.
 - `int64`, `double`, `boolean`, `dateTime`: parse from string with clear error messages (row/column context).
 - `...Collection`: accept either a JSON array string (preferred) or a delimiter-split string (semicolon-only).
 - `principal`: emit a typed object compatible with Microsoft Graph `externalConnectors.principal` (`{ "@odata.type": "#microsoft.graph.externalConnectors.principal", externalName?: string, externalId?: string, entraDisplayName?: string, entraId?: string, email?: string, upn?: string, tenantId?: string, ... }`).

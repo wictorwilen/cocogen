@@ -1,6 +1,22 @@
 import type { PersonEntityField, SourceDescriptor } from "../shared-types.js";
-import { buildCsSourceLiteral } from "../helpers/source.js";
+import { buildCsSourceLiteral, buildCsSourceTransformsLiteral } from "../helpers/source.js";
 import { buildPrincipalFieldEntries } from "../helpers/principal.js";
+
+const applySourceStringExpression = (value: string, source: SourceDescriptor): string => {
+  const withDefault = source.default !== undefined
+    ? `RowParser.ApplyDefault(${value}, ${JSON.stringify(source.default)})`
+    : value;
+  const transformsLiteral = buildCsSourceTransformsLiteral(source);
+  return transformsLiteral ? `RowParser.ApplyTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
+
+const applySourceCollectionExpression = (value: string, source: SourceDescriptor): string => {
+  const withDefault = source.default !== undefined
+    ? `RowParser.ApplyDefaultCollection(${value}, ${JSON.stringify(source.default)})`
+    : value;
+  const transformsLiteral = buildCsSourceTransformsLiteral(source);
+  return transformsLiteral ? `RowParser.ApplyCollectionTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
 
 /** Build a principal object expression for C# transforms. */
 export function buildCsPrincipalExpression(
@@ -26,9 +42,7 @@ export function buildCsPrincipalExpression(
     const sourceLiteral = buildCsSourceLiteral(entry.source);
     const propertyName = knownMap.get(entry.key);
     const base = `RowParser.ParseString(row, ${sourceLiteral})`;
-    const withDefault = entry.source.default !== undefined
-      ? `RowParser.ApplyDefault(${base}, ${JSON.stringify(entry.source.default)})`
-      : base;
+    const withDefault = applySourceStringExpression(base, entry.source);
     if (propertyName) {
       knownAssignments.push(`    ${propertyName} = ${withDefault},`);
     } else {
@@ -68,9 +82,7 @@ export function buildCsPrincipalCollectionExpression(
   const fieldLines = entries.map((entry, index) => {
     const sourceLiteral = buildCsSourceLiteral(entry.source);
     const base = `RowParser.ParseStringCollection(row, ${sourceLiteral})`;
-    const withDefault = entry.source.default !== undefined
-      ? `RowParser.ApplyDefaultCollection(${base}, ${JSON.stringify(entry.source.default)})`
-      : base;
+    const withDefault = applySourceCollectionExpression(base, entry.source);
     return `        var field${index} = ${withDefault};`;
   });
 

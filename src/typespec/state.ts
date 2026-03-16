@@ -15,6 +15,7 @@ export const COCOGEN_STATE_PROPERTY_SEARCH = Symbol.for("@wictorwilen/cocogen/pr
 export const COCOGEN_STATE_PROPERTY_SOURCE = Symbol.for("@wictorwilen/cocogen/propertySource");
 export const COCOGEN_STATE_PROPERTY_SOURCE_ENTRIES = Symbol.for("@wictorwilen/cocogen/propertySourceEntries");
 export const COCOGEN_STATE_PROPERTY_SOURCE_DEFAULT = Symbol.for("@wictorwilen/cocogen/propertySourceDefault");
+export const COCOGEN_STATE_PROPERTY_SOURCE_TRANSFORMS = Symbol.for("@wictorwilen/cocogen/propertySourceTransforms");
 export const COCOGEN_STATE_PROPERTY_NO_SOURCE = Symbol.for("@wictorwilen/cocogen/propertyNoSource");
 export const COCOGEN_STATE_PROPERTY_PERSON_FIELDS = Symbol.for("@wictorwilen/cocogen/propertyPersonFields");
 export const COCOGEN_STATE_PROPERTY_SERIALIZED = Symbol.for("@wictorwilen/cocogen/propertySerialized");
@@ -66,12 +67,16 @@ export type CocogenSourceSettings = {
   csv?: string;
   jsonPath?: string;
   default?: string;
+  transforms?: CocogenSourceTransform[];
 };
+
+export type CocogenSourceTransform = "trim" | "lowercase" | "uppercase";
 
 export type CocogenSourceEntry = {
   from: CocogenSourceSettings | string;
   to?: string;
   default?: string;
+  transforms?: CocogenSourceTransform[];
 };
 
 export type CocogenSerializedTarget = {
@@ -82,5 +87,6 @@ export type CocogenPersonEntityField = {
   path: string;
   source: CocogenSourceSettings | string;
   default?: string;
+  transforms?: CocogenSourceTransform[];
 };
 

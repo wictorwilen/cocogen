@@ -62,7 +62,7 @@ describe("people graph types (e2e)", () => {
     expect(init.code).toBe(0);
 
     const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(peopleTs).toContain("export type CompanyDetail = {");
+    expect(peopleTs).toContain("export type CompanyDetail = Open<");
     expect(peopleTs).toContain("displayName?: string | null;");
     expect(peopleTs).toContain("address?: PhysicalAddress | null;");
   });

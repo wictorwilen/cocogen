@@ -150,6 +150,42 @@ public static class RowParser
     }
 
     /// <summary>
+    /// Apply configured transforms to a parsed string.
+    /// </summary>
+    public static string ApplyTransforms(string value, IEnumerable<string>? transforms)
+    {
+        if (transforms is null) return value;
+
+        var result = value;
+        foreach (var transform in transforms)
+        {
+            switch (transform)
+            {
+                case "trim":
+                    result = result.Trim();
+                    break;
+                case "lowercase":
+                    result = result.ToLowerInvariant();
+                    break;
+                case "uppercase":
+                    result = result.ToUpperInvariant();
+                    break;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Apply configured transforms to a parsed string collection.
+    /// </summary>
+    public static List<string> ApplyCollectionTransforms(List<string> values, IEnumerable<string>? transforms)
+    {
+        if (transforms is null) return values;
+        return values.Select(value => ApplyTransforms(value, transforms)).ToList();
+    }
+
+    /// <summary>
     /// Parse a string from a row using the provided headers.
     /// </summary>
     public static string ParseString(object row, string[] headers)

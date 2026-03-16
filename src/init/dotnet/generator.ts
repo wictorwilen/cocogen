@@ -14,7 +14,7 @@ import {
 } from "../naming.js";
 import { renderTemplate } from "../template.js";
 import { formatCsDocSummary } from "../helpers/format.js";
-import { buildCsSourceLiteral } from "../helpers/source.js";
+import { buildCsSourceLiteral, buildCsSourceTransformsLiteral } from "../helpers/source.js";
 import { removeIfExists } from "../helpers/fs.js";
 import {
   toCsParseFunction,
@@ -381,6 +381,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       const nameLiteral = JSON.stringify(p.name);
       const csStringConstraints = buildCsStringConstraintsLiteral(p);
       const sourceDefaultLiteral = p.source.default !== undefined ? JSON.stringify(p.source.default) : null;
+      const sourceTransformsLiteral = buildCsSourceTransformsLiteral(p.source);
       const personEntity = p.personEntity
         ? {
             entity: p.personEntity.entity,
@@ -411,9 +412,13 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
               .map((entry) => {
                 const labelLiteral = JSON.stringify(entry.label);
                 const sourceLiteral = buildCsSourceLiteral(entry.source);
-                const valueExpression = entry.source.default !== undefined
+                const parsedValueExpression = entry.source.default !== undefined
                   ? `RowParser.ApplyDefault(RowParser.ParseString(row, ${sourceLiteral}), ${JSON.stringify(entry.source.default)})`
                   : `RowParser.ParseString(row, ${sourceLiteral})`;
+                const entryTransformsLiteral = buildCsSourceTransformsLiteral(entry.source);
+                const valueExpression = entryTransformsLiteral
+                  ? `RowParser.ApplyTransforms(${parsedValueExpression}, ${entryTransformsLiteral})`
+                  : parsedValueExpression;
                 if (contentType === "html") {
                   return `string.Concat("<li><b>", ${labelLiteral}, "</b>: ", ${valueExpression}, "</li>")`;
                 }
@@ -466,13 +471,23 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
               peopleProfileTypeInfoByName
             )
         : p.type === "string"
-        ? (sourceDefaultLiteral
-          ? `RowParser.ApplyDefault(${parseFn}(row, ${sourceLiteral}), ${sourceDefaultLiteral})`
-          : `${parseFn}(row, ${sourceLiteral})`)
+        ? (() => {
+          const parsedExpression = sourceDefaultLiteral
+            ? `RowParser.ApplyDefault(${parseFn}(row, ${sourceLiteral}), ${sourceDefaultLiteral})`
+            : `${parseFn}(row, ${sourceLiteral})`;
+          return sourceTransformsLiteral
+            ? `RowParser.ApplyTransforms(${parsedExpression}, ${sourceTransformsLiteral})`
+            : parsedExpression;
+        })()
         : p.type === "stringCollection"
-        ? (sourceDefaultLiteral
-          ? `RowParser.ApplyDefaultCollection(${parseFn}(row, ${sourceLiteral}), ${sourceDefaultLiteral})`
-          : `${parseFn}(row, ${sourceLiteral})`)
+        ? (() => {
+          const parsedExpression = sourceDefaultLiteral
+            ? `RowParser.ApplyDefaultCollection(${parseFn}(row, ${sourceLiteral}), ${sourceDefaultLiteral})`
+            : `${parseFn}(row, ${sourceLiteral})`;
+          return sourceTransformsLiteral
+            ? `RowParser.ApplyCollectionTransforms(${parsedExpression}, ${sourceTransformsLiteral})`
+            : parsedExpression;
+        })()
         : `${parseFn}(row, ${sourceLiteral})`;
 
       const validationMetadata = {

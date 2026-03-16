@@ -270,6 +270,11 @@ Notes:
   - `@coco.source("title", { default: "Untitled" })`
   - `@coco.source("assistant", { to: "colleagues.userPrincipalName", default: "unknown@contoso.com" })`
   - Defaults are supported only for `string` and `string[]` properties.
+- Optional source transforms can be supplied via the source settings object:
+  - `@coco.source("EMAIL", { transforms: ["trim", "lowercase"] })`
+  - `@coco.source("$.profile.userPrincipalName", { to: "userPrincipalName", transforms: ["trim", "uppercase"] })`
+  - Supported transforms: `trim`, `lowercase`, `uppercase`
+  - Transforms run after parsing and after any configured default is applied.
 
 ### `@coco.noSource`
 

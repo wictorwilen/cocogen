@@ -1,6 +1,6 @@
 import { buildObjectTree } from "../object-tree.js";
 import type { PersonEntityField } from "../shared-types.js";
-import { buildSourceLiteral } from "../helpers/source.js";
+import { buildSourceLiteral, buildSourceTransformsLiteral } from "../helpers/source.js";
 import { collectPersonEntityFields, TS_INDENT } from "../helpers/people-entity.js";
 import { createCollectionRenderer } from "../people/entity-renderer.js";
 
@@ -51,11 +51,23 @@ const formatObjectEntry = (
   return `${childIndent}${JSON.stringify(key)}: ${formattedValue}`;
 };
 
-const applyDefaultStringExpression = (value: string, source: { default?: string }): string =>
-  source.default !== undefined ? `applyDefaultString(${value}, ${JSON.stringify(source.default)})` : value;
+const applySourceStringExpression = (
+  value: string,
+  source: { default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> }
+): string => {
+  const withDefault = source.default !== undefined ? `applyDefaultString(${value}, ${JSON.stringify(source.default)})` : value;
+  const transformsLiteral = buildSourceTransformsLiteral(source);
+  return transformsLiteral ? `applyStringTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
 
-const applyDefaultCollectionExpression = (value: string, source: { default?: string }): string =>
-  source.default !== undefined ? `applyDefaultCollection(${value}, ${JSON.stringify(source.default)})` : value;
+const applySourceCollectionExpression = (
+  value: string,
+  source: { default?: string; transforms?: Array<"trim" | "lowercase" | "uppercase"> }
+): string => {
+  const withDefault = source.default !== undefined ? `applyDefaultCollection(${value}, ${JSON.stringify(source.default)})` : value;
+  const transformsLiteral = buildSourceTransformsLiteral(source);
+  return transformsLiteral ? `applyCollectionTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
+};
 
 /** Build shared renderers for TS people-entity collections. */
 function createTsCollectionRenderers(
@@ -127,7 +139,7 @@ ${indentUnit.repeat(level)}}`,
 
     if (!elementInfo && elementType === "string") {
       const sourceLiteral = buildSourceLiteral(collected[0]!.source);
-      return `(() => {\n${bodyIndent}const values = ${applyDefaultCollectionExpression(
+      return `(() => {\n${bodyIndent}const values = ${applySourceCollectionExpression(
         `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
         collected[0]!.source
       )};\n${bodyIndent}return values.length > 0 ? values : undefined;\n${indent}})()`;
@@ -138,7 +150,7 @@ ${indentUnit.repeat(level)}}`,
       const sourceLiteral = buildSourceLiteral(field.source);
       const rendered = renderNodeForCollection(node, level + 1, "value", elementInfo);
       const typed = elementInfo ? `(${rendered} as ${elementInfo.alias})` : rendered;
-      return `(() => {\n${bodyIndent}const values = ${applyDefaultCollectionExpression(
+      return `(() => {\n${bodyIndent}const values = ${applySourceCollectionExpression(
         `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
         field.source
       )};\n${bodyIndent}if (values.length === 0) return undefined;\n${bodyIndent}return values.map((value) => ${typed});\n${indent}})()`;
@@ -149,7 +161,7 @@ ${indentUnit.repeat(level)}}`,
       const varName = `field${index}`;
       fieldVarByPath.set(field.path, varName);
       const sourceLiteral = buildSourceLiteral(field.source);
-      return `${bodyIndent}const ${varName} = ${applyDefaultCollectionExpression(
+      return `${bodyIndent}const ${varName} = ${applySourceCollectionExpression(
         `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
         field.source
       )};`;
@@ -186,12 +198,12 @@ export function buildTsPersonEntityExpression(
   const fieldValueBuilder = (field: PersonEntityField): string => {
     const sourceLiteral = buildSourceLiteral(field.source);
     const base = valueExpressionBuilder(sourceLiteral);
-    return applyDefaultStringExpression(base, field.source);
+    return applySourceStringExpression(base, field.source);
   };
 
   const fieldCollectionValueBuilder = (field: PersonEntityField): string => {
     const sourceLiteral = buildSourceLiteral(field.source);
-    return applyDefaultCollectionExpression(
+    return applySourceCollectionExpression(
       `parseStringCollection(readSourceValue(row, ${sourceLiteral}))`,
       field.source
     );
@@ -309,7 +321,7 @@ ${indent}}`;
     const typed = typeInfo ? `(${rendered} as ${typeInfo.alias})` : rendered;
     const typedIndented = indentLines(typed, indentUnit.repeat(4));
 
-    return `${applyDefaultCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
+    return `${applySourceCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
   ${indentUnit.repeat(2)}.map((value) => JSON.stringify(\n${typedIndented}\n${indentUnit.repeat(2)}))`;
   }
 
@@ -319,7 +331,7 @@ ${indent}}`;
     const varName = `field${index}`;
     fieldVarByPath.set(field.path, varName);
     const sourceLiteral = buildSourceLiteral(field.source);
-    return `${bodyIndent}const ${varName} = ${applyDefaultCollectionExpression(
+    return `${bodyIndent}const ${varName} = ${applySourceCollectionExpression(
       collectionExpressionBuilder(sourceLiteral),
       field.source
     )};`;
