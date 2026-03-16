@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.48] - 2026-03-16
+
+### Changed
+- Graph profile snapshot generation now extracts referenced `EnumType` members from Graph metadata.
+- People payload generators now emit snapshot-backed TS/C# enums for Graph enum fields such as `emailType`, `personRelationship`, and `physicalAddressType`.
+
 ## [1.0.47] - 2026-03-16
 
 ## [1.0.46] - 2026-03-16
@@ -289,6 +295,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.48]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.48
 [1.0.47]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.47
 [1.0.46]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.46
 [1.0.45]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.45
