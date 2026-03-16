@@ -10,8 +10,12 @@
       "position": {
         "detail": {
           "jobTitle": "Senior Software Engineer",
+          "layer": 3,
           "company": {
-            "displayName": "Contoso"
+            "displayName": "Contoso",
+            "address": {
+              "country": "US"
+            }
           },
           "employeeId": "E123"
         }

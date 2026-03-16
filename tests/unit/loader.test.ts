@@ -595,6 +595,38 @@ describe("loadIrFromTypeSpec", () => {
     expect(assistant?.source.jsonPath).toBe("$.position.assistant");
   });
 
+  test("normalizes people entity graph property aliases", async () => {
+    const entry = await writeTempTspFile(`
+      using coco;
+
+      @coco.connection({
+        contentCategory: "people",
+        name: "People connector",
+        connectionId: "peopleconnector"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example people source"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        @coco.label("personAccount")
+        @coco.source("upn", "userPrincipalName")
+        userPrincipalName: string;
+
+        @coco.label("personCurrentPosition")
+        @coco.source("country", "detail.company.address.country")
+        workPosition: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry, { inputFormat: "json" });
+    const prop = ir.properties.find((p) => p.name === "workPosition");
+    const country = prop?.personEntity?.fields.find((field) => field.source.jsonPath === "$.country");
+    expect(country?.path).toBe("detail.company.address.countryOrRegion");
+  });
+
   test("errors on invalid jsonpath syntax", async () => {
     const entry = await writeTempTspFile(`
       @coco.item

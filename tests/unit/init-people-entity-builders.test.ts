@@ -262,6 +262,46 @@ describe("init people entity builders", () => {
       expect(expression).toContain("as PositionInfo");
     });
 
+    test("parses typed scalar leaves and preserves typed nested objects", () => {
+      const addressType: TsPersonEntityTypeInfo = {
+        alias: "PhysicalAddress",
+        properties: new Map([
+          ["street", "string"],
+          ["countryOrRegion", "string"],
+        ]),
+      };
+      const companyType: TsPersonEntityTypeInfo = {
+        alias: "CompanyDetail",
+        properties: new Map([["address", "PhysicalAddress"]]),
+      };
+      const detailType: TsPersonEntityTypeInfo = {
+        alias: "PositionDetail",
+        properties: new Map([
+          ["layer", "number"],
+          ["company", "CompanyDetail"],
+        ]),
+      };
+      const typeInfo: TsPersonEntityTypeInfo = {
+        alias: "WorkPosition",
+        properties: new Map([["detail", "PositionDetail"]]),
+      };
+      const typeMap = new Map<string, TsPersonEntityTypeInfo>([
+        ["PhysicalAddress", addressType],
+        ["CompanyDetail", companyType],
+        ["PositionDetail", detailType],
+      ]);
+      const fields = [
+        csvField("detail.layer", "Layer"),
+        csvField("detail.company.address.countryOrRegion", "Country"),
+      ];
+
+      const expression = buildTsPersonEntityExpression(fields, undefined, typeInfo, typeMap);
+      expect(expression).toContain('"layer": parseNumber(');
+      expect(expression).toContain('"address": ({');
+      expect(expression).toContain("as PhysicalAddress");
+      expect(expression).toContain('"countryOrRegion": parseString(');
+    });
+
     test("handles custom value expression builder", () => {
       const fields = [csvField("name", "Name")];
       const customBuilder = (src: string) => `customParse(${src})`;
@@ -1190,6 +1230,45 @@ describe("init people entity builders", () => {
       const expression = buildCsPersonEntityExpression(fields, undefined, typeInfo, typeMap);
       expect(expression).toContain("new NestedData");
       expect(expression).toContain("Tags =");
+    });
+
+    test("parses typed scalar leaves and preserves typed nested objects", () => {
+      const addressType: CsPersonEntityTypeInfo = {
+        typeName: "PhysicalAddress",
+        properties: new Map([
+          ["street", { csName: "Street", csType: "string?" }],
+          ["countryOrRegion", { csName: "CountryOrRegion", csType: "string?" }],
+        ]),
+      };
+      const companyType: CsPersonEntityTypeInfo = {
+        typeName: "CompanyDetail",
+        properties: new Map([["address", { csName: "Address", csType: "PhysicalAddress?" }]]),
+      };
+      const detailType: CsPersonEntityTypeInfo = {
+        typeName: "PositionDetail",
+        properties: new Map([
+          ["layer", { csName: "Layer", csType: "int?" }],
+          ["company", { csName: "Company", csType: "CompanyDetail?" }],
+        ]),
+      };
+      const typeInfo: CsPersonEntityTypeInfo = {
+        typeName: "WorkPosition",
+        properties: new Map([["detail", { csName: "Detail", csType: "PositionDetail?" }]]),
+      };
+      const typeMap = new Map<string, CsPersonEntityTypeInfo>([
+        ["PhysicalAddress", addressType],
+        ["CompanyDetail", companyType],
+        ["PositionDetail", detailType],
+      ]);
+      const fields = [
+        csvField("detail.layer", "Layer"),
+        csvField("detail.company.address.countryOrRegion", "Country"),
+      ];
+
+      const expression = buildCsPersonEntityExpression(fields, undefined, typeInfo, typeMap);
+      expect(expression).toContain("Layer = (int)RowParser.ParseInt64(");
+      expect(expression).toContain("Address = new PhysicalAddress");
+      expect(expression).toContain("CountryOrRegion = RowParser.ParseString(");
     });
 
     test("handles single-field collection with nested object containing string list", () => {

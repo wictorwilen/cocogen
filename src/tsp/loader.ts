@@ -25,6 +25,7 @@ import {
 
 import type { ConnectorIr, GraphApiVersion, PropertyType, SearchFlags } from "../ir.js";
 import { getPeopleLabelDefinition, type PersonEntityName } from "../people/label-registry.js";
+import { getProfileType } from "../people/profile-schema.js";
 import { assertValidJsonPath, normalizeJsonPath } from "./jsonpath.js";
 import { normalizeInputFormat } from "./input-format.js";
 import {
@@ -57,6 +58,54 @@ import {
   type CocogenSourceEntry,
   type CocogenPersonEntityField,
 } from "../typespec/state.js";
+
+const PEOPLE_ENTITY_PROPERTY_ALIASES = new Map<string, Map<string, string>>([
+  ["physicalAddress", new Map([["country", "countryOrRegion"]])],
+]);
+
+function normalizePersonEntityGraphPath(entity: PersonEntityName, rawPath: string): string {
+  const segments = rawPath.split(".").filter(Boolean);
+  if (segments.length === 0) return rawPath;
+
+  let currentType = getProfileType(entity);
+  if (!currentType) return rawPath;
+
+  const normalized: string[] = [];
+  for (const segment of segments) {
+    if (!currentType) {
+      normalized.push(segment);
+      continue;
+    }
+
+    let normalizedSegment = segment;
+    let prop = currentType.properties.find((property) => property.name === normalizedSegment);
+    if (!prop) {
+      const alias = PEOPLE_ENTITY_PROPERTY_ALIASES.get(currentType.name)?.get(normalizedSegment);
+      if (alias) {
+        normalizedSegment = alias;
+        prop = currentType.properties.find((property) => property.name === normalizedSegment);
+      }
+    }
+
+    normalized.push(normalizedSegment);
+
+    if (!prop) {
+      currentType = undefined;
+      continue;
+    }
+
+    const collectionMatch = /^Collection\((.+)\)$/.exec(prop.type);
+    const nextTypeName = collectionMatch ? collectionMatch[1]! : prop.type;
+    if (!nextTypeName.startsWith("graph.")) {
+      currentType = undefined;
+      continue;
+    }
+
+    currentType = getProfileType(nextTypeName.slice("graph.".length));
+  }
+
+  return normalized.join(".");
+}
 
 export class CocogenError extends Error {
   constructor(message: string) {
@@ -336,7 +385,8 @@ function getPersonEntityMapping(
 
   const fields = rawFields
     .map((field) => {
-      const path = typeof field.path === "string" ? normalizeEntityPath(field.path) : "";
+      const rawPath = typeof field.path === "string" ? normalizeEntityPath(field.path) : "";
+      const path = rawPath && entity ? normalizePersonEntityGraphPath(entity, rawPath) : rawPath;
       if (!path) return undefined;
       const sourceSettings = normalizeSourceSettings(
         applyCommonPrefix(field.source),

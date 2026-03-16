@@ -69,6 +69,45 @@ const applySourceCollectionExpression = (
   return transformsLiteral ? `applyCollectionTransforms(${withDefault}, ${transformsLiteral})` : withDefault;
 };
 
+const buildParsedTsScalarValueExpression = (propType: string | null, value: string): string => {
+  switch (propType) {
+    case "number":
+      return `parseNumber(${value})`;
+    case "boolean":
+      return `parseBoolean(${value})`;
+    default:
+      return value;
+  }
+};
+
+const buildParsedTsCollectionValueExpression = (propType: string | null, value: string): string => {
+  if (!propType?.endsWith("[]")) return value;
+  const elementType = propType.slice(0, -2);
+  switch (elementType) {
+    case "number":
+      return `${value}.map((entry) => parseNumber(entry))`;
+    case "boolean":
+      return `${value}.map((entry) => parseBoolean(entry))`;
+    default:
+      return value;
+  }
+};
+
+const buildParsedTsSingleCollectionValueExpression = (propType: string | null, value: string): string => {
+  if (!propType?.endsWith("[]")) return value;
+  const elementType = propType.slice(0, -2);
+  switch (elementType) {
+    case "string":
+      return `(${value} ? [${value}] : [])`;
+    case "number":
+      return `(${value} ? [parseNumber(${value})] : [])`;
+    case "boolean":
+      return `(${value} ? [parseBoolean(${value})] : [])`;
+    default:
+      return `(${value} ? [${value}] : [])`;
+  }
+};
+
 /** Build shared renderers for TS people-entity collections. */
 function createTsCollectionRenderers(
   typeMap: TsPersonEntityTypeMap,
@@ -106,7 +145,12 @@ ${indentUnit.repeat(level)}}`,
       valueVar,
       info,
       renderCollectionNode,
-      (propType, value) => (propType?.endsWith("[]") ? `(${value} ? [${value}] : [])` : value)
+      (propType, value) => {
+        if (propType?.endsWith("[]")) {
+          return buildParsedTsSingleCollectionValueExpression(propType, value);
+        }
+        return buildParsedTsScalarValueExpression(propType ?? null, value);
+      }
     );
 
   const renderNodeForCollectionMany = (
@@ -121,8 +165,12 @@ ${indentUnit.repeat(level)}}`,
       info,
       fieldVarByPath,
       renderCollectionNode,
-      (propType, value) =>
-        propType?.endsWith("[]") ? `getCollectionValue(${value}, index)` : `getValue(${value}, index)`
+      (propType, value) => {
+        if (propType?.endsWith("[]")) {
+          return buildParsedTsCollectionValueExpression(propType, `getCollectionValue(${value}, index)`);
+        }
+        return buildParsedTsScalarValueExpression(propType ?? null, `getValue(${value}, index)`);
+      }
     );
 
   function renderCollectionNode(
@@ -223,12 +271,17 @@ export function buildTsPersonEntityExpression(
         if (propType && propType.endsWith("[]")) {
           return formatObjectEntry(
             key,
-            fieldCollectionValueBuilder(field),
+            buildParsedTsCollectionValueExpression(propType, fieldCollectionValueBuilder(field)),
             childIndent,
             indentUnit
           );
         }
-        return formatObjectEntry(key, fieldValueBuilder(field), childIndent, indentUnit);
+        return formatObjectEntry(
+          key,
+          buildParsedTsScalarValueExpression(propType, fieldValueBuilder(field)),
+          childIndent,
+          indentUnit
+        );
       }
       const propType = info?.properties.get(key) ?? null;
       if (propType && propType.endsWith("[]")) {
@@ -289,12 +342,17 @@ export function buildTsPersonEntityCollectionExpression(
         if (propType && propType.endsWith("[]")) {
           return formatObjectEntry(
             key,
-            `(${valueVar} ? [${valueVar}] : [])`,
+            buildParsedTsSingleCollectionValueExpression(propType, valueVar),
             childIndent,
             indentUnit
           );
         }
-        return formatObjectEntry(key, valueVar, childIndent, indentUnit);
+        return formatObjectEntry(
+          key,
+          buildParsedTsScalarValueExpression(propType, valueVar),
+          childIndent,
+          indentUnit
+        );
       }
       const propType = info?.properties.get(key) ?? null;
       if (propType && propType.endsWith("[]")) {

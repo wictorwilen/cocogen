@@ -35,7 +35,9 @@ model PersonProfile {
   @coco.schemaDescription("Current work position mapped from nested fields.")
   @example("Senior Software Engineer")
   @coco.source("profile.position.detail.jobTitle", "detail.jobTitle")
+  @coco.source("profile.position.detail.layer", "detail.layer")
   @coco.source("profile.position.detail.company.displayName", "detail.company.displayName")
+  @coco.source("profile.position.detail.company.address.country", "detail.company.address.country")
   @coco.source("profile.position.detail.employeeId", "detail.employeeId")
   workPosition: string;
 

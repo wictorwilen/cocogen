@@ -38,6 +38,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 
 ## Recently done
 - Add `@coco.source` lowercase transforms to generated TS/.NET runtimes ✅
+- Fix TS/.NET people entity typed scalar parsing and normalize `physicalAddress.country` aliases ✅
 - Allow arbitrary extension data on generated people payload models (TS + .NET).
 - Apply people entity collection defaults consistently in .NET transforms ✅
 - Prevent accidental JSONPath prefixing for people entity source paths ✅

@@ -60,6 +60,48 @@ const graphEnumNames = new Set(buildGraphEnumTemplates().map((entry) => entry.cs
 
 const normalizeCsType = (value: string): string => value.replace("?", "");
 
+const isSupportedCsScalarType = (value: string): boolean =>
+  ["string", "int", "long", "double", "bool", "DateTimeOffset"].includes(normalizeCsType(value));
+
+const buildParsedCsScalarValueExpression = (propType: string | null, value: string): string => {
+  if (!propType) return value;
+  switch (normalizeCsType(propType)) {
+    case "int":
+      return `(int)RowParser.ParseInt64(${value})`;
+    case "long":
+      return `RowParser.ParseInt64(${value})`;
+    case "double":
+      return `RowParser.ParseDouble(${value})`;
+    case "bool":
+      return `RowParser.ParseBoolean(${value})`;
+    case "DateTimeOffset":
+      return `RowParser.ParseDateTime(${value})`;
+    default:
+      return value;
+  }
+};
+
+const buildParsedCsCollectionValueExpression = (propType: string | null, value: string): string => {
+  if (!propType) return value;
+  const match = /^List<(.+)>$/.exec(normalizeCsType(propType));
+  if (!match) return value;
+  const elementType = normalizeCsType(match[1]!);
+  switch (elementType) {
+    case "int":
+      return `${value}.Select((entry) => (int)RowParser.ParseInt64(entry)).ToList()`;
+    case "long":
+      return `${value}.Select((entry) => RowParser.ParseInt64(entry)).ToList()`;
+    case "double":
+      return `${value}.Select((entry) => RowParser.ParseDouble(entry)).ToList()`;
+    case "bool":
+      return `${value}.Select((entry) => RowParser.ParseBoolean(entry)).ToList()`;
+    case "DateTimeOffset":
+      return `${value}.Select((entry) => RowParser.ParseDateTime(entry)).ToList()`;
+    default:
+      return value;
+  }
+};
+
 const resolveEnumType = (propType: string | null): { name: string; isCollection: boolean } | null => {
   if (!propType) return null;
   const trimmed = normalizeCsType(propType);
@@ -139,7 +181,10 @@ function createCollectionRenderers(
         if (enumInfo && !enumInfo.isCollection) {
           return `RowParser.ParseEnum<${enumInfo.name}>(${value})`;
         }
-        return value;
+        if (listElement && isSupportedCsScalarType(listElement)) {
+          return buildParsedCsCollectionValueExpression(propType, `new List<string> { ${value} }`);
+        }
+        return buildParsedCsScalarValueExpression(propType ?? null, value);
       }
     );
 
@@ -167,7 +212,10 @@ function createCollectionRenderers(
         if (enumInfo && !enumInfo.isCollection) {
           return `RowParser.ParseEnum<${enumInfo.name}>(GetValue(${value}, index))`;
         }
-        return `GetValue(${value}, index)`;
+        if (listElement && isSupportedCsScalarType(listElement)) {
+          return buildParsedCsCollectionValueExpression(propType, `GetCollectionValue(${value}, index)`);
+        }
+        return buildParsedCsScalarValueExpression(propType ?? null, `GetValue(${value}, index)`);
       }
     );
 
@@ -276,9 +324,10 @@ export function buildCsPersonEntityObjectExpression(
           const stringValue = applySourceStringExpression(fieldValueBuilder(field), field.source);
           return `${childIndent}[${JSON.stringify(key)}] = RowParser.ParseEnum<${enumInfo.name}>(${stringValue})`;
         }
-        return `${childIndent}[${JSON.stringify(key)}] = ${applySourceStringExpression(
-          fieldValueBuilder(field),
-          field.source
+        const stringValue = applySourceStringExpression(fieldValueBuilder(field), field.source);
+        return `${childIndent}[${JSON.stringify(key)}] = ${buildParsedCsScalarValueExpression(
+          info?.csType ?? null,
+          stringValue
         )}`;
       }
       const info = parentInfo?.properties.get(key);
@@ -326,6 +375,12 @@ export function buildCsPersonEntityObjectExpression(
           if (enumInfo?.isCollection) {
             return `${childIndent}${propInfo.csName} = RowParser.ParseEnumCollection<${enumInfo.name}>(${fieldCollectionValueBuilder(field)})`;
           }
+          if (isSupportedCsScalarType(listElement)) {
+            return `${childIndent}${propInfo.csName} = ${buildParsedCsCollectionValueExpression(
+              propInfo.csType,
+              fieldCollectionValueBuilder(field)
+            )}`;
+          }
           return `${childIndent}${propInfo.csName} = ${applySourceStringExpression(
             fieldValueBuilder(field),
             field.source
@@ -345,9 +400,12 @@ export function buildCsPersonEntityObjectExpression(
                 fieldValueBuilder(value as PersonEntityField),
                 (value as PersonEntityField).source
               )})`
-            : applySourceStringExpression(
-                fieldValueBuilder(value as PersonEntityField),
-                (value as PersonEntityField).source
+            : buildParsedCsScalarValueExpression(
+                propInfo.csType,
+                applySourceStringExpression(
+                  fieldValueBuilder(value as PersonEntityField),
+                  (value as PersonEntityField).source
+                )
               ))
           : renderDictionary(value as Record<string, unknown>, level + 1, nestedType);
       const renderedValue =
