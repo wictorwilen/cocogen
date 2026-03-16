@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.46] - 2026-03-16
+
 ### Fixed
 - People entity transforms now preserve strongly typed nested `physicalAddress` payloads when TypeSpec uses `...address.country`, normalizing that field to Graph's `countryOrRegion`.
 - People entity transforms now parse typed scalar fields correctly in generated TS and .NET payload builders instead of emitting string values for numeric and boolean Graph fields.
@@ -284,6 +286,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.46]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.46
 [1.0.45]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.45
 [1.0.44]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.44
 [1.0.43]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.43
