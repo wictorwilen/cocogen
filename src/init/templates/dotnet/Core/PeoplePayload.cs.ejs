@@ -12,19 +12,6 @@ public enum PeoplePayloadKind
     StringCollection
 }
 
-<% if (graphEnums && graphEnums.length > 0) { -%>
-<% for (const enumDef of graphEnums) { -%>
-[JsonConverter(typeof(JsonStringEnumConverter))]
-public enum <%= enumDef.csName %>
-{
-<% for (const value of enumDef.values) { -%>
-    <%= value %>,
-<% } -%>
-}
-
-<% } -%>
-<% } -%>
-
 public sealed record PeopleLabelDefinition(
     string Label,
     string GraphTypeName,
@@ -174,9 +161,13 @@ public static class PeoplePayload
 <% const enumNames = new Set((graphEnums ?? []).map((entry) => entry.csName)); -%>
 <% const isEnumType = (csType) => {
     const trimmed = csType.replace("?", "");
+    const shortName = trimmed.split(".").at(-1) ?? trimmed;
     const listMatch = /^List<(.+)>$/.exec(trimmed);
-    if (listMatch) return enumNames.has(listMatch[1] ?? "");
-    return enumNames.has(trimmed);
+    if (listMatch) {
+        const listShortName = (listMatch[1] ?? "").split(".").at(-1) ?? "";
+        return enumNames.has(listShortName);
+    }
+    return enumNames.has(shortName);
 }; -%>
 <% for (const type of peopleProfileTypes) { -%>
 <% if (!type.sourcePackage) { -%>

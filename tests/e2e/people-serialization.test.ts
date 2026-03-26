@@ -126,8 +126,7 @@ describe("people label serialization (e2e)", () => {
     const payload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(payload).toContain("non-empty JSON string");
     expect(payload).toContain("read-only");
-    expect(payload).toContain("enum PersonRelationship");
-    expect(payload).toContain("JsonStringEnumConverter");
+    expect(payload).not.toContain("public enum PersonRelationship");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.ItemBody { Content =");
