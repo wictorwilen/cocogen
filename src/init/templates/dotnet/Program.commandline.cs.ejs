@@ -136,7 +136,7 @@ TokenCredential CreateCredential()
 GraphServiceClient CreateGraphClient(TokenCredential credential)
 {
     var graph = new GraphServiceClient(credential, new[] { "https://graph.microsoft.com/.default" });
-    graph.RequestAdapter.BaseUrl = SchemaConstants.GraphBaseUrl;
+    graph.RequestAdapter.BaseUrl = SchemaConstants.ConnectionProvisioningGraphBaseUrl;
     return graph;
 }
 

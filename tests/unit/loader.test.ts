@@ -895,6 +895,43 @@ describe("loadIrFromTypeSpec", () => {
 
     const ir = await loadIrFromTypeSpec(entry);
     expect(ir.connection.graphApiVersion).toBe("v1.0");
+    expect(ir.connection.graphOperationVersions).toEqual({
+      connectionProvisioning: "v1.0",
+      schemaRegistration: "v1.0",
+      itemIngestion: "v1.0",
+      profileSourceRegistration: "v1.0",
+    });
+  });
+
+  test("tracks graph API versions per operation", async () => {
+    const entry = await writeTempTspFile(`using coco;
+
+      @coco.connection({
+        contentCategory: "people",
+        name: "People connector",
+        connectionId: "peopleconnector",
+        connectionDescription: "People connector"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        @coco.label("personAccount")
+        id: string;
+      }
+    `);
+    const ir = await loadIrFromTypeSpec(entry);
+
+    expect(ir.connection.graphApiVersion).toBe("beta");
+    expect(ir.connection.graphOperationVersions).toEqual({
+      connectionProvisioning: "beta",
+      schemaRegistration: "v1.0",
+      itemIngestion: "v1.0",
+      profileSourceRegistration: "beta",
+    });
   });
 
   test("uses beta graph API version when contentCategory is set", async () => {

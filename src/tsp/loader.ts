@@ -29,6 +29,7 @@ import {
   getPropertyTypeCapability,
   maxGraphApiVersion,
 } from "../graph/capabilities.js";
+import { getGraphOperationRequirements } from "../graph/requirements.js";
 import { getPeopleLabelDefinition, type PersonEntityName } from "../people/label-registry.js";
 import { getProfileType } from "../people/profile-schema.js";
 import { assertValidJsonPath, normalizeJsonPath } from "./jsonpath.js";
@@ -168,10 +169,7 @@ function getProfileSourceSettings(program: Program, itemModel: Model): CocogenPr
     | undefined;
 }
 
-function computeGraphApiVersion(
-  contentCategory: string | undefined,
-  usesPrincipal: boolean
-): GraphApiVersion {
+function computeGraphApiVersion(contentCategory: string | undefined, usesPrincipal: boolean): GraphApiVersion {
   const contentCategoryVersion = contentCategory
     ? (getConnectionPropertyCapability("contentCategory")?.minGraphApiVersion ?? "beta")
     : undefined;
@@ -889,13 +887,12 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
   });
 
   const usesPrincipal = irProperties.some((prop) => prop.type === "principal" || prop.type === "principalCollection");
-  const graphApiVersion = computeGraphApiVersion(connection.contentCategory, usesPrincipal);
   const connectionCategory = connection.contentCategory;
   const connectionName = typeof connection.name === "string" ? connection.name.trim() : "";
   const connectionId = typeof connection.connectionId === "string" ? connection.connectionId.trim() : "";
   const connectionDescription =
     typeof connection.connectionDescription === "string" ? connection.connectionDescription.trim() : "";
-  return {
+  const provisionalIr: ConnectorIr = {
     connection: {
       ...(connectionCategory ? { contentCategory: connectionCategory } : {}),
       ...(connectionName ? { connectionName } : {}),
@@ -903,7 +900,7 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       ...(connectionDescription ? { connectionDescription } : {}),
       inputFormat,
       ...(profileSource ? { profileSource } : {}),
-      graphApiVersion,
+      graphApiVersion: computeGraphApiVersion(connection.contentCategory, usesPrincipal),
     },
     item: {
       typeName: itemModel.name,
@@ -915,5 +912,21 @@ export async function loadIrFromTypeSpec(entryTspPath: string, options: LoadIrOp
       ...(itemDoc ? { doc: itemDoc } : {}),
     },
     properties: irProperties,
+  };
+
+  const graphOperationVersions = Object.fromEntries(
+    getGraphOperationRequirements(provisionalIr).map((requirement) => [
+      requirement.operation,
+      requirement.minGraphApiVersion,
+    ])
+  ) as NonNullable<ConnectorIr["connection"]["graphOperationVersions"]>;
+
+  return {
+    ...provisionalIr,
+    connection: {
+      ...provisionalIr.connection,
+      graphApiVersion: maxGraphApiVersion(...Object.values(graphOperationVersions)),
+      graphOperationVersions,
+    },
   };
 }

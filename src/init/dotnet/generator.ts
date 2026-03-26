@@ -17,6 +17,7 @@ import { formatCsDocSummary } from "../helpers/format.js";
 import { buildCsSourceLiteral, buildCsSourceTransformsLiteral } from "../helpers/source.js";
 import { removeIfExists } from "../helpers/fs.js";
 import {
+  graphApiVersionForOperation,
   toCsParseFunction,
   toCsPropertyValueExpression,
   toGraphPropertyTypeEnumName,
@@ -706,6 +707,12 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       await renderTemplate("dotnet/Generated/Constants.cs.ejs", {
         schemaNamespace,
         graphApiVersion: this.ir.connection.graphApiVersion,
+        graphOperationVersions: {
+          connectionProvisioning: graphApiVersionForOperation(this.ir, "connectionProvisioning"),
+          schemaRegistration: graphApiVersionForOperation(this.ir, "schemaRegistration"),
+          itemIngestion: graphApiVersionForOperation(this.ir, "itemIngestion"),
+          profileSourceRegistration: graphApiVersionForOperation(this.ir, "profileSourceRegistration"),
+        },
         contentCategory: this.ir.connection.contentCategory ?? null,
         connectionId: this.ir.connection.connectionId ?? null,
         connectionName: this.ir.connection.connectionName ?? null,

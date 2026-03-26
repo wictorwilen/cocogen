@@ -5,7 +5,7 @@ import { formatPreviewFeatureRequirement } from "../graph/requirements.js";
 import type { ConnectorIr } from "../ir.js";
 import { loadIrFromTypeSpec } from "../tsp/loader.js";
 import { validateIr } from "../validate/validator.js";
-import { graphBaseUrl, schemaPayload, toOdataCollectionType } from "./helpers/schema.js";
+import { graphBaseUrlForOperation, schemaPayload, toOdataCollectionType } from "./helpers/schema.js";
 import {
   COCOGEN_CONFIG_FILE,
   loadProjectConfig,
@@ -118,7 +118,7 @@ async function writeRestFiles(outDir: string, ir: ConnectorIr): Promise<void> {
   await writeFile(
     path.join(outDir, "create-connection.http"),
     await renderTemplate("rest/create-connection.http.ejs", {
-      graphBaseUrl: graphBaseUrl(ir),
+      graphBaseUrl: graphBaseUrlForOperation(ir, "connectionProvisioning"),
       connectionId,
       connectionPayloadJson,
     }),
@@ -128,7 +128,7 @@ async function writeRestFiles(outDir: string, ir: ConnectorIr): Promise<void> {
   await writeFile(
     path.join(outDir, "patch-schema.http"),
     await renderTemplate("rest/patch-schema.http.ejs", {
-      graphBaseUrl: graphBaseUrl(ir),
+      graphBaseUrl: graphBaseUrlForOperation(ir, "schemaRegistration"),
       connectionId,
       schemaPayloadJson,
     }),
@@ -138,7 +138,7 @@ async function writeRestFiles(outDir: string, ir: ConnectorIr): Promise<void> {
   await writeFile(
     path.join(outDir, "ingest-item.http"),
     await renderTemplate("rest/ingest-item.http.ejs", {
-      graphBaseUrl: graphBaseUrl(ir),
+    graphBaseUrl: graphBaseUrlForOperation(ir, "itemIngestion"),
       connectionId,
       itemId,
       itemPayloadJson,
@@ -155,7 +155,7 @@ async function writeRestFiles(outDir: string, ir: ConnectorIr): Promise<void> {
     await writeFile(
       path.join(outDir, "profile-source.http"),
       await renderTemplate("rest/profile-source.http.ejs", {
-        graphBaseUrl: graphBaseUrl(ir),
+      graphBaseUrl: graphBaseUrlForOperation(ir, "profileSourceRegistration"),
         connectionId,
         profileSourceWebUrl,
         profileSourceDisplayName,

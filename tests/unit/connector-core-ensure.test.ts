@@ -43,7 +43,12 @@ describe("connectorCore.ensureConnection", () => {
     ], calls);
 
     const core = new ConnectorCore<Item>({
-      graphBaseUrl: "https://graph.test",
+      graphBaseUrls: {
+        connectionProvisioning: "https://graph.test",
+        schemaRegistration: "https://graph.test/schema",
+        itemIngestion: "https://graph.test/items",
+        profileSourceRegistration: "https://graph.test/profile",
+      },
       contentCategory: null,
       schemaPayload: {},
       getAccessToken: async () => "token",
@@ -79,7 +84,12 @@ describe("connectorCore.ensureConnection", () => {
     ], calls);
 
     const core = new ConnectorCore<Item>({
-      graphBaseUrl: "https://graph.test",
+      graphBaseUrls: {
+        connectionProvisioning: "https://graph.test",
+        schemaRegistration: "https://graph.test/schema",
+        itemIngestion: "https://graph.test/items",
+        profileSourceRegistration: "https://graph.test/profile",
+      },
       contentCategory: null,
       schemaPayload: {},
       getAccessToken: async () => "token",

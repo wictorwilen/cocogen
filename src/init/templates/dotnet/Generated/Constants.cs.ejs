@@ -8,6 +8,14 @@ public static class SchemaConstants
 {
     public const string GraphApiVersion = <%= JSON.stringify(graphApiVersion) %>;
     public const string GraphBaseUrl = "https://graph.microsoft.com/" + GraphApiVersion;
+    public const string ConnectionProvisioningGraphApiVersion = <%= JSON.stringify(graphOperationVersions.connectionProvisioning) %>;
+    public const string ConnectionProvisioningGraphBaseUrl = "https://graph.microsoft.com/" + ConnectionProvisioningGraphApiVersion;
+    public const string SchemaRegistrationGraphApiVersion = <%= JSON.stringify(graphOperationVersions.schemaRegistration) %>;
+    public const string SchemaRegistrationGraphBaseUrl = "https://graph.microsoft.com/" + SchemaRegistrationGraphApiVersion;
+    public const string ItemIngestionGraphApiVersion = <%= JSON.stringify(graphOperationVersions.itemIngestion) %>;
+    public const string ItemIngestionGraphBaseUrl = "https://graph.microsoft.com/" + ItemIngestionGraphApiVersion;
+    public const string ProfileSourceRegistrationGraphApiVersion = <%= JSON.stringify(graphOperationVersions.profileSourceRegistration) %>;
+    public const string ProfileSourceRegistrationGraphBaseUrl = "https://graph.microsoft.com/" + ProfileSourceRegistrationGraphApiVersion;
 
     public const string ItemTypeName = <%= JSON.stringify(itemTypeName) %>;
     public const string IdPropertyName = <%= JSON.stringify(idPropertyName) %>;

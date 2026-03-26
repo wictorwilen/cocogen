@@ -7,7 +7,12 @@ type ProfileSourceOptions = {
 };
 
 export type ConnectorCoreOptions<Item> = {
-  graphBaseUrl: string;
+  graphBaseUrls: {
+    connectionProvisioning: string;
+    schemaRegistration: string;
+    itemIngestion: string;
+    profileSourceRegistration: string;
+  };
   contentCategory: string | null;
   schemaPayload: unknown;
   getAccessToken: () => Promise<string>;
@@ -41,7 +46,12 @@ export type IngestOptions<Item> = {
  * Reusable connector core for provisioning, ingestion, and deletion.
  */
 export class ConnectorCore<Item> {
-  private readonly graphBaseUrl: string;
+  private readonly graphBaseUrls: {
+    connectionProvisioning: string;
+    schemaRegistration: string;
+    itemIngestion: string;
+    profileSourceRegistration: string;
+  };
   private readonly contentCategory: string | null;
   private readonly schemaPayload: unknown;
   private readonly getAccessToken: () => Promise<string>;
@@ -55,7 +65,7 @@ export class ConnectorCore<Item> {
   private readonly profileSource?: ProfileSourceOptions;
 
   constructor(options: ConnectorCoreOptions<Item>) {
-    this.graphBaseUrl = options.graphBaseUrl;
+    this.graphBaseUrls = options.graphBaseUrls;
     this.contentCategory = options.contentCategory;
     this.schemaPayload = options.schemaPayload;
     this.getAccessToken = options.getAccessToken;
@@ -71,7 +81,7 @@ export class ConnectorCore<Item> {
     console.log("info: ensuring connection exists...");
     const existing = await this.graphRequest(
       "GET",
-      `${this.graphBaseUrl}/external/connections/${options.connectionId}`
+      `${this.graphBaseUrls.connectionProvisioning}/external/connections/${options.connectionId}`
     );
     if (existing.ok) {
       console.log("ok: connection exists");
@@ -90,7 +100,7 @@ export class ConnectorCore<Item> {
 
     if (this.contentCategory) payload.contentCategory = this.contentCategory;
 
-    const createUrl = `${this.graphBaseUrl}/external/connections`;
+    const createUrl = `${this.graphBaseUrls.connectionProvisioning}/external/connections`;
     const create = await this.graphRequest("POST", createUrl, payload);
     if (!create.ok && create.status !== 409) {
       const details = await readGraphError(create);
@@ -109,7 +119,7 @@ export class ConnectorCore<Item> {
    */
   async patchSchema(connectionId: string): Promise<void> {
     console.log("info: patching schema...");
-    const schemaUrl = `${this.graphBaseUrl}/external/connections/${connectionId}/schema`;
+    const schemaUrl = `${this.graphBaseUrls.schemaRegistration}/external/connections/${connectionId}/schema`;
     const res = await this.graphRequest("PATCH", schemaUrl, this.schemaPayload);
     if (!res.ok) {
       const details = await readGraphError(res);
@@ -165,7 +175,10 @@ export class ConnectorCore<Item> {
     }
 
     console.log("info: deleting connection...");
-    const res = await this.graphRequest("DELETE", `${this.graphBaseUrl}/external/connections/${connectionId}`);
+    const res = await this.graphRequest(
+      "DELETE",
+      `${this.graphBaseUrls.connectionProvisioning}/external/connections/${connectionId}`
+    );
     if (!res.ok && res.status !== 404) {
       const details = await readGraphError(res);
       throw new Error(`Failed to delete connection (HTTP ${formatStatus(res)}): ${details}`);
@@ -177,7 +190,7 @@ export class ConnectorCore<Item> {
    */
   async putItem(connectionId: string, item: Item, verbose: boolean): Promise<void> {
     const itemId = this.getItemId(item);
-    const url = `${this.graphBaseUrl}/external/connections/${connectionId}/items/${encodeURIComponent(itemId)}`;
+    const url = `${this.graphBaseUrls.itemIngestion}/external/connections/${connectionId}/items/${encodeURIComponent(itemId)}`;
 
     const payload = this.toExternalItem(item);
     const payloadWithId = {
@@ -276,7 +289,10 @@ export class ConnectorCore<Item> {
   private async listProfilePropertySettings(): Promise<
     Array<{ id: string; name?: string; prioritizedSourceUrls: string[] }>
   > {
-    const res = await this.graphRequest("GET", `${this.graphBaseUrl}/admin/people/profilePropertySettings`);
+    const res = await this.graphRequest(
+      "GET",
+      `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profilePropertySettings`
+    );
     if (!res.ok) {
       const details = await readGraphError(res);
       throw new Error(`Failed to list profile property settings (HTTP ${formatStatus(res)}): ${details}`);
@@ -294,7 +310,10 @@ export class ConnectorCore<Item> {
   }
 
   private async listProfileSources(): Promise<Array<{ sourceId: string }>> {
-    const res = await this.graphRequest("GET", `${this.graphBaseUrl}/admin/people/profileSources`);
+    const res = await this.graphRequest(
+      "GET",
+      `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profileSources`
+    );
     if (!res.ok) {
       const details = await readGraphError(res);
       throw new Error(`Failed to list profile sources (HTTP ${formatStatus(res)}): ${details}`);
@@ -316,20 +335,24 @@ export class ConnectorCore<Item> {
         webUrl: profile.webUrl,
       };
 
-      const create = await this.graphRequest("POST", `${this.graphBaseUrl}/admin/people/profileSources`, payload);
+      const create = await this.graphRequest(
+        "POST",
+        `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profileSources`,
+        payload
+      );
       if (!create.ok && create.status !== 409) {
         const details = await readGraphError(create);
         throw new Error(`Failed to register profile source (HTTP ${formatStatus(create)}): ${details}`);
       }
     }
 
-    const sourceUrl = `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`;
+    const sourceUrl = `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profileSources(sourceId='${connectionId}')`;
     const settings = await this.listProfilePropertySettings();
     const precedence = settings.find((setting) => !setting.name);
     if (!precedence) {
       const create = await this.graphRequest(
         "POST",
-        `${this.graphBaseUrl}/admin/people/profilePropertySettings`,
+        `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profilePropertySettings`,
         { prioritizedSourceUrls: [sourceUrl] }
       );
       if (!create.ok) {
@@ -353,7 +376,7 @@ export class ConnectorCore<Item> {
       : this.uniqueUrls([...existing, sourceUrl]);
     const res = await this.graphRequest(
       "PATCH",
-      `${this.graphBaseUrl}/admin/people/profilePropertySettings/${precedence.id}`,
+      `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profilePropertySettings/${precedence.id}`,
       {
         prioritizedSourceUrls: updated,
       }
@@ -365,7 +388,7 @@ export class ConnectorCore<Item> {
   }
 
   private async unregisterProfileSourceInternal(connectionId: string): Promise<void> {
-    const sourceUrl = `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`;
+    const sourceUrl = `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profileSources(sourceId='${connectionId}')`;
     const settings = await this.listProfilePropertySettings();
     const precedence = settings.find((setting) => !setting.name);
     if (precedence) {
@@ -374,7 +397,7 @@ export class ConnectorCore<Item> {
         const updated = current.filter((value) => value !== sourceUrl);
         const res = await this.graphRequest(
           "PATCH",
-          `${this.graphBaseUrl}/admin/people/profilePropertySettings/${precedence.id}`,
+          `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profilePropertySettings/${precedence.id}`,
           {
             prioritizedSourceUrls: updated,
           }
@@ -388,7 +411,7 @@ export class ConnectorCore<Item> {
 
     const res = await this.graphRequest(
       "DELETE",
-      `${this.graphBaseUrl}/admin/people/profileSources(sourceId='${connectionId}')`
+      `${this.graphBaseUrls.profileSourceRegistration}/admin/people/profileSources(sourceId='${connectionId}')`
     );
     if (!res.ok && res.status !== 404) {
       const details = await readGraphError(res);
@@ -409,7 +432,7 @@ export class ConnectorCore<Item> {
   }
 
   private async waitForSchemaReady(connectionId: string): Promise<void> {
-    const schemaUrl = `${this.graphBaseUrl}/external/connections/${connectionId}/schema`;
+    const schemaUrl = `${this.graphBaseUrls.schemaRegistration}/external/connections/${connectionId}/schema`;
     console.log("info: waiting for schema provisioning...");
     for (let attempt = 0; attempt < SCHEMA_POLL_MAX_ATTEMPTS; attempt++) {
       const res = await this.graphRequest("GET", schemaUrl);

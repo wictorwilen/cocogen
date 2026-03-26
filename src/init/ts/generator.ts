@@ -13,7 +13,7 @@ import type { PersonEntityField } from "../shared-types.js";
 import { renderTemplate } from "../template.js";
 import { formatDocComment } from "../helpers/format.js";
 import { buildSourceLiteral, buildSourceTransformsLiteral } from "../helpers/source.js";
-import { graphBaseUrl, schemaPayload, toOdataCollectionType } from "../helpers/schema.js";
+import { graphApiVersionForOperation, graphBaseUrl, schemaPayload, toOdataCollectionType } from "../helpers/schema.js";
 import {
   buildGraphEnumTemplates,
   buildPeopleGraphTypes,
@@ -513,6 +513,12 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       path.join(this.outDir, "src", schemaFolderName, "constants.ts"),
       await renderTemplate("ts/src/generated/constants.ts.ejs", {
         graphApiVersion: this.ir.connection.graphApiVersion,
+        graphOperationVersions: {
+          connectionProvisioning: graphApiVersionForOperation(this.ir, "connectionProvisioning"),
+          schemaRegistration: graphApiVersionForOperation(this.ir, "schemaRegistration"),
+          itemIngestion: graphApiVersionForOperation(this.ir, "itemIngestion"),
+          profileSourceRegistration: graphApiVersionForOperation(this.ir, "profileSourceRegistration"),
+        },
         contentCategory: this.ir.connection.contentCategory ?? null,
         connectionName: this.ir.connection.connectionName ?? null,
         connectionId: this.ir.connection.connectionId ?? null,

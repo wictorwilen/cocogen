@@ -299,17 +299,21 @@ describe("project init/update", () => {
 
     const createConnection = await readFile(path.join(outDir, "create-connection.http"), "utf8");
     expect(createConnection).toContain("/external/connections");
+    expect(createConnection).toContain("https://graph.microsoft.com/beta");
 
     const patchSchema = await readFile(path.join(outDir, "patch-schema.http"), "utf8");
     expect(patchSchema).toContain("/schema");
+    expect(patchSchema).toContain("https://graph.microsoft.com/v1.0");
 
     const ingestItem = await readFile(path.join(outDir, "ingest-item.http"), "utf8");
     expect(ingestItem).toContain("/items/");
     expect(ingestItem).toContain("\\\"upn\\\"");
     expect(ingestItem).toContain("{\\\"upn\\\"");
+    expect(ingestItem).toContain("https://graph.microsoft.com/v1.0");
 
     const profileSource = await readFile(path.join(outDir, "profile-source.http"), "utf8");
     expect(profileSource).toContain("/admin/people/profileSources");
+    expect(profileSource).toContain("https://graph.microsoft.com/beta");
   });
 
   test("initRestProject emits principal collection objects", async () => {
@@ -348,6 +352,21 @@ describe("project init/update", () => {
 
     const itemPayload = await readFile(path.join(outDir, "src", "ContentConnector", "itemPayload.ts"), "utf8");
     expect(itemPayload).toContain("type: \"html\"");
+  });
+
+  test("initTsProject emits operation-specific graph base URLs for people connectors", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "people-ts-operation-versions");
+
+    await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const constants = await readFile(path.join(outDir, "src", "PeopleConnector", "constants.ts"), "utf8");
+
+    expect(constants).toContain('"connectionProvisioning": "beta"');
+    expect(constants).toContain('"schemaRegistration": "v1.0"');
+    expect(constants).toContain('"itemIngestion": "v1.0"');
+    expect(constants).toContain('"profileSourceRegistration": "beta"');
   });
 
   test("initTsProject builds text content from multiple sources", async () => {
@@ -496,9 +515,13 @@ model Item {
 
     const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
     expect(program).toContain("SchemaConstants");
+    expect(program).toContain("ConnectionProvisioningGraphBaseUrl");
 
     const constants = await readFile(path.join(outDir, schemaFolder, "Constants.cs"), "utf8");
     expect(constants).toContain("class SchemaConstants");
+    expect(constants).toContain("ConnectionProvisioningGraphApiVersion = \"v1.0\"");
+    expect(constants).toContain("SchemaRegistrationGraphApiVersion = \"v1.0\"");
+    expect(constants).toContain("ItemIngestionGraphApiVersion = \"v1.0\"");
   });
 
   test("initDotnetProject includes throttling retries", async () => {
@@ -536,6 +559,8 @@ model Item {
 
     const core = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
     expect(core).toContain("ProvisionProfileSourceAsync");
+    expect(core).toContain("ProfileSourceRegistrationGraphBaseUrl");
+    expect(core).toContain("SchemaRegistrationGraphBaseUrl");
     const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
     expect(program).toContain("ProvisionProfileSourceAsync");
   });

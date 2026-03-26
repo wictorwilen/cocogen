@@ -1,8 +1,18 @@
-import type { ConnectorIr, PropertyType } from "../../ir.js";
+import type { ConnectorIr, GraphOperation, PropertyType } from "../../ir.js";
 
 /** Build the Graph base URL for the selected API version. */
 export function graphBaseUrl(ir: ConnectorIr): string {
   return `https://graph.microsoft.com/${ir.connection.graphApiVersion}`;
+}
+
+/** Resolve the Graph API version for a specific operation. */
+export function graphApiVersionForOperation(ir: ConnectorIr, operation: GraphOperation): string {
+  return ir.connection.graphOperationVersions?.[operation] ?? ir.connection.graphApiVersion;
+}
+
+/** Build the Graph base URL for a specific operation. */
+export function graphBaseUrlForOperation(ir: ConnectorIr, operation: GraphOperation): string {
+  return `https://graph.microsoft.com/${graphApiVersionForOperation(ir, operation)}`;
 }
 
 /** Create the external item schema payload for Graph provisioning. */

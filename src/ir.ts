@@ -1,5 +1,13 @@
 export type GraphApiVersion = "v1.0" | "beta";
 
+export type GraphOperation =
+  | "connectionProvisioning"
+  | "schemaRegistration"
+  | "itemIngestion"
+  | "profileSourceRegistration";
+
+export type GraphOperationVersions = Record<GraphOperation, GraphApiVersion>;
+
 export type PropertyType =
   | "string"
   | "int64"
@@ -34,6 +42,7 @@ export type ConnectorIr = {
       priority?: "first" | "last";
     };
     graphApiVersion: GraphApiVersion;
+    graphOperationVersions?: GraphOperationVersions;
   };
   item: {
     typeName: string;

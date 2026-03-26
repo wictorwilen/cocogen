@@ -1,4 +1,4 @@
-import type { ConnectorIr, GraphApiVersion } from "../ir.js";
+import type { ConnectorIr, GraphApiVersion, GraphOperation } from "../ir.js";
 import {
   getConnectionPropertyCapability,
   getLabelCapability,
@@ -6,12 +6,6 @@ import {
   maxGraphApiVersion,
   type GraphConnectionCapabilityName,
 } from "./capabilities.js";
-
-export type GraphOperation =
-  | "connectionProvisioning"
-  | "schemaRegistration"
-  | "itemIngestion"
-  | "profileSourceRegistration";
 
 export type GraphRequirementReason = {
   kind: "connectionProperty" | "propertyType" | "label";

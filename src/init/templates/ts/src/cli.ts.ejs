@@ -12,6 +12,7 @@ import {
   connectionName as defaultConnectionName,
   connectionId as defaultConnectionId,
   connectionDescription as defaultConnectionDescription,
+  graphBaseUrls,
   profileSourceWebUrl as defaultProfileSourceWebUrl,
   profileSourceDisplayName as defaultProfileSourceDisplayName,
   profileSourcePriority as defaultProfileSourcePriority,
@@ -32,7 +33,6 @@ import { CsvItemSource } from "./datasource/csvItemSource.js";
 <% } -%>
 import { ConnectorCore } from "./core/connectorCore.js";
 
-const GRAPH_BASE_URL = <%= JSON.stringify(graphBaseUrl) %>;
 const GRAPH_SCOPE = "https://graph.microsoft.com/.default";
 
 const useColor = !process.env.NO_COLOR;
@@ -173,7 +173,7 @@ function buildConnectorCore(): ConnectorCore<<%= itemTypeName %>> {
     : "undefined" %>;
 
   return new ConnectorCore<<%= itemTypeName %>>({
-    graphBaseUrl: GRAPH_BASE_URL,
+    graphBaseUrls,
     contentCategory,
     schemaPayload,
     getAccessToken,
