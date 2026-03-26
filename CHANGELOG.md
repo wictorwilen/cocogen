@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.49] - 2026-03-26
+
 ### Fixed
 - Generated .NET people payload models now map Graph `Edm.Date` fields to date-only `Date` properties instead of strings.
 - Generated .NET item and people payload classes now emit mutable `get; set;` properties instead of init-only members.
@@ -299,6 +301,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.49]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.49
 [1.0.48]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.48
 [1.0.47]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.47
 [1.0.46]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.46
