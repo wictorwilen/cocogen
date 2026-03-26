@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.50] - 2026-03-26
+
 ### Fixed
 - Generated .NET date-only parsers now accept ISO date-time inputs and truncate them to the source calendar date instead of falling back to `Date.MinValue`.
 
@@ -304,6 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.0.50]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.50
 [1.0.49]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.49
 [1.0.48]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.48
 [1.0.47]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.47
