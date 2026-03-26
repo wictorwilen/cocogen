@@ -62,9 +62,9 @@ describe("people graph types (e2e)", () => {
     expect(init.code).toBe(0);
 
     const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(peopleTs).toContain("export type CompanyDetail = Open<");
-    expect(peopleTs).toContain("displayName?: string | null;");
-    expect(peopleTs).toContain("address?: PhysicalAddress | null;");
+    expect(peopleTs).toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
+    expect(peopleTs).toContain("export type CompanyDetail = MicrosoftGraphBeta.CompanyDetail;");
+    expect(peopleTs).toContain("export type ProjectParticipation = MicrosoftGraphBeta.ProjectParticipation;");
   });
 
   test("generates complex types with properties in dotnet output", async () => {
@@ -89,9 +89,11 @@ describe("people graph types (e2e)", () => {
     expect(init.code).toBe(0);
 
     const payload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
-    expect(payload).toContain("public sealed class CompanyDetail");
     expect(payload).toContain("using Date = System.DateOnly;");
-    expect(payload).toContain("public string? DisplayName { get; set; }");
-    expect(payload).toContain("public PhysicalAddress? Address { get; set; }");
+    expect(payload).not.toContain("public sealed class CompanyDetail");
+
+    const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
+    expect(transforms).toContain("new Microsoft.Graph.Beta.Models.ProjectParticipation");
+    expect(transforms).toContain("new Microsoft.Graph.Beta.Models.CompanyDetail");
   });
 });

@@ -60,8 +60,15 @@ const graphEnumNames = new Set(buildGraphEnumTemplates().map((entry) => entry.cs
 
 const normalizeCsType = (value: string): string => value.replace("?", "");
 
+const toTypeLookupName = (value: string): string => {
+  const normalized = normalizeCsType(value);
+  return normalized.split(".").at(-1) ?? normalized;
+};
+
 const isSupportedCsScalarType = (value: string): boolean =>
   ["string", "int", "long", "double", "bool", "Date", "DateTimeOffset"].includes(normalizeCsType(value));
+
+const isItemBodyType = (value: string | null): boolean => Boolean(value) && toTypeLookupName(value!) === "ItemBody";
 
 const buildParsedCsScalarValueExpression = (propType: string | null, value: string): string => {
   if (!propType) return value;
@@ -112,9 +119,9 @@ const resolveEnumType = (propType: string | null): { name: string; isCollection:
   const listMatch = /^List<(.+)>$/.exec(trimmed);
   if (listMatch) {
     const elementType = listMatch[1]!;
-    return graphEnumNames.has(elementType) ? { name: elementType, isCollection: true } : null;
+    return graphEnumNames.has(toTypeLookupName(elementType)) ? { name: normalizeCsType(elementType), isCollection: true } : null;
   }
-  return graphEnumNames.has(trimmed) ? { name: trimmed, isCollection: false } : null;
+  return graphEnumNames.has(toTypeLookupName(trimmed)) ? { name: trimmed, isCollection: false } : null;
 };
 
 /** Build shared renderers for C# people-entity collections. */
@@ -137,9 +144,9 @@ function createCollectionRenderers(
     getNestedInfo: (propType) => {
       const listElement = extractListElementType(propType);
       if (listElement) {
-        return typeMap.get(listElement) ?? null;
+        return typeMap.get(toTypeLookupName(listElement)) ?? null;
       }
-      return typeMap.get(propType.replace("?", "")) ?? null;
+      return typeMap.get(toTypeLookupName(propType)) ?? null;
     },
     buildEntry: ({ key, value, level, info, propInfo }) => {
       const childIndent = indentUnit.repeat(level + 1);
@@ -329,6 +336,9 @@ export function buildCsPersonEntityObjectExpression(
           return `${childIndent}[${JSON.stringify(key)}] = RowParser.ParseEnum<${enumInfo.name}>(${stringValue})`;
         }
         const stringValue = applySourceStringExpression(fieldValueBuilder(field), field.source);
+        if (isItemBodyType(info?.csType ?? null)) {
+          return `${childIndent}[${JSON.stringify(key)}] = new ${normalizeCsType(info!.csType)} { Content = ${stringValue} }`;
+        }
         return `${childIndent}[${JSON.stringify(key)}] = ${buildParsedCsScalarValueExpression(
           info?.csType ?? null,
           stringValue
@@ -337,12 +347,12 @@ export function buildCsPersonEntityObjectExpression(
       const info = parentInfo?.properties.get(key);
       if (info && extractListElementType(info.csType)) {
         const elementTypeName = extractListElementType(info.csType) ?? "";
-        const nestedType = typeMap.get(elementTypeName) ?? null;
+        const nestedType = typeMap.get(toTypeLookupName(elementTypeName)) ?? null;
         const renderedValue = renderCollectionNode(value as Record<string, unknown>, level + 1, info.csType, nestedType);
         return `${childIndent}[${JSON.stringify(key)}] = ${renderedValue}`;
       }
       const typeName = info?.csType.replace("?", "") ?? "";
-      const nestedType = typeMap.get(typeName) ?? null;
+      const nestedType = typeMap.get(toTypeLookupName(typeName)) ?? null;
       const renderedValue =
         info && nestedType && typeof value === "object" && value && !("path" in (value as PersonEntityField))
           ? renderTypedNode(value as Record<string, unknown>, nestedType, level + 1)
@@ -390,12 +400,17 @@ export function buildCsPersonEntityObjectExpression(
             field.source
           )}`;
         }
-        const nestedType = typeMap.get(listElement) ?? null;
-        const renderedValue = renderCollectionNode(value as Record<string, unknown>, level + 1, propInfo.csType, nestedType);
+        const resolvedNestedType = typeMap.get(toTypeLookupName(listElement)) ?? null;
+        const renderedValue = renderCollectionNode(
+          value as Record<string, unknown>,
+          level + 1,
+          propInfo.csType,
+          resolvedNestedType
+        );
         return `${childIndent}${propInfo.csName} = ${renderedValue}`;
       }
       const typeName = propInfo.csType.replace("?", "");
-      const nestedType = typeMap.get(typeName) ?? null;
+      const nestedType = typeMap.get(toTypeLookupName(typeName)) ?? null;
       const enumInfo = resolveEnumType(propInfo.csType);
       const rawValue =
         typeof value === "object" && value && "path" in (value as PersonEntityField)
@@ -404,6 +419,11 @@ export function buildCsPersonEntityObjectExpression(
                 fieldValueBuilder(value as PersonEntityField),
                 (value as PersonEntityField).source
               )})`
+            : isItemBodyType(propInfo.csType)
+            ? `new ${normalizeCsType(propInfo.csType)} { Content = ${applySourceStringExpression(
+                fieldValueBuilder(value as PersonEntityField),
+                (value as PersonEntityField).source
+              )} }`
             : buildParsedCsScalarValueExpression(
                 propInfo.csType,
                 applySourceStringExpression(

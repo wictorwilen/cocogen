@@ -179,7 +179,8 @@ public static class PeoplePayload
     return enumNames.has(trimmed);
 }; -%>
 <% for (const type of peopleProfileTypes) { -%>
-public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type.csName %><% if (type.baseType) { -%> : <%= type.baseType %><% } -%>
+<% if (!type.sourcePackage) { -%>
+public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type.typeName ?? type.csName %><% if (type.baseType) { -%> : <%= type.baseType %><% } -%>
 {
 <% for (const prop of type.properties) { -%>
 <% if (prop.csType.endsWith("?")) { -%>
@@ -198,4 +199,5 @@ public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type
 <% } -%>
 }
 
+<% } -%>
 <% } -%>

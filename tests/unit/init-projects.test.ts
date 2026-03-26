@@ -655,7 +655,12 @@ model PersonProfile {
 
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(peoplePayload).toContain("using Date = System.DateOnly;");
-    expect(peoplePayload).toContain("public Date? StartMonthYear { get; set; }");
+    expect(peoplePayload).not.toContain("public sealed class WorkPosition");
+
+    const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
+    expect(transforms).toContain("new Microsoft.Graph.Beta.Models.WorkPosition");
+    expect(transforms).toContain("new Microsoft.Graph.Beta.Models.PositionDetail");
+    expect(transforms).toContain("StartMonthYear = RowParser.ParseDate(");
 
     const rowParser = await readFile(path.join(outDir, "Datasource", "RowParser.cs"), "utf8");
     expect(rowParser).toContain("private static bool TryParseDateValue(string value, out Date date)");
@@ -835,8 +840,8 @@ model PersonProfile {
     await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
-    expect(transforms).toContain("Detail = new PositionDetail");
-    expect(transforms).toContain("JsonSerializer.Serialize(new SkillProficiency");
+    expect(transforms).toContain("Detail = new Microsoft.Graph.Beta.Models.PositionDetail");
+    expect(transforms).toContain("JsonSerializer.Serialize(new Microsoft.Graph.Beta.Models.SkillProficiency");
   });
 
   test("initTsProject includes related person graph types", async () => {

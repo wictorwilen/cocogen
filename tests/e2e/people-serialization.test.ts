@@ -40,6 +40,10 @@ const peopleSchema = `
     @coco.source("email", "address")
     @coco.source("emailType", "type")
     emails: string[];
+
+    @coco.label("personNote")
+    @coco.source("bio", "detail")
+    note: string;
   }
 `;
 
@@ -69,16 +73,17 @@ describe("people label serialization (e2e)", () => {
     await writeFile(
       scriptPath,
       [
-        "import { serializePersonName, serializePersonEmails } from './src/core/people.ts';",
+        "import { serializeSdkPeopleLabelValue } from './src/core/people.ts';",
+        "import type { PersonName, ItemEmail } from './src/core/people.ts';",
         "const assertThrows = (fn, label) => {",
         "  try { fn(); throw new Error('no-error'); } catch (err) {",
         "    if (err instanceof Error && err.message === 'no-error') throw err;",
         "  }",
         "};",
-        "assertThrows(() => serializePersonName({}), 'personName');",
-        "assertThrows(() => serializePersonName({ id: 'should-not-send' }), 'personName');",
-        "assertThrows(() => serializePersonName({ createdDateTime: '2024-01-01T00:00:00Z' }), 'personName');",
-        "assertThrows(() => serializePersonEmails(['not-json']), 'personEmails');",
+        "assertThrows(() => serializeSdkPeopleLabelValue<PersonName>({}, 'personName', { isCollection: false, collectionLimit: null, disallowReadonlyItemFacetFields: true }), 'personName');",
+        "assertThrows(() => serializeSdkPeopleLabelValue<PersonName>('{\"id\":\"should-not-send\"}', 'personName', { isCollection: false, collectionLimit: null, disallowReadonlyItemFacetFields: true }), 'personName');",
+        "assertThrows(() => serializeSdkPeopleLabelValue<PersonName>('{\"createdDateTime\":\"2024-01-01T00:00:00Z\"}', 'personName', { isCollection: false, collectionLimit: null, disallowReadonlyItemFacetFields: true }), 'personName');",
+        "assertThrows(() => serializeSdkPeopleLabelValue<ItemEmail>(['not-json'], 'personEmails', { isCollection: true, collectionLimit: null, disallowReadonlyItemFacetFields: true }), 'personEmails');",
         "console.log('ok');",
       ].join("\n"),
       "utf8"
@@ -93,8 +98,8 @@ describe("people label serialization (e2e)", () => {
     expect(run.code).toBe(0);
 
     const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(peopleTs).toContain("type PersonRelationship");
-    expect(peopleTs).toContain("relationship?: PersonRelationship | null;");
+    expect(peopleTs).toContain("export type PersonRelationship =");
+    expect(peopleTs).toContain("export type RelatedPerson = MicrosoftGraphBeta.RelatedPerson;");
   });
 
   test("dotnet output includes JSON enforcement for people payloads", async () => {
@@ -123,5 +128,8 @@ describe("people label serialization (e2e)", () => {
     expect(payload).toContain("read-only");
     expect(payload).toContain("enum PersonRelationship");
     expect(payload).toContain("JsonStringEnumConverter");
+
+    const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
+    expect(transforms).toContain("new Microsoft.Graph.Beta.Models.ItemBody { Content =");
   });
 });

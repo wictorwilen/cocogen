@@ -11,6 +11,7 @@ import {
   toCsPropertyName,
   toCsType,
   toSchemaFolderName,
+  toTsIdentifier,
 } from "../naming.js";
 import { renderTemplate } from "../template.js";
 import { formatCsDocSummary } from "../helpers/format.js";
@@ -232,23 +233,46 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     });
     const peopleGraphTypesBundle = buildPeopleGraphTypes(this.ir);
     const graphAliases = peopleGraphTypesBundle.aliases;
+    const peopleGraphTypeByTsAlias = new Map(peopleGraphTypesBundle.templates.map((type) => [type.alias, type]));
+    const graphSchemaTypeNames = new Set(graphProfileSchema.types.map((type) => type.name));
+
+    const qualifyGraphModelType = (csName: string, sourcePackage: "v1" | "beta"): string =>
+      sourcePackage === "v1" ? `Microsoft.Graph.Models.${csName}` : `Microsoft.Graph.Beta.Models.${csName}`;
+
+    const resolveGraphModelCsType = (graphName: string): string | null => {
+      const alias = graphAliases.get(graphName);
+      if (!alias) return null;
+      const template = peopleGraphTypeByTsAlias.get(alias.tsAlias);
+      if (template?.sourcePackage) {
+        return qualifyGraphModelType(alias.csName, template.sourcePackage);
+      }
+      if (graphSchemaTypeNames.has(graphName)) {
+        return qualifyGraphModelType(alias.csName, "beta");
+      }
+      return alias.csName;
+    };
+
+    const resolveGraphEnumCsType = (enumName: string): string => qualifyGraphModelType(toCsPascal(enumName), "beta");
 
     const resolveCsType = (rawType: string): { csType: string; isCollection: boolean } => {
       const collectionMatch = /^Collection\((.+)\)$/.exec(rawType);
       if (collectionMatch) {
         const elementType = collectionMatch[1]!;
         if (GRAPH_STRING_TYPES.has(elementType)) {
+          const graphName = resolveGraphTypeName(elementType);
+          if (graphName) {
+            return { csType: `List<${resolveGraphModelCsType(graphName) ?? "string"}>`, isCollection: true };
+          }
           return { csType: "List<string>", isCollection: true };
         }
         const enumGraphName = resolveGraphTypeName(elementType);
         const profileEnum = enumGraphName ? getProfileEnum(enumGraphName) : undefined;
         if (profileEnum) {
-          return { csType: `List<${toCsPascal(profileEnum.name)}>`, isCollection: true };
+          return { csType: `List<${resolveGraphEnumCsType(profileEnum.name)}>`, isCollection: true };
         }
         const graphName = resolveGraphTypeName(elementType);
         if (graphName && graphAliases.has(graphName)) {
-          const alias = graphAliases.get(graphName)!.csName;
-          return { csType: `List<${alias}>`, isCollection: true };
+          return { csType: `List<${resolveGraphModelCsType(graphName)!}>`, isCollection: true };
         }
         const element = (() => {
           switch (elementType) {
@@ -274,18 +298,22 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       }
 
       if (GRAPH_STRING_TYPES.has(rawType)) {
+        const graphName = resolveGraphTypeName(rawType);
+        if (graphName) {
+          return { csType: resolveGraphModelCsType(graphName) ?? "string", isCollection: false };
+        }
         return { csType: "string", isCollection: false };
       }
 
       const enumGraphName = resolveGraphTypeName(rawType);
       const profileEnum = enumGraphName ? getProfileEnum(enumGraphName) : undefined;
       if (profileEnum) {
-        return { csType: toCsPascal(profileEnum.name), isCollection: false };
+        return { csType: resolveGraphEnumCsType(profileEnum.name), isCollection: false };
       }
 
       const graphName = resolveGraphTypeName(rawType);
       if (graphName && graphAliases.has(graphName)) {
-        return { csType: graphAliases.get(graphName)!.csName, isCollection: false };
+        return { csType: resolveGraphModelCsType(graphName)!, isCollection: false };
       }
 
       switch (rawType) {
@@ -309,6 +337,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     };
 
     const baseProfileTypes = graphProfileSchema.types.map((type) => {
+      const template = peopleGraphTypeByTsAlias.get(toTsIdentifier(type.name));
       const properties = type.properties.map((prop) => {
         const resolved = resolveCsType(prop.type);
         const resolvedType = resolved.csType;
@@ -325,14 +354,18 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       return {
         name: type.name,
         csName: toCsPascal(type.name),
-        baseType: type.baseType ? toCsPascal(type.baseType) : null,
+        typeName: template?.sourcePackage ? qualifyGraphModelType(toCsPascal(type.name), template.sourcePackage) : toCsPascal(type.name),
+        baseType: type.baseType ? resolveGraphModelCsType(type.baseType) ?? toCsPascal(type.baseType) : null,
+        sourcePackage: template?.sourcePackage,
         properties,
       };
     });
     const derivedProfileTypes = peopleGraphTypesBundle.derived.map((type) => ({
       name: type.name,
       csName: type.csName,
+      typeName: type.csName,
       baseType: null,
+      sourcePackage: undefined,
       properties: type.csProperties.map((prop) => ({
         name: prop.name,
         csName: prop.csName,
@@ -346,7 +379,10 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       return a.csName.localeCompare(b.csName);
     });
     const baseTypeNames = new Set(
-      peopleProfileTypes.map((type) => type.baseType).filter((name): name is string => Boolean(name))
+      peopleProfileTypes
+        .filter((type) => !type.sourcePackage)
+        .map((type) => type.baseType)
+        .filter((name): name is string => Boolean(name))
     );
     const schemaBaseTypeByName = new Map(
       graphProfileSchema.types.map((type) => [type.name, type.baseType])
@@ -367,7 +403,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       peopleProfileTypes.map((type) => [
         type.csName,
         {
-          typeName: type.csName,
+          typeName: type.typeName,
           properties: new Map(type.properties.map((prop) => [prop.name, { csName: prop.csName, csType: prop.csType }])),
         } satisfies CsPersonEntityTypeInfo,
       ])
@@ -396,7 +432,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       const personEntityType = personEntity ? peopleProfileTypeByName.get(personEntity.entity) : null;
       const personEntityTypeInfo = personEntityType
         ? {
-            typeName: personEntityType.csName,
+            typeName: personEntityType.typeName,
             properties: new Map(
               personEntityType.properties.map((prop) => [prop.name, { csName: prop.csName, csType: prop.csType }])
             ),
