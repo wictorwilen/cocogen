@@ -626,6 +626,11 @@ model PersonProfile {
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(peoplePayload).toContain("using Date = System.DateOnly;");
     expect(peoplePayload).toContain("public Date? StartMonthYear { get; set; }");
+
+    const rowParser = await readFile(path.join(outDir, "Datasource", "RowParser.cs"), "utf8");
+    expect(rowParser).toContain("private static bool TryParseDateValue(string value, out Date date)");
+    expect(rowParser).toContain("DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var offsetValue)");
+    expect(rowParser).toContain("date = Date.FromDateTime(offsetValue.DateTime);");
   });
 
   test("updateDotnetProject updates config when tspPath is overridden", async () => {

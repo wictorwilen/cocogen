@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Generated .NET date-only parsers now accept ISO date-time inputs and truncate them to the source calendar date instead of falling back to `Date.MinValue`.
+
 ## [1.0.49] - 2026-03-26
 
 ### Fixed

@@ -37,6 +37,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Make generated .NET `Edm.Date` parsers accept date-time source values by truncating to the calendar date ✅
 - Fix .NET people `Edm.Date` fields to generate as date-only values and make generated C# models mutable (`get; set;`) ✅
 - Extract Graph `EnumType` members into the people profile snapshot and generate TS/.NET enums from that metadata ✅
 - Add a regression test for Graph profile snapshot enums ✅

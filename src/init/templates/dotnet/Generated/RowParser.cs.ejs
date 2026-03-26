@@ -336,9 +336,32 @@ public static class RowParser
     public static Date ParseDate(string? value)
     {
         var v = ParseString(value);
-        return Date.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+        return TryParseDateValue(v, out var date)
             ? date
             : default;
+    }
+
+    private static bool TryParseDateValue(string value, out Date date)
+    {
+        if (Date.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out date))
+        {
+            return true;
+        }
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var offsetValue))
+        {
+            date = Date.FromDateTime(offsetValue.DateTime);
+            return true;
+        }
+
+        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dateTimeValue))
+        {
+            date = Date.FromDateTime(dateTimeValue);
+            return true;
+        }
+
+        date = default;
+        return false;
     }
 
     /// <summary>
@@ -550,24 +573,24 @@ public static class RowParser
         if (value is JsonArray array)
         {
             return array
-                .Select((entry) => Date.TryParse(ParseString(entry), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : default)
+                .Select((entry) => TryParseDateValue(ParseString(entry), out var date) ? date : default)
                 .ToList();
         }
         if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
         {
             return element
                 .EnumerateArray()
-                .Select((entry) => Date.TryParse(ParseString(entry), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : default)
+                .Select((entry) => TryParseDateValue(ParseString(entry), out var date) ? date : default)
                 .ToList();
         }
         var v = ParseString(value);
         if (v.Length == 0) return new List<Date>();
     <% if (inputFormat === "csv") { -%>
         return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select((x) => Date.TryParse(x, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : default)
+            .Select((x) => TryParseDateValue(x, out var date) ? date : default)
             .ToList();
     <% } else { -%>
-        return Date.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+        return TryParseDateValue(v, out var date)
             ? new List<Date> { date }
             : new List<Date>();
     <% } -%>
