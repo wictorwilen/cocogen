@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Generated .NET people payload models now map Graph `Edm.Date` fields to date-only `Date` properties instead of strings.
+- Generated .NET item and people payload classes now emit mutable `get; set;` properties instead of init-only members.
+
 ## [1.0.48] - 2026-03-16
 
 ### Changed

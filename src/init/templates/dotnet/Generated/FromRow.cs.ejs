@@ -19,8 +19,9 @@ public static class FromRow
     public static <%= itemTypeName %> Parse(object row)
     {
         var transforms = new PropertyTransform();
-        return new <%= itemTypeName %>(
-<%- constructorArgLines %>
-        );
+        return new <%= itemTypeName %>
+        {
+    <%- propertyInitializerLines %>
+        };
     }
 }

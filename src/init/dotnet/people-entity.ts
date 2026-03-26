@@ -61,7 +61,7 @@ const graphEnumNames = new Set(buildGraphEnumTemplates().map((entry) => entry.cs
 const normalizeCsType = (value: string): string => value.replace("?", "");
 
 const isSupportedCsScalarType = (value: string): boolean =>
-  ["string", "int", "long", "double", "bool", "DateTimeOffset"].includes(normalizeCsType(value));
+  ["string", "int", "long", "double", "bool", "Date", "DateTimeOffset"].includes(normalizeCsType(value));
 
 const buildParsedCsScalarValueExpression = (propType: string | null, value: string): string => {
   if (!propType) return value;
@@ -74,6 +74,8 @@ const buildParsedCsScalarValueExpression = (propType: string | null, value: stri
       return `RowParser.ParseDouble(${value})`;
     case "bool":
       return `RowParser.ParseBoolean(${value})`;
+    case "Date":
+      return `RowParser.ParseDate(${value})`;
     case "DateTimeOffset":
       return `RowParser.ParseDateTime(${value})`;
     default:
@@ -95,6 +97,8 @@ const buildParsedCsCollectionValueExpression = (propType: string | null, value: 
       return `${value}.Select((entry) => RowParser.ParseDouble(entry)).ToList()`;
     case "bool":
       return `${value}.Select((entry) => RowParser.ParseBoolean(entry)).ToList()`;
+    case "Date":
+      return `${value}.Select((entry) => RowParser.ParseDate(entry)).ToList()`;
     case "DateTimeOffset":
       return `${value}.Select((entry) => RowParser.ParseDateTime(entry)).ToList()`;
     default:

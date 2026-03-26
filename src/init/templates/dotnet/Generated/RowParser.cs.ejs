@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Date = System.DateOnly;
 <% if (inputFormat !== "csv") { -%>
 using Json.Path;
 <% } -%>
@@ -312,6 +313,35 @@ public static class RowParser
     }
 
     /// <summary>
+    /// Parse a Date from a row using the provided headers.
+    /// </summary>
+    public static Date ParseDate(object row, string[] headers)
+    {
+        return ParseDate(ParseString(row, headers));
+    }
+
+    /// <summary>
+    /// Parse a Date from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static Date ParseDate(object row, string jsonPath)
+    {
+        return ParseDate(ParseString(row, jsonPath));
+    }
+<% } -%>
+
+    /// <summary>
+    /// Parse a Date from a string value.
+    /// </summary>
+    public static Date ParseDate(string? value)
+    {
+        var v = ParseString(value);
+        return Date.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : default;
+    }
+
+    /// <summary>
     /// Parse a string collection from a row using the provided headers.
     /// </summary>
     public static List<string> ParseStringCollection(object row, string[] headers)
@@ -491,6 +521,55 @@ public static class RowParser
         return DateTimeOffset.TryParse(v, out var dt)
             ? new List<DateTimeOffset> { dt }
             : new List<DateTimeOffset>();
+    <% } -%>
+    }
+
+    /// <summary>
+    /// Parse a Date collection from a row using the provided headers.
+    /// </summary>
+    public static List<Date> ParseDateCollection(object row, string[] headers)
+    {
+        return ParseDateCollection(ParseString(row, headers));
+    }
+
+    /// <summary>
+    /// Parse a Date collection from a row using JSONPath.
+    /// </summary>
+<% if (inputFormat !== "csv") { -%>
+    public static List<Date> ParseDateCollection(object row, string jsonPath)
+    {
+        return ParseDateCollection(ReadValue(row, jsonPath));
+    }
+<% } -%>
+
+    /// <summary>
+    /// Parse a Date collection from a string value.
+    /// </summary>
+    public static List<Date> ParseDateCollection(object? value)
+    {
+        if (value is JsonArray array)
+        {
+            return array
+                .Select((entry) => Date.TryParse(ParseString(entry), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : default)
+                .ToList();
+        }
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element
+                .EnumerateArray()
+                .Select((entry) => Date.TryParse(ParseString(entry), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : default)
+                .ToList();
+        }
+        var v = ParseString(value);
+        if (v.Length == 0) return new List<Date>();
+    <% if (inputFormat === "csv") { -%>
+        return v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select((x) => Date.TryParse(x, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : default)
+            .ToList();
+    <% } else { -%>
+        return Date.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? new List<Date> { date }
+            : new List<Date>();
     <% } -%>
     }
 

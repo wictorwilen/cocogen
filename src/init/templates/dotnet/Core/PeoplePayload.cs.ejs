@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Date = System.DateOnly;
 
 namespace <%= namespaceName %>.Core;
 
@@ -188,7 +189,7 @@ public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type
     [JsonConverter(typeof(JsonStringEnumConverter))]
 <% } -%>
     [JsonPropertyName(<%= JSON.stringify(prop.name) %>)]
-    public <%= prop.csType %> <%= prop.csName %> { get; init; }
+    public <%= prop.csType %> <%= prop.csName %> { get; set; }
 
 <% } -%>
 <% if (!type.baseType) { -%>

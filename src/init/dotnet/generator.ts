@@ -254,7 +254,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
             case "Edm.String":
               return "string";
             case "Edm.Date":
-              return "string";
+              return "Date";
             case "Edm.Int32":
               return "int";
             case "Edm.Int64":
@@ -291,7 +291,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         case "Edm.String":
           return { csType: "string", isCollection: false };
         case "Edm.Date":
-          return { csType: "string", isCollection: false };
+          return { csType: "Date", isCollection: false };
         case "Edm.Int32":
           return { csType: "int", isCollection: false };
         case "Edm.Int64":
@@ -311,7 +311,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       const properties = type.properties.map((prop) => {
         const resolved = resolveCsType(prop.type);
         const resolvedType = resolved.csType;
-        const isValueType = ["int", "long", "double", "bool", "DateTimeOffset"].includes(resolvedType);
+        const isValueType = ["int", "long", "double", "bool", "Date", "DateTimeOffset"].includes(resolvedType);
         const nullable = prop.nullable || !isValueType;
         const nullableSuffix = nullable ? "?" : "";
         return {
@@ -568,16 +568,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       };
     });
 
-    const recordDocLines: string[] = [];
-    if (this.ir.item.doc) {
-      recordDocLines.push(...formatCsDocSummary(this.ir.item.doc));
-    }
-    for (const prop of properties) {
-      if (!prop.doc) continue;
-      const docLines = prop.doc.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-      if (docLines.length === 0) continue;
-      recordDocLines.push(`/// <param name=\"${prop.csName}\">${docLines.join(" ")}</param>`);
-    }
+    const modelDocLines = this.ir.item.doc ? formatCsDocSummary(this.ir.item.doc) : [];
 
     const schemaPropertyLines = properties
       .filter((p) => p.name !== this.ir.item.contentPropertyName)
@@ -638,16 +629,13 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         ? `RowParser.ApplyDefault(RowParser.ParseString(row, ${buildCsSourceLiteral(idRawSourceDotnet)}), ${idDefaultLiteral})`
         : `RowParser.ParseString(row, ${buildCsSourceLiteral(idRawSourceDotnet)})`)
       : "string.Empty";
-    const constructorArgs = [
-      ...properties.map((p) => `(${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row)`),
-      idRawExpressionDotnet,
-    ];
-    const constructorArgLines = constructorArgs
-      .map((arg, index) => {
-        const comma = index < constructorArgs.length - 1 ? "," : "";
-        return `            ${arg}${comma}`;
-      })
-      .join("\n");
+    const propertyInitializerLines = [
+      ...properties.map(
+        (p) =>
+          `            ${p.csName} = (${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row),`
+      ),
+      `            InternalId = ${idRawExpressionDotnet},`,
+    ].join("\n");
 
     const propertiesObjectLines = properties
       .filter((p) => p.name !== this.ir.item.contentPropertyName)
@@ -701,8 +689,12 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         namespaceName,
         schemaNamespace,
         itemTypeName: this.ir.item.typeName,
-        properties: properties.map((p) => ({ csName: p.csName, csType: p.csType })),
-        recordDocLines,
+        properties: properties.map((p) => ({
+          csName: p.csName,
+          csType: p.csType,
+          docLines: p.doc ? formatCsDocSummary(p.doc) : [],
+        })),
+        modelDocLines,
         graphApiVersion: this.ir.connection.graphApiVersion,
         usesPrincipal,
       }),
@@ -786,7 +778,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         namespaceName,
         schemaNamespace,
         itemTypeName: this.ir.item.typeName,
-        constructorArgLines,
+        propertyInitializerLines,
         usesPrincipal,
         graphApiVersion: this.ir.connection.graphApiVersion,
       }),

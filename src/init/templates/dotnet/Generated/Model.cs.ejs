@@ -5,16 +5,21 @@ using <%= namespaceName %>.Core;
 <% } -%>
 namespace <%= schemaNamespace %>;
 
-<% if (recordDocLines && recordDocLines.length) { -%>
-<%- recordDocLines.join("\n") %>
+<% if (modelDocLines && modelDocLines.length) { -%>
+<%- modelDocLines.join("\n") %>
 <% } else { -%>
 /// <summary>
 /// Schema model generated from TypeSpec.
 /// </summary>
 <% } -%>
-public sealed record <%= itemTypeName %>(
-<% for (let i = 0; i < properties.length; i++) { -%>
-    <%= properties[i].csType %> <%= properties[i].csName %>,
+public sealed class <%= itemTypeName %>
+{
+<% for (const property of properties) { -%>
+<% if (property.docLines && property.docLines.length) { -%>
+<%- property.docLines.join("\n") %>
 <% } -%>
-    string InternalId = ""
-);
+    public <%= property.csType %> <%= property.csName %> { get; set; } = default!;
+
+<% } -%>
+    public string InternalId { get; set; } = "";
+}

@@ -90,7 +90,8 @@ describe("people graph types (e2e)", () => {
 
     const payload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(payload).toContain("public sealed class CompanyDetail");
-    expect(payload).toContain("public string? DisplayName { get; init; }");
-    expect(payload).toContain("public PhysicalAddress? Address { get; init; }");
+    expect(payload).toContain("using Date = System.DateOnly;");
+    expect(payload).toContain("public string? DisplayName { get; set; }");
+    expect(payload).toContain("public PhysicalAddress? Address { get; set; }");
   });
 });

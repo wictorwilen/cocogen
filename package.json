@@ -1,6 +1,6 @@
 {
   "name": "@wictorwilen/cocogen",
-  "version": "1.0.48",
+  "version": "1.0.49",
   "description": "TypeSpec-driven Microsoft Copilot connector generator",
   "license": "MIT",
   "author": "Wictor Wilén <wictor@wictorwilen.se>",
