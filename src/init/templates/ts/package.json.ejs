@@ -14,6 +14,11 @@
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "commander": "^14.0.2",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+<% if (isPeopleConnector) { -%>
+    "@microsoft/microsoft-graph-types": "^2.43.1",
+    "@microsoft/microsoft-graph-types-beta": "^0.44.0-preview",
+<% } -%>
     "dotenv": "^17.2.3"<% if (inputFormat === "csv") { %>,
     "csv-parse": "^6.1.0"<% } %><% if (inputFormat !== "csv") { %>,
     "jsonpath-plus": "^10.3.0"<% } %><% if (inputFormat === "yaml") { %>,

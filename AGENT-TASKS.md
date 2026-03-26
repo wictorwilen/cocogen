@@ -7,6 +7,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Refactor Graph version resolution to use capability data instead of hardcoded beta assumptions
 - Start moving people label metadata behind the capability snapshot while keeping current runtime behavior stable
 - Improve preview diagnostics to explain the exact beta trigger (connection property, property type, or label)
+- Replace generated TS people Graph models with official stable/beta Graph type packages where available
+- Replace generated TS Graph transport with the official Microsoft Graph client while preserving mixed v1.0/beta routing
 - Implement `cocogen emit` (write IR JSON) ✅
 - Start `cocogen generate` for runnable TS connector output ✅ (initial scaffold)
 - Refine `cocogen generate` output (datasource interface, runnable TS output) ✅
@@ -41,6 +43,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Switch generated TS connector transport from raw fetch to the official Microsoft Graph client ✅
+- Route generated TS people payload model aliases through official `@microsoft/microsoft-graph-types` and `@microsoft/microsoft-graph-types-beta` packages ✅
 - Improve Graph preview diagnostics so beta errors and summaries explain the exact trigger ✅
 - Make generated .NET `Edm.Date` parsers accept date-time source values by truncating to the calendar date ✅
 - Fix .NET people `Edm.Date` fields to generate as date-only values and make generated C# models mutable (`get; set;`) ✅

@@ -6,6 +6,15 @@ type UnknownObject = { [key: string]: unknown };
 
 type Open<T> = T & Record<string, unknown>;
 
+<% const usesStableGraphTypes = graphTypes.some((type) => type.sourcePackage === "v1"); -%>
+<% const usesBetaGraphTypes = graphTypes.some((type) => type.sourcePackage === "beta"); -%>
+<% if (usesStableGraphTypes) { -%>
+import type * as MicrosoftGraph from "@microsoft/microsoft-graph-types";
+<% } -%>
+<% if (usesBetaGraphTypes) { -%>
+import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta";
+<% } -%>
+
 const isRecord = (value: unknown): value is UnknownObject =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -65,6 +74,87 @@ const normalizeCollectionValue = (
   return results;
 };
 
+const ITEM_FACET_READ_ONLY_KEYS = [
+  "createdBy",
+  "createdDateTime",
+  "lastModifiedBy",
+  "lastModifiedDateTime",
+  "source",
+  "sources",
+] as const;
+
+const assertWritableItemFacet = (value: UnknownObject, fieldPath: string): void => {
+  if (value["id"] !== undefined) {
+    throw new Error(fieldPath + ".id is read-only and must not be provided.");
+  }
+  for (const key of ITEM_FACET_READ_ONLY_KEYS) {
+    if (value[key] !== undefined) {
+      throw new Error(fieldPath + "." + key + " is read-only and must not be provided.");
+    }
+  }
+};
+
+const validateSdkGraphObject = <T>(
+  value: unknown,
+  fieldPath: string,
+  disallowReadonlyItemFacetFields = false
+): T => {
+  if (!isRecord(value)) {
+    throw new Error(`${fieldPath} must be an object.`);
+  }
+  if (disallowReadonlyItemFacetFields) {
+    assertWritableItemFacet(value, fieldPath);
+  }
+  return value as T;
+};
+
+const serializeSdkSingleValue = <T>(
+  value: unknown,
+  fieldName: string,
+  disallowReadonlyItemFacetFields = false
+): string | undefined => {
+  const payload = normalizeSingleValue(value, fieldName);
+  if (!payload) return undefined;
+  return JSON.stringify(validateSdkGraphObject<T>(payload, fieldName, disallowReadonlyItemFacetFields));
+};
+
+const serializeSdkCollectionValue = <T>(
+  payloads: Array<UnknownObject>,
+  fieldName: string,
+  disallowReadonlyItemFacetFields = false
+): string[] =>
+  payloads.map((payload, index) =>
+    JSON.stringify(
+      validateSdkGraphObject<T>(payload, `${fieldName}[${index}]`, disallowReadonlyItemFacetFields)
+    )
+  );
+
+export type PeopleLabelSerializationOptions = {
+  isCollection: boolean;
+  collectionLimit: number | null;
+  disallowReadonlyItemFacetFields: boolean;
+};
+
+export function serializeSdkPeopleLabelValue<T>(
+  value: unknown,
+  fieldName: string,
+  options: PeopleLabelSerializationOptions
+): string | string[] | undefined {
+  if (options.isCollection) {
+    const payloads = normalizeCollectionValue(value, fieldName);
+    if (!payloads) return undefined;
+    if (payloads.length === 0) return [];
+    if (options.collectionLimit !== null && payloads.length > options.collectionLimit) {
+      throw new Error(
+        `${fieldName} supports at most ${options.collectionLimit} entries (received ${payloads.length}).`
+      );
+    }
+    return serializeSdkCollectionValue<T>(payloads, fieldName, options.disallowReadonlyItemFacetFields);
+  }
+
+  return serializeSdkSingleValue<T>(value, fieldName, options.disallowReadonlyItemFacetFields);
+}
+
 <% if (graphEnums && graphEnums.length > 0) { -%>
 <% for (const enumDef of graphEnums) { -%>
 export type <%= enumDef.tsName %> =
@@ -86,6 +176,13 @@ const is<%= enumDef.tsName %> = (value: unknown): value is <%= enumDef.tsName %>
 <% } -%>
 
 <% for (const type of graphTypes) { -%>
+<% if (type.sourcePackage === "v1") { -%>
+export type <%= type.alias %> = MicrosoftGraph.<%= type.alias %>;
+
+<% } else if (type.sourcePackage === "beta") { -%>
+export type <%= type.alias %> = MicrosoftGraphBeta.<%= type.alias %>;
+
+<% } else { -%>
 export type <%= type.alias %> = Open<
 <% if (type.baseAlias) { -%>
   <%= type.baseAlias %> &
@@ -97,6 +194,9 @@ export type <%= type.alias %> = Open<
 }
 >;
 
+<% } -%>
+
+<% if (!type.sourcePackage) { -%>
 export function validate<%= type.alias %>(value: unknown, fieldPath: string): <%= type.alias %> {
 <% if (type.baseAlias) { -%>
   validate<%= type.baseAlias %>(value, fieldPath);
@@ -141,31 +241,5 @@ export function validate<%= type.alias %>(value: unknown, fieldPath: string): <%
 }
 
 <% } -%>
-<% for (const label of labels) { -%>
-export function <%= label.serializerName %>(
-  value: unknown,
-  fieldName = <%= JSON.stringify(label.label) %>
-): <%= label.isCollection ? "string[] | undefined" : "string | undefined" %> {
-<% if (label.isCollection) { -%>
-  const payloads = normalizeCollectionValue(value, fieldName);
-  if (!payloads) return undefined;
-  if (payloads.length === 0) return [];
-<% if (label.collectionLimit) { -%>
-  if (payloads.length > <%= label.collectionLimit %>) {
-    throw new Error(
-      `${fieldName} supports at most <%= label.collectionLimit %> entries (received ${"${payloads.length}"}).`
-    );
-  }
-<% } -%>
-  return payloads.map((payload, index) =>
-    JSON.stringify(validate<%= label.graphTypeAlias %>(payload, `${fieldName}[${"${index}"}]`))
-  );
-<% } else { -%>
-  const payload = normalizeSingleValue(value, fieldName);
-  if (!payload) return undefined;
-  const validated = validate<%= label.graphTypeAlias %>(payload, fieldName);
-  return JSON.stringify(validated);
-<% } -%>
-}
 
 <% } -%>

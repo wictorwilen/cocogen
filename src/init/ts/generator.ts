@@ -1,7 +1,6 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { PEOPLE_LABEL_DEFINITIONS } from "../../people/label-registry.js";
 import { graphProfileSchema } from "../../people/profile-schema.js";
 import {
   toTsIdentifier,
@@ -453,27 +452,31 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       (p) => p.type === "principal" || p.type === "principalCollection"
     );
     const peopleLabelSerializers = hasPeopleSupport ? buildPeopleLabelSerializers() : [];
-    const serializerImports = new Set<string>();
+    const peopleLabelSerializerByLabel = new Map(peopleLabelSerializers.map((entry) => [entry.label, entry]));
+    let usesGenericPeopleLabelSerializer = false;
+    const payloadPeopleGraphTypes = new Set<string>();
     const payloadProperties = this.ir.properties
       .filter((p) => p.name !== this.ir.item.contentPropertyName)
       .map((p) => {
         const odataType = toOdataCollectionType(p.type);
         const personLabel = p.labels.find((label) => label.startsWith("person"));
-        const serializerName =
-          personLabel && PEOPLE_LABEL_DEFINITIONS.has(personLabel)
-            ? `serialize${toTsIdentifier(personLabel)}`
-            : null;
-        if (serializerName) {
-          serializerImports.add(serializerName);
-        }
+        const serializer = personLabel ? peopleLabelSerializerByLabel.get(personLabel) ?? null : null;
         const baseValue =
           p.type === "principal"
             ? `cleanPrincipal(item.${p.name} as Record<string, unknown> | null | undefined)`
             : p.type === "principalCollection"
             ? `cleanPrincipalCollection(item.${p.name} as Array<Record<string, unknown>> | null | undefined)`
             : `item.${p.name}`;
-        const valueExpression = serializerName
-          ? `${serializerName}(${baseValue}, ${JSON.stringify(p.name)})`
+        if (serializer) {
+          usesGenericPeopleLabelSerializer = true;
+          payloadPeopleGraphTypes.add(serializer.graphTypeAlias);
+        }
+        const valueExpression = serializer
+          ? `serializeSdkPeopleLabelValue<${serializer.graphTypeAlias}>(${baseValue}, ${JSON.stringify(p.name)}, {
+        isCollection: ${serializer.isCollection ? "true" : "false"},
+        collectionLimit: ${serializer.collectionLimit === null ? "null" : serializer.collectionLimit},
+        disallowReadonlyItemFacetFields: ${serializer.inheritsItemFacet ? "true" : "false"}
+      })`
           : baseValue;
         return {
           name: p.name,
@@ -594,7 +597,8 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       path.join(this.outDir, "src", schemaFolderName, "itemPayload.ts"),
       await renderTemplate("ts/src/generated/itemPayload.ts.ejs", {
         properties: payloadProperties,
-        peopleSerializers: Array.from(serializerImports),
+        usesGenericPeopleLabelSerializer,
+        payloadPeopleGraphTypes: Array.from(payloadPeopleGraphTypes).sort(),
         contentValueExpression,
         contentType,
         itemTypeName: this.ir.item.typeName,

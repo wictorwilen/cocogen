@@ -27,6 +27,8 @@ export type PeopleGraphTypeTemplate = {
   alias: string;
   fields: PeopleGraphFieldTemplate[];
   baseAlias?: string;
+  sourcePackage?: "v1" | "beta";
+  inheritsItemFacet?: boolean;
 };
 
 export type PeopleGraphTypeAlias = {
@@ -55,6 +57,8 @@ export type PeopleLabelSerializerTemplate = {
   label: string;
   serializerName: string;
   graphTypeAlias: string;
+  sourcePackage?: "v1" | "beta";
+  inheritsItemFacet: boolean;
   isCollection: boolean;
   collectionLimit: number | null;
 };
@@ -85,6 +89,14 @@ export function buildPeopleGraphTypes(ir: ConnectorIr): {
   }
 
   const schemaTypeByName = new Map(graphProfileSchema.types.map((type) => [type.name, type]));
+  const extendsItemFacet = (typeName: string): boolean => {
+    let current = schemaTypeByName.get(typeName);
+    while (current?.baseType) {
+      if (current.baseType === "itemFacet") return true;
+      current = schemaTypeByName.get(current.baseType);
+    }
+    return typeName === "itemFacet";
+  };
   const resolveReferencedGraphType = (propType: string): string | null => {
     const collectionMatch = /^Collection\((.+)\)$/.exec(propType);
     const elementType = collectionMatch ? collectionMatch[1]! : propType;
@@ -114,7 +126,7 @@ export function buildPeopleGraphTypes(ir: ConnectorIr): {
   const derived = buildDerivedPeopleGraphTypes(ir);
   const aliases = buildPeopleGraphTypeAliases(derived);
 
-  const templates = [...graphTypeNames].map((typeName) => {
+  const templates: PeopleGraphTypeTemplate[] = [...graphTypeNames].map((typeName) => {
     const schemaType = getProfileType(typeName);
     if (!schemaType) {
       throw new Error(`Graph profile schema is missing type '${typeName}'. Run npm run update-graph-profile-schema.`);
@@ -126,6 +138,8 @@ export function buildPeopleGraphTypes(ir: ConnectorIr): {
     return {
       alias: toTsIdentifier(typeName),
       fields,
+      sourcePackage: "beta" as const,
+      inheritsItemFacet: extendsItemFacet(typeName),
       ...(schemaType.baseType ? { baseAlias: toTsIdentifier(schemaType.baseType) } : {}),
     };
   });
@@ -146,6 +160,8 @@ export function buildPeopleLabelSerializers(): PeopleLabelSerializerTemplate[] {
     label,
     serializerName: `serialize${toTsIdentifier(label)}`,
     graphTypeAlias: toTsIdentifier(def.graphTypeName),
+    sourcePackage: "beta",
+    inheritsItemFacet: def.schema.name === "itemFacet" || (def.schema.baseType ?? null) === "itemFacet",
     isCollection: def.payloadTypes.includes("stringCollection"),
     collectionLimit: def.constraints.collectionLimit ?? null,
   }));

@@ -1,3 +1,6 @@
+import { Client, ResponseType } from "@microsoft/microsoft-graph-client";
+import type { AuthenticationProvider } from "@microsoft/microsoft-graph-client";
+
 import type { ItemSource } from "../datasource/itemSource.js";
 
 type ProfileSourceOptions = {
@@ -46,6 +49,7 @@ export type IngestOptions<Item> = {
  * Reusable connector core for provisioning, ingestion, and deletion.
  */
 export class ConnectorCore<Item> {
+  private readonly graphClient: Client;
   private readonly graphBaseUrls: {
     connectionProvisioning: string;
     schemaRegistration: string;
@@ -72,6 +76,11 @@ export class ConnectorCore<Item> {
     this.getItemId = options.getItemId;
     this.toExternalItem = options.toExternalItem;
     this.profileSource = options.profileSource;
+
+    const authProvider: AuthenticationProvider = {
+      getAccessToken: async () => this.getAccessToken(),
+    };
+    this.graphClient = Client.initWithMiddleware({ authProvider });
   }
 
   /**
@@ -262,28 +271,21 @@ export class ConnectorCore<Item> {
   }
 
   private async graphRequest(method: string, url: string, body?: unknown): Promise<Response> {
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const token = await this.getAccessToken();
-      const res = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-
-      if (!shouldRetry(res.status) || attempt === MAX_RETRIES) {
-        return res;
-      }
-
-      const retryAfterMs = parseRetryAfter(res.headers.get("Retry-After"));
-      const delay = computeDelay(attempt, retryAfterMs);
-      console.warn(`warn: throttled (HTTP ${res.status}) for ${url}, retrying in ${delay}ms`);
-      await sleep(delay);
+    const request = this.graphClient.api(url).responseType(ResponseType.RAW);
+    switch (method) {
+      case "GET":
+        return (await request.get()) as Response;
+      case "POST":
+        return (await request.post(body ?? {})) as Response;
+      case "PATCH":
+        return (await request.patch(body ?? {})) as Response;
+      case "PUT":
+        return (await request.put(body ?? {})) as Response;
+      case "DELETE":
+        return (await request.delete()) as Response;
+      default:
+        throw new Error(`Unsupported Graph method '${method}'.`);
     }
-
-    throw new Error("Failed to send request after retries.");
   }
 
   private async listProfilePropertySettings(): Promise<
@@ -456,9 +458,6 @@ export class ConnectorCore<Item> {
   }
 }
 
-const MAX_RETRIES = 6;
-const BASE_DELAY_MS = 1000;
-const MAX_DELAY_MS = 30000;
 const SCHEMA_POLL_MAX_ATTEMPTS = 12;
 const SCHEMA_POLL_DELAY_MS = 30000;
 const SCHEMA_READY_STATES = new Set(["completed", "ready", "succeeded", "success"]);
@@ -466,32 +465,6 @@ const SCHEMA_PENDING_STATES = new Set(["inprogress", "pending", "running", "upda
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parseRetryAfter(value: string | null): number | null {
-  if (!value) return null;
-  const seconds = Number(value);
-  if (!Number.isNaN(seconds) && Number.isFinite(seconds)) {
-    return Math.max(0, seconds * 1000);
-  }
-
-  const dateMs = Date.parse(value);
-  if (!Number.isNaN(dateMs)) {
-    return Math.max(0, dateMs - Date.now());
-  }
-
-  return null;
-}
-
-function computeDelay(attempt: number, retryAfter: number | null): number {
-  if (retryAfter !== null) return Math.min(retryAfter, MAX_DELAY_MS);
-  const exp = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * Math.pow(2, attempt));
-  const jitter = Math.floor(Math.random() * 250);
-  return Math.min(MAX_DELAY_MS, exp + jitter);
-}
-
-function shouldRetry(status: number): boolean {
-  return status === 429 || status === 503 || status === 504;
 }
 
 function formatStatus(res: Response): string {

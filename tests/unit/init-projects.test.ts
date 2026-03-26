@@ -417,7 +417,7 @@ describe("project init/update", () => {
     expect(itemPayload).toContain("ExternalItemContentType.Text");
   });
 
-  test("initTsProject includes throttling retries", async () => {
+  test("initTsProject uses the official Graph client", async () => {
     const tspPath = await writeTempTspFile(complexSchema);
     const outRoot = await writeTempDir();
     const outDir = path.join(outRoot, "ts-throttle");
@@ -425,9 +425,14 @@ describe("project init/update", () => {
     await initTsProject({ tspPath, outDir, force: false });
 
     const core = await readFile(path.join(outDir, "src", "core", "connectorCore.ts"), "utf8");
-    expect(core).toContain("Retry-After");
-    expect(core).toContain("throttled");
-    expect(core).toContain("MAX_RETRIES");
+    expect(core).toContain('from "@microsoft/microsoft-graph-client"');
+    expect(core).toContain("Client.initWithMiddleware");
+    expect(core).toContain("ResponseType.RAW");
+    expect(core).not.toContain("Retry-After");
+    expect(core).not.toContain("fetch(");
+
+    const pkg = await readFile(path.join(outDir, "package.json"), "utf8");
+    expect(pkg).toContain('"@microsoft/microsoft-graph-client": "^3.0.7"');
   });
 
   test("initTsProject provisions profile source separately", async () => {
@@ -698,11 +703,19 @@ model PersonProfile {
     await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
     const helpers = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(helpers).toContain("export function serializePersonSkills");
-    expect(helpers).toContain("validateSkillProficiency");
+    expect(helpers).toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
+    expect(helpers).toContain("export type SkillProficiency = MicrosoftGraphBeta.SkillProficiency;");
+    expect(helpers).toContain("export function serializeSdkPeopleLabelValue<T>(");
+    expect(helpers).toContain("const serializeSdkCollectionValue = <T>(");
+    expect(helpers).not.toContain("export function serializePersonSkills");
+    expect(helpers).not.toContain("export function validateSkillProficiency");
 
     const payload = await readFile(path.join(outDir, "src", schemaFolder, "itemPayload.ts"), "utf8");
-    expect(payload).toContain("serializePersonSkills(");
+    expect(payload).toContain("serializeSdkPeopleLabelValue<SkillProficiency>(");
+
+    const pkg = await readFile(path.join(outDir, "package.json"), "utf8");
+    expect(pkg).toContain('"@microsoft/microsoft-graph-types": "^2.43.1"');
+    expect(pkg).toContain('"@microsoft/microsoft-graph-types-beta": "^0.44.0-preview"');
   });
 
   test("initDotnetProject generates property transform base and preserves overrides", async () => {
