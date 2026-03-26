@@ -1,0 +1,352 @@
+{
+  "generatedAt": "2026-03-26T00:00:00.000Z",
+  "connectionProperties": {
+    "contentCategory": {
+      "availableIn": ["beta"],
+      "minGraphApiVersion": "beta"
+    },
+    "profileSourceRegistration": {
+      "availableIn": ["beta"],
+      "minGraphApiVersion": "beta"
+    }
+  },
+  "propertyTypes": {
+    "principal": {
+      "availableIn": ["beta"],
+      "minGraphApiVersion": "beta"
+    },
+    "principalCollection": {
+      "availableIn": ["beta"],
+      "minGraphApiVersion": "beta"
+    }
+  },
+  "labels": {
+    "assignedTo": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "authors": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "closedBy": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "closedDate": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "containerName": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "containerUrl": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "createdBy": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "createdDateTime": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "dueDate": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "fileExtension": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "fileName": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "iconUrl": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "itemParentId": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "itemPath": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "itemType": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "lastModifiedBy": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "lastModifiedDateTime": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "numReactions": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "parentUrl": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "personAccount": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personAddresses": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personAlternateContacts": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personAnniversaries": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personAssistants": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personAwards": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personCertifications": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personColleagues": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personCurrentPosition": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personEmergencyContacts": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personEmails": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personManager": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personName": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personNote": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personPhones": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personProjects": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personSkills": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personWebAccounts": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "personWebSite": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
+    "priority": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "reportedBy": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "secondaryId": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "severity": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "sprintName": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "state": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "tags": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "title": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "unknownFutureValue": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    },
+    "url": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "kind": "semantic"
+    }
+  },
+  "peopleLabels": {
+    "personAccount": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "userAccountInformation",
+      "graphTypeName": "userAccountInformation"
+    },
+    "personName": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "personName",
+      "graphTypeName": "personName"
+    },
+    "personCurrentPosition": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "workPosition",
+      "graphTypeName": "workPosition"
+    },
+    "personAddresses": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "itemAddress",
+      "graphTypeName": "itemAddress"
+    },
+    "personEmails": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "itemEmail",
+      "graphTypeName": "itemEmail"
+    },
+    "personPhones": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "itemPhone",
+      "graphTypeName": "itemPhone"
+    },
+    "personAwards": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "personAward",
+      "graphTypeName": "personAward"
+    },
+    "personCertifications": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "personCertification",
+      "graphTypeName": "personCertification"
+    },
+    "personProjects": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "projectParticipation",
+      "graphTypeName": "projectParticipation"
+    },
+    "personSkills": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "skillProficiency",
+      "graphTypeName": "skillProficiency"
+    },
+    "personWebAccounts": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "webAccount",
+      "graphTypeName": "webAccount"
+    },
+    "personWebSite": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "webSite",
+      "graphTypeName": "personWebsite"
+    },
+    "personAnniversaries": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "personAnniversary",
+      "graphTypeName": "personAnnualEvent"
+    },
+    "personNote": {
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "personAnnotation",
+      "graphTypeName": "personAnnotation"
+    }
+  },
+  "profileTypes": {}
+}

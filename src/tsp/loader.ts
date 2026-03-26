@@ -24,6 +24,11 @@ import {
 } from "@typespec/compiler";
 
 import type { ConnectorIr, GraphApiVersion, PropertyType, SearchFlags } from "../ir.js";
+import {
+  getConnectionPropertyCapability,
+  getPropertyTypeCapability,
+  maxGraphApiVersion,
+} from "../graph/capabilities.js";
 import { getPeopleLabelDefinition, type PersonEntityName } from "../people/label-registry.js";
 import { getProfileType } from "../people/profile-schema.js";
 import { assertValidJsonPath, normalizeJsonPath } from "./jsonpath.js";
@@ -167,14 +172,14 @@ function computeGraphApiVersion(
   contentCategory: string | undefined,
   usesPrincipal: boolean
 ): GraphApiVersion {
-  // Microsoft Graph exposes externalConnection.contentCategory on /beta.
-  // If the schema specifies a category, we must use beta for provisioning.
-  if (contentCategory) return "beta";
+  const contentCategoryVersion = contentCategory
+    ? (getConnectionPropertyCapability("contentCategory")?.minGraphApiVersion ?? "beta")
+    : undefined;
+  const principalVersion = usesPrincipal
+    ? (getPropertyTypeCapability("principal")?.minGraphApiVersion ?? "beta")
+    : undefined;
 
-  // Graph propertyType 'principal' is only available on /beta.
-  if (usesPrincipal) return "beta";
-
-  return "v1.0";
+  return maxGraphApiVersion(contentCategoryVersion, principalVersion);
 }
 
 function getStringArray(program: Program, key: symbol, prop: ModelProperty): string[] {

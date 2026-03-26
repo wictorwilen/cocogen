@@ -402,7 +402,7 @@ describe("cli", () => {
       await main(["node", "cli", "update", "--out", "/tmp/out"]);
     });
 
-    expect(stdout).toContain("contentCategory is a Graph /beta property");
+    expect(stdout).toContain("connection.contentCategory uses Graph /beta property 'contentCategory'");
     expect(process.exitCode).toBe(0);
   });
 
@@ -588,7 +588,8 @@ describe("cli", () => {
       await main(["node", "cli", "emit", "--tsp", "/tmp/schema.tsp"]);
     });
 
-    expect(stderr).toContain("Graph beta");
+    expect(stderr).toContain("This schema requires Graph beta");
+    expect(stderr).toContain("Re-run with --use-preview-features");
     expect(process.exitCode).toBe(1);
   });
 
@@ -620,7 +621,7 @@ describe("cli", () => {
       await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
     });
 
-    expect(stdout).toContain("contentCategory is a Graph /beta property");
+    expect(stdout).toContain("connection.contentCategory uses Graph /beta property 'contentCategory'");
     expect(process.exitCode).toBe(0);
   });
 

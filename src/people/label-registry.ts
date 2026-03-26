@@ -1,4 +1,5 @@
 import type { ConnectorIr, PropertyType } from "../ir.js";
+import { getPeopleLabelCapability } from "../graph/capabilities.js";
 import {
   getProfilePlanTypeNameByLabel,
   getProfileType,
@@ -23,6 +24,7 @@ export type PeopleLabelDefinition = {
   schema: GraphProfileType;
   requiredFields: string[];
   constraints: PeopleLabelConstraint;
+  minGraphApiVersion: "v1.0" | "beta";
 };
 
 export type PeopleLabelInfo = {
@@ -31,6 +33,7 @@ export type PeopleLabelInfo = {
   planTypeName: string;
   graphTypeName: PersonEntityName;
   requiredFields: string[];
+  minGraphApiVersion: "v1.0" | "beta";
   collectionLimit?: number;
 };
 
@@ -78,6 +81,7 @@ for (const entry of RAW_LABELS) {
     schema,
     requiredFields: schema.required ?? [],
     constraints: entry.constraints ?? {},
+    minGraphApiVersion: getPeopleLabelCapability(entry.label)?.minGraphApiVersion ?? "beta",
   });
 }
 
@@ -155,6 +159,7 @@ export const getPeopleLabelInfo = (label: string): PeopleLabelInfo => {
     planTypeName: definition.planTypeName,
     graphTypeName: definition.graphTypeName,
     requiredFields: definition.requiredFields,
+    minGraphApiVersion: definition.minGraphApiVersion,
   };
   if (definition.constraints.collectionLimit !== undefined) {
     info.collectionLimit = definition.constraints.collectionLimit;

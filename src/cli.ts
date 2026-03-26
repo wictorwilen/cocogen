@@ -10,6 +10,7 @@ import ora from "ora";
 import type { Ora } from "ora";
 
 import { writeIrJson } from "./emit/emit.js";
+import { formatPreviewFeatureRequirement, getGraphBetaNoteLines } from "./graph/requirements.js";
 import { initDotnetProject, initRestProject, initTsProject, updateProject } from "./init/init.js";
 import { initStarterTsp } from "./tsp/init-tsp.js";
 import { normalizeInputFormat } from "./tsp/input-format.js";
@@ -202,7 +203,7 @@ export async function main(argv: string[]): Promise<void> {
 
   const requirePreviewIfNeeded = (ir: { connection: { graphApiVersion: string } }, allow: boolean): void => {
     if (ir.connection.graphApiVersion === "beta" && !allow) {
-      throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
+      throw new Error(formatPreviewFeatureRequirement(ir as Parameters<typeof formatPreviewFeatureRequirement>[0]));
     }
   };
 
@@ -391,11 +392,9 @@ export async function main(argv: string[]): Promise<void> {
           process.stdout.write(`  ${pc.dim("graph")}: ${result.ir.connection.graphApiVersion}\n`);
           if (result.ir.connection.contentCategory) {
             process.stdout.write(`  ${pc.dim("category")}: ${result.ir.connection.contentCategory}\n`);
-            if (result.ir.connection.graphApiVersion === "beta") {
-              process.stdout.write(
-                `  ${pc.yellow("note")}: contentCategory is a Graph /beta property; provisioning will use /beta\n`
-              );
-            }
+          }
+          for (const noteLine of getGraphBetaNoteLines(result.ir)) {
+            process.stdout.write(`  ${pc.yellow("note")}: ${noteLine}\n`);
           }
           const nextCmd =
             lang === "ts"
@@ -439,11 +438,9 @@ export async function main(argv: string[]): Promise<void> {
         process.stdout.write(`  ${pc.dim("graph")}: ${result.ir.connection.graphApiVersion}\n`);
         if (result.ir.connection.contentCategory) {
           process.stdout.write(`  ${pc.dim("category")}: ${result.ir.connection.contentCategory}\n`);
-          if (result.ir.connection.graphApiVersion === "beta") {
-            process.stdout.write(
-              `  ${pc.yellow("note")}: contentCategory is a Graph /beta property; provisioning will use /beta\n`
-            );
-          }
+        }
+        for (const noteLine of getGraphBetaNoteLines(result.ir)) {
+          process.stdout.write(`  ${pc.yellow("note")}: ${noteLine}\n`);
         }
         process.exitCode = 0;
         },

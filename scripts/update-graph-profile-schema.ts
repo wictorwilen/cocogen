@@ -4,8 +4,12 @@ import { XMLParser } from "fast-xml-parser";
 import { fileURLToPath } from "node:url";
 
 import type { GraphProfileSchemaSnapshot } from "../src/people/profile-schema.js";
+import type { GraphCapabilitySnapshot } from "../src/graph/capabilities.js";
 
+const V1_METADATA_URL = "https://graph.microsoft.com/v1.0/$metadata";
 const METADATA_URL = "https://graph.microsoft.com/beta/$metadata";
+const V1_OPENAPI_URL = "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml";
+const BETA_OPENAPI_URL = "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/beta/openapi.yaml";
 
 const labelTypeMap = {
   personAccount: "userAccountInformation",
@@ -27,6 +31,11 @@ const labelTypeMap = {
 const graphAliases: Record<string, string> = {
   personAnniversary: "personAnnualEvent",
   webSite: "personWebsite"
+};
+
+export type ExternalConnectorLabelSets = {
+  allLabels: string[];
+  peopleLabels: string[];
 };
 
 const toArray = <T>(value: T | T[] | undefined | null): T[] => {
@@ -191,9 +200,39 @@ const createInitialGraphTypeNames = (): Set<string> => {
   return graphTypeNames;
 };
 
+const normalizeLabelName = (value: string): string => value.trim().replace(/[.'`]+$/g, "");
+
+const splitLabelList = (raw: string): string[] =>
+  raw
+    .split(",")
+    .map((entry) => normalizeLabelName(entry))
+    .filter(Boolean);
+
+export const parseExternalConnectorLabelSets = (openApiYaml: string): ExternalConnectorLabelSets => {
+  const enumBlockMatch = /microsoft\.graph\.externalConnectors\.label:\s*\n(?:.*\n)*?\s+enum:\s*\n((?:\s+-\s+[^\n]+\n)+)\s+type:\s+string/m.exec(
+    openApiYaml
+  );
+  const enumLabels = enumBlockMatch
+    ? Array.from(enumBlockMatch[1]!.matchAll(/-\s+([^\n]+)/g), (match) => normalizeLabelName(match[1]!))
+    : [];
+
+  const descriptionMatch = /The possible values are:\s*([^']+?)\.\s*Use the Prefer: include-unknown-enum-members request header to retrieve additional values defined in this evolvable enum,?\s*For People Connectors you can include\s*:\s*([^']+?)\./s.exec(
+    openApiYaml
+  );
+
+  const standardLabels = descriptionMatch ? splitLabelList(descriptionMatch[1]!) : [];
+  const peopleLabels = descriptionMatch ? splitLabelList(descriptionMatch[2]!) : [];
+
+  return {
+    allLabels: [...new Set([...enumLabels, ...standardLabels, ...peopleLabels])],
+    peopleLabels: [...new Set(peopleLabels)],
+  };
+};
+
 export const parseGraphMetadataSnapshot = (
   xml: string,
-  generatedAt = new Date().toISOString()
+  generatedAt = new Date().toISOString(),
+  graphVersion = "beta"
 ): GraphProfileSchemaSnapshot => {
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -285,11 +324,90 @@ export const parseGraphMetadataSnapshot = (
 
   return {
     generatedAt,
-    graphVersion: "beta",
+    graphVersion,
     types,
     enums,
     aliases: graphAliases,
     labelTypeMap
+  };
+};
+
+const toResolvedTypeName = (snapshot: GraphProfileSchemaSnapshot, typeName: string): string =>
+  snapshot.aliases[typeName] ?? typeName;
+
+const computeAvailability = (
+  v1Supported: boolean,
+  betaSupported: boolean
+): { availableIn: Array<"v1.0" | "beta">; minGraphApiVersion: "v1.0" | "beta" } => ({
+  availableIn: [v1Supported ? "v1.0" : undefined, betaSupported ? "beta" : undefined].filter(
+    (value): value is "v1.0" | "beta" => Boolean(value)
+  ),
+  minGraphApiVersion: v1Supported ? "v1.0" : "beta",
+});
+
+export const buildGraphCapabilitySnapshot = (
+  v1Snapshot: GraphProfileSchemaSnapshot,
+  betaSnapshot: GraphProfileSchemaSnapshot,
+  v1Labels: ExternalConnectorLabelSets,
+  betaLabels: ExternalConnectorLabelSets,
+  generatedAt = new Date().toISOString()
+): GraphCapabilitySnapshot => {
+  const v1Types = new Set(v1Snapshot.types.map((type) => type.name));
+  const betaTypes = new Set(betaSnapshot.types.map((type) => type.name));
+  const allTypeNames = new Set<string>([...v1Types, ...betaTypes]);
+
+  const profileTypes = Object.fromEntries(
+    [...allTypeNames]
+      .sort((left, right) => left.localeCompare(right))
+      .map((typeName) => [
+        typeName,
+        computeAvailability(v1Types.has(typeName), betaTypes.has(typeName)),
+      ])
+  );
+
+  const allLabels = new Set<string>([...v1Labels.allLabels, ...betaLabels.allLabels]);
+  const labels = Object.fromEntries(
+    [...allLabels]
+      .sort((left, right) => left.localeCompare(right))
+      .map((label) => [
+        label,
+        {
+          ...computeAvailability(v1Labels.allLabels.includes(label), betaLabels.allLabels.includes(label)),
+          kind:
+            v1Labels.peopleLabels.includes(label) || betaLabels.peopleLabels.includes(label) ? "people" : "semantic",
+        } as const,
+      ])
+  );
+
+  const peopleLabels = Object.fromEntries(
+    Object.entries(betaSnapshot.labelTypeMap)
+      .filter(([label]) => betaLabels.peopleLabels.includes(label) || v1Labels.peopleLabels.includes(label))
+      .map(([label, planTypeName]) => {
+      const resolvedTypeName = toResolvedTypeName(betaSnapshot, planTypeName);
+      return [
+        label,
+        {
+          ...computeAvailability(v1Labels.peopleLabels.includes(label), betaLabels.peopleLabels.includes(label)),
+          planTypeName,
+          graphTypeName: resolvedTypeName,
+        },
+      ];
+      })
+  );
+
+  return {
+    generatedAt,
+    connectionProperties: {
+      contentCategory: computeAvailability(false, true),
+      profileSourceRegistration: computeAvailability(false, true),
+    },
+    propertyTypes: {
+      principal: computeAvailability(false, true),
+      principalCollection: computeAvailability(false, true),
+    },
+    labels,
+    peopleLabels,
+    profileTypes,
   };
 };
 
@@ -308,6 +426,17 @@ export const writeGraphProfileSnapshot = async (
   return outPath;
 };
 
+export const writeGraphCapabilitySnapshot = async (
+  snapshot: GraphCapabilitySnapshot,
+  cwd = process.cwd()
+): Promise<string> => {
+  const outDir = path.join(cwd, "data");
+  await mkdir(outDir, { recursive: true });
+  const outPath = path.join(outDir, "graph-capabilities.json");
+  await writeFile(outPath, JSON.stringify(snapshot, null, 2) + "\n", "utf8");
+  return outPath;
+};
+
 export const fetchGraphMetadataXml = async (url = METADATA_URL): Promise<string> => {
   const res = await fetch(url, {
     headers: {
@@ -320,12 +449,45 @@ export const fetchGraphMetadataXml = async (url = METADATA_URL): Promise<string>
   return res.text();
 };
 
-export const main = async (): Promise<void> => {
-  const xml = await fetchGraphMetadataXml();
-  const snapshot = parseGraphMetadataSnapshot(xml);
-  await writeGraphProfileSnapshot(snapshot);
+export const fetchGraphOpenApiYaml = async (url: string): Promise<string> => {
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/yaml, text/yaml, text/plain"
+    }
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to download Graph OpenAPI: ${res.status} ${res.statusText}`);
+  }
+  return res.text();
+};
 
-  console.log(`Wrote snapshot with ${snapshot.types.length} types and ${snapshot.enums.length} enums to data/graph-profile-schema.json`);
+export const main = async (): Promise<void> => {
+  const [v1Xml, betaXml, v1OpenApiYaml, betaOpenApiYaml] = await Promise.all([
+    fetchGraphMetadataXml(V1_METADATA_URL),
+    fetchGraphMetadataXml(METADATA_URL),
+    fetchGraphOpenApiYaml(V1_OPENAPI_URL),
+    fetchGraphOpenApiYaml(BETA_OPENAPI_URL),
+  ]);
+  const generatedAt = new Date().toISOString();
+  const v1Snapshot = parseGraphMetadataSnapshot(v1Xml, generatedAt, "v1.0");
+  const betaSnapshot = parseGraphMetadataSnapshot(betaXml, generatedAt, "beta");
+  const capabilitySnapshot = buildGraphCapabilitySnapshot(
+    v1Snapshot,
+    betaSnapshot,
+    parseExternalConnectorLabelSets(v1OpenApiYaml),
+    parseExternalConnectorLabelSets(betaOpenApiYaml),
+    generatedAt
+  );
+
+  await writeGraphProfileSnapshot(betaSnapshot);
+  await writeGraphCapabilitySnapshot(capabilitySnapshot);
+
+  console.log(
+    `Wrote snapshot with ${betaSnapshot.types.length} types and ${betaSnapshot.enums.length} enums to data/graph-profile-schema.json`
+  );
+  console.log(
+    `Wrote capability snapshot with ${Object.keys(capabilitySnapshot.profileTypes).length} profile types to data/graph-capabilities.json`
+  );
 };
 
 const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);

@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { formatPreviewFeatureRequirement } from "../graph/requirements.js";
 import type { ConnectorIr } from "../ir.js";
 import { loadIrFromTypeSpec } from "../tsp/loader.js";
 import { validateIr } from "../validate/validator.js";
@@ -176,6 +177,12 @@ function formatValidationErrors(ir: ConnectorIr): string {
     .join("\n");
 }
 
+function throwIfPreviewFeaturesRequired(ir: ConnectorIr, allowPreviewFeatures: boolean | undefined): void {
+  if (ir.connection.graphApiVersion === "beta" && !allowPreviewFeatures) {
+    throw new Error(formatPreviewFeatureRequirement(ir));
+  }
+}
+
 /** Update an existing TS project from a schema. */
 export async function updateTsProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
   const outDir = path.resolve(options.outDir);
@@ -187,9 +194,7 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
   }
 
   const ir = await loadIrFromTypeSpec(tspPath, { inputFormat: config.inputFormat });
-  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
-    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
-  }
+  throwIfPreviewFeaturesRequired(ir, options.usePreviewFeatures);
   const validationMessage = formatValidationErrors(ir);
   if (validationMessage) {
     throw new Error(`Schema validation failed:\n${validationMessage}`);
@@ -231,9 +236,7 @@ export async function updateDotnetProject(
   }
 
   const ir = await loadIrFromTypeSpec(tspPath, { inputFormat: config.inputFormat });
-  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
-    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
-  }
+  throwIfPreviewFeaturesRequired(ir, options.usePreviewFeatures);
   const validationMessage = formatValidationErrors(ir);
   if (validationMessage) {
     throw new Error(`Schema validation failed:\n${validationMessage}`);
@@ -273,9 +276,7 @@ export async function updateRestProject(options: UpdateOptions): Promise<{ outDi
   }
 
   const ir = await loadIrFromTypeSpec(tspPath, { inputFormat: config.inputFormat });
-  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
-    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
-  }
+  throwIfPreviewFeaturesRequired(ir, options.usePreviewFeatures);
   const validationMessage = formatValidationErrors(ir);
   if (validationMessage) {
     throw new Error(`Schema validation failed:\n${validationMessage}`);
@@ -314,9 +315,7 @@ export async function initRestProject(options: InitOptions): Promise<{ outDir: s
   await ensureEmptyDir(outDir, Boolean(options.force));
 
   const ir = await loadIrFromTypeSpec(options.tspPath, { inputFormat: options.inputFormat });
-  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
-    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
-  }
+  throwIfPreviewFeaturesRequired(ir, options.usePreviewFeatures);
   const validationMessage = formatValidationErrors(ir);
   if (validationMessage) {
     throw new Error(`Schema validation failed:\n${validationMessage}`);
@@ -340,9 +339,7 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
   await ensureEmptyDir(outDir, Boolean(options.force));
 
   const ir = await loadIrFromTypeSpec(options.tspPath, { inputFormat: options.inputFormat });
-  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
-    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
-  }
+  throwIfPreviewFeaturesRequired(ir, options.usePreviewFeatures);
   const validationMessage = formatValidationErrors(ir);
   if (validationMessage) {
     throw new Error(`Schema validation failed:\n${validationMessage}`);
@@ -380,9 +377,7 @@ export async function initDotnetProject(
   await ensureEmptyDir(outDir, Boolean(options.force));
 
   const ir = await loadIrFromTypeSpec(options.tspPath, { inputFormat: options.inputFormat });
-  if (ir.connection.graphApiVersion === "beta" && !options.usePreviewFeatures) {
-    throw new Error("This schema requires Graph beta. Re-run with --use-preview-features.");
-  }
+  throwIfPreviewFeaturesRequired(ir, options.usePreviewFeatures);
   const validationMessage = formatValidationErrors(ir);
   if (validationMessage) {
     throw new Error(`Schema validation failed:\n${validationMessage}`);

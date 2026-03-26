@@ -3,6 +3,10 @@
 This is the living task list for the `cocogen` repo. Keep it current as work progresses.
 
 ## Now
+- Build Graph capability snapshot for v1.0 vs beta and use it as the first step toward people-connectors GA
+- Refactor Graph version resolution to use capability data instead of hardcoded beta assumptions
+- Start moving people label metadata behind the capability snapshot while keeping current runtime behavior stable
+- Improve preview diagnostics to explain the exact beta trigger (connection property, property type, or label)
 - Implement `cocogen emit` (write IR JSON) ✅
 - Start `cocogen generate` for runnable TS connector output ✅ (initial scaffold)
 - Refine `cocogen generate` output (datasource interface, runnable TS output) ✅
@@ -37,6 +41,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Improve Graph preview diagnostics so beta errors and summaries explain the exact trigger ✅
 - Make generated .NET `Edm.Date` parsers accept date-time source values by truncating to the calendar date ✅
 - Fix .NET people `Edm.Date` fields to generate as date-only values and make generated C# models mutable (`get; set;`) ✅
 - Extract Graph `EnumType` members into the people profile snapshot and generate TS/.NET enums from that metadata ✅

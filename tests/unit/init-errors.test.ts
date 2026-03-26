@@ -66,7 +66,7 @@ describe("init errors", () => {
     const outDir = path.join(outRoot, "people-project");
 
     await expect(initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: false })).rejects.toThrow(
-      /use-preview-features/i
+      /connection\.contentCategory uses Graph \/beta property 'contentCategory'/i
     );
   });
 
@@ -76,7 +76,7 @@ describe("init errors", () => {
     const outDir = path.join(outRoot, "people-dotnet");
 
     await expect(initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: false })).rejects.toThrow(
-      /use-preview-features/i
+      /connection\.profileSource uses Graph \/beta profile source registration/i
     );
   });
 
@@ -153,7 +153,9 @@ describe("init errors", () => {
 
     await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
-    await expect(updateTsProject({ outDir, usePreviewFeatures: false })).rejects.toThrow(/use-preview-features/i);
+    await expect(updateTsProject({ outDir, usePreviewFeatures: false })).rejects.toThrow(
+      /connection\.contentCategory uses Graph \/beta property 'contentCategory'/i
+    );
   });
 
   test("updateRestProject fails when preview features are required", async () => {
@@ -163,7 +165,9 @@ describe("init errors", () => {
 
     await initRestProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
-    await expect(updateRestProject({ outDir, usePreviewFeatures: false })).rejects.toThrow(/use-preview-features/i);
+    await expect(updateRestProject({ outDir, usePreviewFeatures: false })).rejects.toThrow(
+      /connection\.profileSource uses Graph \/beta profile source registration/i
+    );
   });
 
   test("updateDotnetProject fails when schema validation fails", async () => {

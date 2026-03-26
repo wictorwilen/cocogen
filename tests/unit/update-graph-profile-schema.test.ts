@@ -5,7 +5,10 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
+  buildGraphCapabilitySnapshot,
+  parseExternalConnectorLabelSets,
   parseGraphMetadataSnapshot,
+  writeGraphCapabilitySnapshot,
   writeGraphProfileSnapshot,
 } from "../../scripts/update-graph-profile-schema.ts";
 
@@ -116,6 +119,63 @@ const metadataXml = `<?xml version="1.0" encoding="utf-8"?>
   </edmx:DataServices>
 </edmx:Edmx>`;
 
+const v1MetadataXml = `<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema Namespace="microsoft.graph" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityType Name="itemFacet" />
+      <EntityType Name="userAccountInformation" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="personName" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="workPosition" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="itemAddress" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="itemEmail" BaseType="microsoft.graph.itemFacet">
+        <Property Name="type" Type="Edm.String" Nullable="false" />
+      </EntityType>
+      <EntityType Name="itemPhone" BaseType="microsoft.graph.itemFacet">
+        <Property Name="type" Type="Edm.String" Nullable="false" />
+      </EntityType>
+      <EntityType Name="personAward" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="personCertification" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="projectParticipation" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="skillProficiency" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="webAccount" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="personWebsite" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="personAnnualEvent" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="personAnnotation" BaseType="microsoft.graph.itemFacet" />
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+const v1OpenApiYaml = `components:
+  schemas:
+    microsoft.graph.externalConnectors.label:
+      title: label
+      enum:
+        - title
+        - url
+        - iconUrl
+      type: string
+    microsoft.graph.externalConnectors.property:
+      properties:
+        labels:
+          description: 'Specifies one or more well-known tags added against a property. The possible values are: title, url, createdBy, containerName. Use the Prefer: include-unknown-enum-members request header to retrieve additional values defined in this evolvable enum, For People Connectors you can include : personAccount, personWebSite, personAnniversaries.'
+`;
+
+const betaOpenApiYaml = `components:
+  schemas:
+    microsoft.graph.externalConnectors.label:
+      title: label
+      enum:
+        - title
+        - url
+        - iconUrl
+      type: string
+    microsoft.graph.externalConnectors.property:
+      properties:
+        labels:
+          description: 'Specifies one or more well-known tags added against a property. The possible values are: title, url, createdBy, containerName, itemPath. Use the Prefer: include-unknown-enum-members request header to retrieve additional values defined in this evolvable enum, For People Connectors you can include : personAccount, personWebSite, personAnniversaries, personManager.'
+`;
+
 describe("scripts/update-graph-profile-schema", () => {
   test("extracts referenced enums and nested graph types from metadata", () => {
     const snapshot = parseGraphMetadataSnapshot(metadataXml, "2026-03-16T00:00:00.000Z");
@@ -172,5 +232,57 @@ describe("scripts/update-graph-profile-schema", () => {
     expect(outPath).toBe(path.join(cwd, "data", "graph-profile-schema.json"));
     expect(disk.generatedAt).toBe("2026-03-16T00:00:00.000Z");
     expect(disk.enums.find((entry) => entry.name === "personRelationship")?.members.map((member) => member.name)).toContain("manager");
+  });
+
+  test("extracts dynamic external connector labels from OpenAPI", () => {
+    const labels = parseExternalConnectorLabelSets(v1OpenApiYaml);
+
+    expect(labels.allLabels).toEqual(
+      expect.arrayContaining(["title", "url", "createdBy", "containerName", "personAccount", "personWebSite"])
+    );
+    expect(labels.peopleLabels).toEqual(
+      expect.arrayContaining(["personAccount", "personWebSite", "personAnniversaries"])
+    );
+  });
+
+  test("builds a capability snapshot by comparing v1.0 and beta metadata", () => {
+    const v1Snapshot = parseGraphMetadataSnapshot(v1MetadataXml, "2026-03-16T00:00:00.000Z", "v1.0");
+    const betaSnapshot = parseGraphMetadataSnapshot(metadataXml, "2026-03-16T00:00:00.000Z", "beta");
+
+    const capabilities = buildGraphCapabilitySnapshot(
+      v1Snapshot,
+      betaSnapshot,
+      parseExternalConnectorLabelSets(v1OpenApiYaml),
+      parseExternalConnectorLabelSets(betaOpenApiYaml),
+      "2026-03-16T00:00:00.000Z"
+    );
+
+    expect(capabilities.peopleLabels.personAccount.minGraphApiVersion).toBe("v1.0");
+    expect(capabilities.peopleLabels.personWebSite.minGraphApiVersion).toBe("v1.0");
+    expect(capabilities.labels.personManager.minGraphApiVersion).toBe("beta");
+    expect(capabilities.profileTypes.userAccountInformation.minGraphApiVersion).toBe("v1.0");
+    expect(capabilities.connectionProperties.contentCategory?.minGraphApiVersion).toBe("beta");
+    expect(capabilities.propertyTypes.principal?.minGraphApiVersion).toBe("beta");
+  });
+
+  test("writes the capability snapshot to the data folder", async () => {
+    const v1Snapshot = parseGraphMetadataSnapshot(v1MetadataXml, "2026-03-16T00:00:00.000Z", "v1.0");
+    const betaSnapshot = parseGraphMetadataSnapshot(metadataXml, "2026-03-16T00:00:00.000Z", "beta");
+    const capabilities = buildGraphCapabilitySnapshot(
+      v1Snapshot,
+      betaSnapshot,
+      parseExternalConnectorLabelSets(v1OpenApiYaml),
+      parseExternalConnectorLabelSets(betaOpenApiYaml),
+      "2026-03-16T00:00:00.000Z"
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "cocogen-graph-capabilities-"));
+
+    const outPath = await writeGraphCapabilitySnapshot(capabilities, cwd);
+    const disk = JSON.parse(await readFile(outPath, "utf8")) as typeof capabilities;
+
+    expect(outPath).toBe(path.join(cwd, "data", "graph-capabilities.json"));
+    expect(disk.peopleLabels.personWebSite.minGraphApiVersion).toBe("v1.0");
+    expect(disk.labels.personManager.minGraphApiVersion).toBe("beta");
+    expect(disk.connectionProperties.contentCategory?.minGraphApiVersion).toBe("beta");
   });
 });
