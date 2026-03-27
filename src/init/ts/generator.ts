@@ -440,6 +440,26 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       };
     });
 
+    const transformExpressions = transformProperties.map((prop) => prop.expression).join("\n");
+    const tsRowHelperImports = [
+      "parseBoolean",
+      "parseNumber",
+      "parseNumberCollection",
+      "parseString",
+      "parseStringCollection",
+      "readSourceValue",
+      "applyDefaultString",
+      "applyDefaultCollection",
+      "applyStringTransforms",
+      "applyCollectionTransforms",
+    ].filter((name) => new RegExp(`\\b${name}\\b`).test(transformExpressions));
+    const tsValidationImports = [
+      "validateNumber",
+      "validateNumberCollection",
+      "validateString",
+      "validateStringCollection",
+    ].filter((name) => new RegExp(`\\b${name}\\b`).test(transformExpressions));
+
     const idProperty = this.ir.properties.find((p) => p.name === this.ir.item.idPropertyName);
     const idRawSource = idProperty?.personEntity?.fields[0]?.source ?? idProperty?.source;
     const idDefaultLiteral = idRawSource?.default !== undefined ? JSON.stringify(idRawSource.default) : null;
@@ -597,6 +617,8 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         properties: transformProperties,
         usesPrincipal,
         peopleEntityTypes: Array.from(peopleEntityTypes),
+        rowHelperImports: tsRowHelperImports,
+        validationImports: tsValidationImports,
       }),
       "utf8"
     );

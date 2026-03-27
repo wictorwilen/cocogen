@@ -3,22 +3,20 @@
  * Regenerated on every cocogen update.
  */
 
+<% if (rowHelperImports && rowHelperImports.length > 0) { -%>
 import {
-  parseBoolean,
-  parseNumber,
-  parseNumberCollection,
-  parseString,
-  parseStringCollection,
-  readSourceValue,
-  applyDefaultString,
-  applyDefaultCollection,
+<% for (const helperName of rowHelperImports) { -%>
+  <%= helperName %>,
+<% } -%>
 } from "../datasource/row.js";
+<% } -%>
+<% if (validationImports && validationImports.length > 0) { -%>
 import {
-  validateNumber,
-  validateNumberCollection,
-  validateString,
-  validateStringCollection,
+<% for (const helperName of validationImports) { -%>
+  <%= helperName %>,
+<% } -%>
 } from "../core/validation.js";
+<% } -%>
 <% if (peopleEntityTypes && peopleEntityTypes.length > 0) { -%>
 import type {
 <% for (const typeName of peopleEntityTypes) { -%>

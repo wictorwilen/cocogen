@@ -702,6 +702,9 @@ model PersonProfile {
     expect(transforms).toContain("skills");
     expect(transforms).toContain("displayName");
     expect(transforms).toContain("userPrincipalName");
+    expect(transforms).not.toContain("parseNumberCollection,");
+    expect(transforms).not.toContain("applyDefaultCollection,");
+    expect(transforms).not.toContain("validateNumber,");
   });
 
   test("initTsProject emits people validators and serialization helpers", async () => {
@@ -810,6 +813,8 @@ model PersonProfile {
     const tsTransforms = await readFile(path.join(outTs, "src", schemaFolder, "propertyTransformBase.ts"), "utf8");
     expect(tsTransforms).toContain("applyStringTransforms(");
     expect(tsTransforms).toContain('["trim","uppercase"]');
+    expect(tsTransforms).toContain("applyStringTransforms,");
+    expect(tsTransforms).not.toContain("parseNumberCollection,");
 
     const tsRowHelpers = await readFile(path.join(outTs, "src", "datasource", "row.ts"), "utf8");
     expect(tsRowHelpers).toContain("function applyStringTransforms");

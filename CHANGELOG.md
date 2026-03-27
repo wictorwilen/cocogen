@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated .NET people payloads now pass inline per-property serialization options into a generic shared people helper instead of relying on emitted label-definition dictionaries and payload-kind enums.
 - Generated TypeScript people helpers now export only the Graph SDK aliases that are actually referenced by emitted payload and transform files instead of emitting the entire discovered profile alias set.
 - Generated TypeScript people helpers no longer export the internal label-serialization options type, and generated TS item payloads now avoid importing `contentPropertyName` when the schema has no content field.
+- Generated TypeScript property-transform files now import only the datasource and validation helpers that their rendered transform expressions actually use.
 
 ## [1.0.50] - 2026-03-26
 
