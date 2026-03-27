@@ -220,8 +220,12 @@ ${indentUnit.repeat(level)}}`,
       : `${bodyIndent}const lengths = [0];`;
     const rendered = renderNodeForCollectionMany(node, level + 2, elementInfo, fieldVarByPath);
     const typed = elementInfo ? `(${rendered} as ${elementInfo.alias})` : rendered;
+    const usesCollectionHelper = typed.includes("getCollectionValue(");
+    const collectionHelperBlock = usesCollectionHelper
+      ? `\n${bodyIndent}const getCollectionValue = (values: string[], index: number): string[] => {\n${bodyIndent}${indentUnit}if (values.length === 0) return [];\n${bodyIndent}${indentUnit}if (values.length === 1) return [values[0] ?? ""];\n${bodyIndent}${indentUnit}return index < values.length ? [values[index] ?? ""] : [];\n${bodyIndent}};`
+      : "";
 
-    return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}if (maxLen === 0) return undefined;\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return "";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? "";\n${bodyIndent}${indentUnit}return values[index] ?? "";\n${bodyIndent}};\n${bodyIndent}const getCollectionValue = (values: string[], index: number): string[] => {\n${bodyIndent}${indentUnit}if (values.length === 0) return [];\n${bodyIndent}${indentUnit}if (values.length === 1) return [values[0] ?? ""];\n${bodyIndent}${indentUnit}return index < values.length ? [values[index] ?? ""] : [];\n${bodyIndent}};\n${bodyIndent}const results: Array<${elementInfo ? elementInfo.alias : "unknown"}> = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(${typed});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}})()`;
+    return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}if (maxLen === 0) return undefined;\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return "";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? "";\n${bodyIndent}${indentUnit}return values[index] ?? "";\n${bodyIndent}};${collectionHelperBlock}\n${bodyIndent}const results: Array<${elementInfo ? elementInfo.alias : "unknown"}> = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(${typed});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}})()`;
   }
 
   return {
@@ -403,6 +407,10 @@ ${indent}}`;
   const renderedMany = renderNodeForCollectionMany(tree, 1, typeInfo, fieldVarByPath);
   const typedMany = typeInfo ? `(${renderedMany} as ${typeInfo.alias})` : renderedMany;
   const typedManyIndented = indentLines(typedMany, `${bodyIndent}${indentUnit}${indentUnit}`);
+  const usesCollectionHelper = typedMany.includes("getCollectionValue(");
+  const collectionHelperBlock = usesCollectionHelper
+    ? `\n${bodyIndent}const getCollectionValue = (values: string[], index: number): string[] => {\n${bodyIndent}${indentUnit}if (values.length === 0) return [];\n${bodyIndent}${indentUnit}if (values.length === 1) return [values[0] ?? ""];\n${bodyIndent}${indentUnit}return index < values.length ? [values[index] ?? ""] : [];\n${bodyIndent}};`
+    : "";
 
-  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return "";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? "";\n${bodyIndent}${indentUnit}return values[index] ?? "";\n${bodyIndent}};\n${bodyIndent}const getCollectionValue = (values: string[], index: number): string[] => {\n${bodyIndent}${indentUnit}if (values.length === 0) return [];\n${bodyIndent}${indentUnit}if (values.length === 1) return [values[0] ?? ""];\n${bodyIndent}${indentUnit}return index < values.length ? [values[index] ?? ""] : [];\n${bodyIndent}};\n${bodyIndent}const results: string[] = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(JSON.stringify(\n${typedManyIndented}\n${bodyIndent}${indentUnit}));\n${bodyIndent}}\n${bodyIndent}return results;\n${closeIndent}})()`;
+  return `(() => {\n${fieldLines.join("\n")}\n${lengthVars}\n${bodyIndent}const maxLen = Math.max(0, ...lengths);\n${bodyIndent}const getValue = (values: string[], index: number): string => {\n${bodyIndent}${indentUnit}if (values.length === 0) return "";\n${bodyIndent}${indentUnit}if (values.length === 1) return values[0] ?? "";\n${bodyIndent}${indentUnit}return values[index] ?? "";\n${bodyIndent}};${collectionHelperBlock}\n${bodyIndent}const results: string[] = [];\n${bodyIndent}for (let index = 0; index < maxLen; index++) {\n${bodyIndent}${indentUnit}results.push(JSON.stringify(\n${typedManyIndented}\n${bodyIndent}${indentUnit}));\n${bodyIndent}}\n${bodyIndent}return results;\n${closeIndent}})()`;
 }

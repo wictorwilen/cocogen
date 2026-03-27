@@ -277,8 +277,12 @@ function createCollectionRenderers(
       : `${bodyIndent}var maxLen = 0;`;
 
     const objectExpression = renderNodeForCollectionMany(node, level + 1, elementInfo, fieldVarByPath);
+    const usesCollectionHelper = objectExpression.includes("GetCollectionValue(");
+    const collectionHelperBlock = usesCollectionHelper
+      ? `\n${bodyIndent}List<string> GetCollectionValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return new List<string>();\n${bodyIndent}${indentUnit}if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n${bodyIndent}${indentUnit}return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n${bodyIndent}}`
+      : "";
 
-    return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${fieldLines.join("\n")}\n${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return \"\";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? \"\") : \"\";\n${bodyIndent}}\n${bodyIndent}List<string> GetCollectionValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return new List<string>();\n${bodyIndent}${indentUnit}if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n${bodyIndent}${indentUnit}return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n${bodyIndent}}\n${lengthLines}\n${bodyIndent}if (maxLen == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}for (var index = 0; index < maxLen; index++)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
+    return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${fieldLines.join("\n")}\n${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return \"\";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? \"\") : \"\";\n${bodyIndent}}${collectionHelperBlock}\n${lengthLines}\n${bodyIndent}if (maxLen == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}for (var index = 0; index < maxLen; index++)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
   };
 
   return {
@@ -574,6 +578,10 @@ export function buildCsPersonEntityCollectionExpression(
   const objectExpression = renderNodeForCollectionMany(tree, 2, typeInfo, fieldVarByPath);
 
   const typedObjectExpression = objectExpression;
+  const usesCollectionHelper = typedObjectExpression.includes("GetCollectionValue(");
+  const collectionHelperBlock = usesCollectionHelper
+    ? `\n        List<string> GetCollectionValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return new List<string>();\n            if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n            return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n        }`
+    : "";
 
-  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }\n        List<string> GetCollectionValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return new List<string>();\n            if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n            return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n        }\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
+  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }${collectionHelperBlock}\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
 }

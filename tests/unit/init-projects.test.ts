@@ -705,6 +705,7 @@ model PersonProfile {
     expect(transforms).not.toContain("parseNumberCollection,");
     expect(transforms).not.toContain("applyDefaultCollection,");
     expect(transforms).not.toContain("validateNumber,");
+    expect(transforms).not.toContain("const getCollectionValue =");
   });
 
   test("initTsProject emits people validators and serialization helpers", async () => {
@@ -745,6 +746,7 @@ model PersonProfile {
 
     const defaults = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(defaults).toContain("skill");
+    expect(defaults).not.toContain("List<string> GetCollectionValue(List<string> values, int index)");
 
     const overrides = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overrides).toContain("PropertyTransform");
