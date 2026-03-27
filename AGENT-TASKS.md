@@ -45,6 +45,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Replace generated .NET people helper label-definition dictionaries with inline per-property serialization options so the helper stays a generic shared validator/serializer ✅
 - Trim generated TS/.NET people helpers when outputs are fully SDK-backed so they only emit shared validation/serialization boilerplate ✅
 - Route Graph `itemBody` through the official TS/.NET SDK model types instead of treating it as a string-like special case ✅
 - Stop emitting duplicate Graph enum declarations in generated .NET people helpers when the official SDK enum types are already used ✅

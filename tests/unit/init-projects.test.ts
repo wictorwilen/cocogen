@@ -656,6 +656,9 @@ model PersonProfile {
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(peoplePayload).not.toContain("using Date = System.DateOnly;");
     expect(peoplePayload).not.toContain("public sealed class WorkPosition");
+    expect(peoplePayload).toContain("public sealed record PeopleLabelSerializationOptions(");
+    expect(peoplePayload).not.toContain("public sealed record PeopleLabelDefinition(");
+    expect(peoplePayload).not.toContain("public enum PeoplePayloadKind");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.WorkPosition");

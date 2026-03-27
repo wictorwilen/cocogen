@@ -9,43 +9,15 @@ using Date = System.DateOnly;
 
 namespace <%= namespaceName %>.Core;
 
-public enum PeoplePayloadKind
-{
-    String,
-    StringCollection
-}
-
-public sealed record PeopleLabelDefinition(
+public sealed record PeopleLabelSerializationOptions(
     string Label,
-    string GraphTypeName,
-    PeoplePayloadKind PayloadKind,
     IReadOnlyList<string> RequiredFields,
-    int? CollectionLimit
+    int? CollectionLimit,
+    bool DisallowReadonlyItemFacetFields
 );
 
 public static class PeoplePayload
 {
-    private static readonly Dictionary<string, PeopleLabelDefinition> Definitions = new(StringComparer.OrdinalIgnoreCase)
-    {
-<% for (const def of peopleLabelDefinitions) { -%>
-<% const requiredFields = def.requiredFields.length ? `new[] { ${def.requiredFields.map((field) => JSON.stringify(field)).join(", ")} }` : "Array.Empty<string>()"; -%>
-        [<%= JSON.stringify(def.label) %>] = new PeopleLabelDefinition(
-            <%= JSON.stringify(def.label) %>,
-            <%= JSON.stringify(def.graphTypeName) %>,
-            PeoplePayloadKind.<%= def.payloadType === "string" ? "String" : "StringCollection" %>,
-            <%- requiredFields %>,
-            <%= def.collectionLimit ?? "null" %>
-        ),
-<% } -%>
-    };
-
-    private static readonly HashSet<string> ItemFacetTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-<% for (const typeName of itemFacetTypeNames ?? []) { -%>
-        <%= JSON.stringify(typeName) %>,
-<% } -%>
-    };
-
     private static readonly string[] ItemFacetReadOnlyFields =
     {
 <% for (const field of itemFacetReadOnlyFields ?? []) { -%>
@@ -53,32 +25,30 @@ public static class PeoplePayload
 <% } -%>
     };
 
-    public static string? SerializeStringLabel(string label, string? value, string propertyName)
+    public static string? SerializeStringLabel(string? value, string propertyName, PeopleLabelSerializationOptions options)
     {
         if (value is null) return value;
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new InvalidOperationException(
-                $"People label '{label}' on property '{propertyName}' must be a non-empty JSON string.");
+                $"People label '{options.Label}' on property '{propertyName}' must be a non-empty JSON string.");
         }
-        var definition = GetDefinition(label, PeoplePayloadKind.String, propertyName);
-        var element = ParseJsonObject(label, value, propertyName);
-        if (ItemFacetTypes.Contains(definition.GraphTypeName))
+        var element = ParseJsonObject(options.Label, value, propertyName);
+        if (options.DisallowReadonlyItemFacetFields)
         {
-            EnsureItemFacetReadOnlyFields(definition.Label, element, propertyName);
+            EnsureItemFacetReadOnlyFields(options.Label, element, propertyName);
         }
-        ValidateRequiredFields(definition, element, propertyName);
+        ValidateRequiredFields(options, element, propertyName);
         return value;
     }
 
-    public static List<string>? SerializeCollectionLabel(string label, List<string>? values, string propertyName)
+    public static List<string>? SerializeCollectionLabel(List<string>? values, string propertyName, PeopleLabelSerializationOptions options)
     {
         if (values is null) return values;
-        var definition = GetDefinition(label, PeoplePayloadKind.StringCollection, propertyName);
-        if (definition.CollectionLimit.HasValue && values.Count > definition.CollectionLimit.Value)
+        if (options.CollectionLimit.HasValue && values.Count > options.CollectionLimit.Value)
         {
             throw new InvalidOperationException(
-                $"People label '{label}' on property '{propertyName}' exceeds collection limit of {definition.CollectionLimit.Value}.");
+                $"People label '{options.Label}' on property '{propertyName}' exceeds collection limit of {options.CollectionLimit.Value}.");
         }
 
         for (var index = 0; index < values.Count; index++)
@@ -87,34 +57,18 @@ public static class PeoplePayload
             if (string.IsNullOrWhiteSpace(value))
             {
                 throw new InvalidOperationException(
-                    $"People label '{label}' on property '{propertyName}' contains an empty payload at index {index}.");
+                    $"People label '{options.Label}' on property '{propertyName}' contains an empty payload at index {index}.");
             }
 
-            var element = ParseJsonObject(label, value, propertyName);
-            if (ItemFacetTypes.Contains(definition.GraphTypeName))
+            var element = ParseJsonObject(options.Label, value, propertyName);
+            if (options.DisallowReadonlyItemFacetFields)
             {
-                EnsureItemFacetReadOnlyFields(definition.Label, element, propertyName);
+                EnsureItemFacetReadOnlyFields(options.Label, element, propertyName);
             }
-            ValidateRequiredFields(definition, element, propertyName);
+            ValidateRequiredFields(options, element, propertyName);
         }
 
         return values;
-    }
-
-    private static PeopleLabelDefinition GetDefinition(string label, PeoplePayloadKind expected, string propertyName)
-    {
-        if (!Definitions.TryGetValue(label, out var definition))
-        {
-            throw new InvalidOperationException($"Unknown people label '{label}' on property '{propertyName}'.");
-        }
-
-        if (definition.PayloadKind != expected)
-        {
-            throw new InvalidOperationException(
-                $"People label '{label}' on property '{propertyName}' expects {definition.PayloadKind} payloads.");
-        }
-
-        return definition;
     }
 
     private static JsonElement ParseJsonObject(string label, string value, string propertyName)
@@ -136,14 +90,14 @@ public static class PeoplePayload
         }
     }
 
-    private static void ValidateRequiredFields(PeopleLabelDefinition definition, JsonElement element, string propertyName)
+    private static void ValidateRequiredFields(PeopleLabelSerializationOptions options, JsonElement element, string propertyName)
     {
-        foreach (var required in definition.RequiredFields)
+        foreach (var required in options.RequiredFields)
         {
             if (!element.TryGetProperty(required, out var property) || property.ValueKind == JsonValueKind.Null)
             {
                 throw new InvalidOperationException(
-                    $"People label '{definition.Label}' on property '{propertyName}' is missing required field '{required}'.");
+                    $"People label '{options.Label}' on property '{propertyName}' is missing required field '{required}'.");
             }
         }
     }

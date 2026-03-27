@@ -131,6 +131,9 @@ describe("people label serialization (e2e)", () => {
     expect(payload).not.toContain("public enum PersonRelationship");
     expect(payload).not.toContain("public sealed class ItemBody");
     expect(payload).not.toContain("using Date = System.DateOnly;");
+    expect(payload).toContain("public sealed record PeopleLabelSerializationOptions(");
+    expect(payload).not.toContain("public sealed record PeopleLabelDefinition(");
+    expect(payload).not.toContain("public enum PeoplePayloadKind");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.ItemBody { Content =");

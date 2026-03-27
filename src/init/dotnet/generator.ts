@@ -2,7 +2,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
-import { getPeopleLabelInfo, supportedPeopleLabels } from "../../people/label-registry.js";
+import { getPeopleLabelDefinition, getPeopleLabelInfo, supportedPeopleLabels } from "../../people/label-registry.js";
 import { getProfileEnum, graphProfileSchema } from "../../people/profile-schema.js";
 import {
   toCsIdentifier,
@@ -223,12 +223,17 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     const usedPropertyNames = new Set<string>();
     const peopleLabelDefinitions = supportedPeopleLabels().map((label) => {
       const info = getPeopleLabelInfo(label);
+      const definition = getPeopleLabelDefinition(label);
+      if (!definition) {
+        throw new Error(`Missing people label definition for '${label}'.`);
+      }
       return {
         label: info.label,
         payloadType: info.payloadType,
         graphTypeName: info.graphTypeName,
         requiredFields: info.requiredFields,
         collectionLimit: info.collectionLimit ?? null,
+        inheritsItemFacet: definition.schema.name === "itemFacet" || (definition.schema.baseType ?? null) === "itemFacet",
       };
     });
     const peopleGraphTypesBundle = buildPeopleGraphTypes(this.ir);
@@ -684,12 +689,19 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         }
         let valueExpression = toCsPropertyValueExpression(p.type, p.csName);
         if (p.peopleLabel) {
-          const labelLiteral = JSON.stringify(p.peopleLabel);
           const propertyLiteral = JSON.stringify(p.name);
+          const peopleLabelDefinition = peopleLabelDefinitions.find((entry) => entry.label === p.peopleLabel);
+          if (!peopleLabelDefinition) {
+            throw new Error(`Missing people label definition for '${p.peopleLabel}'.`);
+          }
+          const requiredFieldsLiteral = peopleLabelDefinition.requiredFields.length
+            ? `new[] { ${peopleLabelDefinition.requiredFields.map((field) => JSON.stringify(field)).join(", ")} }`
+            : "Array.Empty<string>()";
+          const peopleOptionsLiteral = `new PeopleLabelSerializationOptions(${JSON.stringify(peopleLabelDefinition.label)}, ${requiredFieldsLiteral}, ${peopleLabelDefinition.collectionLimit ?? "null"}, ${peopleLabelDefinition.inheritsItemFacet ? "true" : "false"})`;
           if (p.type === "string") {
-            valueExpression = `PeoplePayload.SerializeStringLabel(${labelLiteral}, item.${p.csName}, ${propertyLiteral})`;
+            valueExpression = `PeoplePayload.SerializeStringLabel(item.${p.csName}, ${propertyLiteral}, ${peopleOptionsLiteral})`;
           } else if (p.type === "stringCollection") {
-            valueExpression = `PeoplePayload.SerializeCollectionLabel(${labelLiteral}, item.${p.csName}, ${propertyLiteral})`;
+            valueExpression = `PeoplePayload.SerializeCollectionLabel(item.${p.csName}, ${propertyLiteral}, ${peopleOptionsLiteral})`;
           }
         }
         lines.push(`                { ${JSON.stringify(p.name)}, ${valueExpression} },`);
