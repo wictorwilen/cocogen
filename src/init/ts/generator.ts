@@ -633,6 +633,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         properties: payloadProperties,
         usesGenericPeopleLabelSerializer,
         payloadPeopleGraphTypes: Array.from(payloadPeopleGraphTypes).sort(),
+        hasContentProperty: Boolean(this.ir.item.contentPropertyName),
         contentValueExpression,
         contentType,
         itemTypeName: this.ir.item.typeName,

@@ -351,6 +351,7 @@ describe("project init/update", () => {
     expect(transformBase).toContain("\"fum\"");
 
     const itemPayload = await readFile(path.join(outDir, "src", "ContentConnector", "itemPayload.ts"), "utf8");
+    expect(itemPayload).toContain('import { contentPropertyName, idPropertyName } from "./constants.js";');
     expect(itemPayload).toContain("type: \"html\"");
   });
 
@@ -382,6 +383,7 @@ describe("project init/update", () => {
     expect(transformBase).toContain(".join(\"\\n\")");
 
     const itemPayload = await readFile(path.join(outDir, "src", "ContentConnector", "itemPayload.ts"), "utf8");
+    expect(itemPayload).toContain('import { contentPropertyName, idPropertyName } from "./constants.js";');
     expect(itemPayload).toContain("type: \"text\"");
   });
 
@@ -714,6 +716,7 @@ model PersonProfile {
     expect(helpers).toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
     expect(helpers).toContain("export type SkillProficiency = MicrosoftGraphBeta.SkillProficiency;");
     expect(helpers).not.toContain("export type PersonAward = MicrosoftGraphBeta.PersonAward;");
+    expect(helpers).not.toContain("export type PeopleLabelSerializationOptions = {");
     expect(helpers).toContain("export function serializeSdkPeopleLabelValue<T>(");
     expect(helpers).toContain("const serializeSdkCollectionValue = <T>(");
     expect(helpers).not.toContain("export function serializePersonSkills");
@@ -721,6 +724,8 @@ model PersonProfile {
 
     const payload = await readFile(path.join(outDir, "src", schemaFolder, "itemPayload.ts"), "utf8");
     expect(payload).toContain("serializeSdkPeopleLabelValue<SkillProficiency>(");
+    expect(payload).toContain('import { idPropertyName } from "./constants.js";');
+    expect(payload).not.toContain("contentPropertyName");
 
     const pkg = await readFile(path.join(outDir, "package.json"), "utf8");
     expect(pkg).toContain('"@microsoft/microsoft-graph-types": "^2.43.1"');

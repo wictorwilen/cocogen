@@ -2,7 +2,7 @@
  * Build ExternalItem payloads for Graph ingestion.
  */
 import type { <%= itemTypeName %> } from "./model.js";
-import { contentPropertyName, idPropertyName } from "./constants.js";
+import { <%= hasContentProperty ? "contentPropertyName, " : "" %>idPropertyName } from "./constants.js";
 import { getItemId as getItemIdFromCore, type IdEncoding } from "../core/itemId.js";
 <% if (usesGenericPeopleLabelSerializer) { -%>
 import type {
