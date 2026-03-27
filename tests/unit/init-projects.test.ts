@@ -713,6 +713,7 @@ model PersonProfile {
     const helpers = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
     expect(helpers).toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
     expect(helpers).toContain("export type SkillProficiency = MicrosoftGraphBeta.SkillProficiency;");
+    expect(helpers).not.toContain("export type PersonAward = MicrosoftGraphBeta.PersonAward;");
     expect(helpers).toContain("export function serializeSdkPeopleLabelValue<T>(");
     expect(helpers).toContain("const serializeSdkCollectionValue = <T>(");
     expect(helpers).not.toContain("export function serializePersonSkills");

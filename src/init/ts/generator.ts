@@ -199,6 +199,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
     const peopleGraphTypesBundle = hasPeopleSupport ? buildPeopleGraphTypes(this.ir) : null;
     const peopleGraphTypes = peopleGraphTypesBundle ? peopleGraphTypesBundle.templates : [];
     const graphAliases = peopleGraphTypesBundle ? peopleGraphTypesBundle.aliases : new Map<string, PeopleGraphTypeAlias>();
+    const peopleGraphTypeByAlias = new Map(peopleGraphTypes.map((type) => [type.alias, type]));
     const peopleProfileTypeInfoByAlias = new Map<string, TsPersonEntityTypeInfo>();
     if (hasPeopleSupport && peopleGraphTypesBundle) {
       for (const type of graphProfileSchema.types) {
@@ -485,6 +486,39 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         };
       });
 
+    const collectPeopleHelperGraphTypes = (directAliases: Iterable<string>) => {
+      const selected = new Set<string>();
+
+      const visit = (alias: string) => {
+        if (selected.has(alias)) return;
+        const type = peopleGraphTypeByAlias.get(alias);
+        if (!type) return;
+        selected.add(alias);
+        if (type.sourcePackage) {
+          return;
+        }
+        if (type.baseAlias) {
+          visit(type.baseAlias);
+        }
+        for (const field of type.fields) {
+          const dependencies = field.tsType.match(/[A-Z][A-Za-z0-9_]*/g) ?? [];
+          for (const dependency of dependencies) {
+            visit(dependency);
+          }
+        }
+      };
+
+      for (const alias of directAliases) {
+        visit(alias);
+      }
+
+      return peopleGraphTypes.filter((type) => selected.has(type.alias));
+    };
+
+    const peopleHelperGraphTypes = collectPeopleHelperGraphTypes(
+      new Set([...peopleEntityTypes, ...payloadPeopleGraphTypes])
+    );
+
     await writeFile(
       path.join(this.outDir, "src", schemaFolderName, "model.ts"),
       await renderTemplate("ts/src/generated/model.ts.ejs", {
@@ -549,7 +583,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       await writeFile(
         path.join(this.outDir, "src", "core", "people.ts"),
         await renderTemplate("ts/src/core/people.ts.ejs", {
-          graphTypes: peopleGraphTypes,
+          graphTypes: peopleHelperGraphTypes,
           labels: peopleLabelSerializers,
           graphEnums: buildGraphEnumTemplates(),
         }),

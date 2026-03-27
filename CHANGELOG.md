@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated TS and .NET people helpers now bind Graph `itemBody` through the official Microsoft Graph SDK model types instead of treating it as a local string-like special case.
 - Generated TS and .NET people helpers now omit local model and enum boilerplate when a connector is fully SDK-backed and only needs shared people payload validation/serialization utilities.
 - Generated .NET people payloads now pass inline per-property serialization options into a generic shared people helper instead of relying on emitted label-definition dictionaries and payload-kind enums.
+- Generated TypeScript people helpers now export only the Graph SDK aliases that are actually referenced by emitted payload and transform files instead of emitting the entire discovered profile alias set.
 
 ## [1.0.50] - 2026-03-26
 
