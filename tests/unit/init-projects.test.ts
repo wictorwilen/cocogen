@@ -654,7 +654,7 @@ model PersonProfile {
     expect(model).toContain("public string InternalId { get; set; } = \"\";");
 
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
-    expect(peoplePayload).toContain("using Date = System.DateOnly;");
+    expect(peoplePayload).not.toContain("using Date = System.DateOnly;");
     expect(peoplePayload).not.toContain("public sealed class WorkPosition");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");

@@ -2,9 +2,13 @@
  * Graph people entity helpers (generated).
  */
 
+<% const hasLocalGraphTypes = graphTypes.some((type) => !type.sourcePackage); -%>
+
 type UnknownObject = { [key: string]: unknown };
 
+<% if (hasLocalGraphTypes) { -%>
 type Open<T> = T & Record<string, unknown>;
+<% } -%>
 
 <% const usesStableGraphTypes = graphTypes.some((type) => type.sourcePackage === "v1"); -%>
 <% const usesBetaGraphTypes = graphTypes.some((type) => type.sourcePackage === "beta"); -%>
@@ -155,7 +159,7 @@ export function serializeSdkPeopleLabelValue<T>(
   return serializeSdkSingleValue<T>(value, fieldName, options.disallowReadonlyItemFacetFields);
 }
 
-<% if (graphEnums && graphEnums.length > 0) { -%>
+<% if (hasLocalGraphTypes && graphEnums && graphEnums.length > 0) { -%>
 <% for (const enumDef of graphEnums) { -%>
 export type <%= enumDef.tsName %> =
 <% for (const value of enumDef.values) { -%>

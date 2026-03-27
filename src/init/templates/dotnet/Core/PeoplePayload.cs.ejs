@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+<% const hasLocalGraphTypes = peopleProfileTypes.some((type) => !type.sourcePackage); -%>
+<% if (hasLocalGraphTypes) { -%>
 using System.Text.Json.Serialization;
 using Date = System.DateOnly;
+<% } -%>
 
 namespace <%= namespaceName %>.Core;
 
@@ -158,6 +161,7 @@ public static class PeoplePayload
     }
 }
 
+<% if (hasLocalGraphTypes) { -%>
 <% const enumNames = new Set((graphEnums ?? []).map((entry) => entry.csName)); -%>
 <% const isEnumType = (csType) => {
     const trimmed = csType.replace("?", "");
@@ -190,5 +194,6 @@ public <%= baseTypeNames.has(type.csName) ? "class" : "sealed class" %> <%= type
 <% } -%>
 }
 
+<% } -%>
 <% } -%>
 <% } -%>

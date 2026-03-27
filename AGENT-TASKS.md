@@ -27,6 +27,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Add dotnet e2e test: init + dotnet build ✅
 - V2: add source transformations (multi-column merge/compose)
 - V2: support multiple connections per generated CLI
+- Add support for parallell ingestion (N amount of async PUT calls)
 
 ## Later
 - Add snapshot tests for emitted file trees
@@ -44,6 +45,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Trim generated TS/.NET people helpers when outputs are fully SDK-backed so they only emit shared validation/serialization boilerplate ✅
 - Route Graph `itemBody` through the official TS/.NET SDK model types instead of treating it as a string-like special case ✅
 - Stop emitting duplicate Graph enum declarations in generated .NET people helpers when the official SDK enum types are already used ✅
 - Route generated .NET people transform payloads through official Microsoft Graph SDK model types where available ✅

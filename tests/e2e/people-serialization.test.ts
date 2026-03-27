@@ -98,9 +98,10 @@ describe("people label serialization (e2e)", () => {
     expect(run.code).toBe(0);
 
     const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(peopleTs).toContain("export type PersonRelationship =");
     expect(peopleTs).toContain("export type RelatedPerson = MicrosoftGraphBeta.RelatedPerson;");
     expect(peopleTs).toContain("export type ItemBody = MicrosoftGraphBeta.ItemBody;");
+    expect(peopleTs).not.toContain("const PersonRelationshipValues = new Set(");
+    expect(peopleTs).not.toContain("type Open<T> = T & Record<string, unknown>;");
   });
 
   test("dotnet output includes JSON enforcement for people payloads", async () => {
@@ -129,6 +130,7 @@ describe("people label serialization (e2e)", () => {
     expect(payload).toContain("read-only");
     expect(payload).not.toContain("public enum PersonRelationship");
     expect(payload).not.toContain("public sealed class ItemBody");
+    expect(payload).not.toContain("using Date = System.DateOnly;");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.ItemBody { Content =");
