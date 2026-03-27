@@ -44,9 +44,7 @@ export type DerivedPeopleGraphType = {
   csProperties: Array<{ name: string; csName: string; csType: string; nullable: boolean }>;
 };
 
-export const GRAPH_STRING_TYPES = new Set<string>([
-  "graph.itemBody",
-]);
+export const GRAPH_STRING_TYPES = new Set<string>();
 
 /** Strip the graph. prefix to get a profile schema type name. */
 export function resolveGraphTypeName(typeName: string): string | null {

@@ -84,6 +84,7 @@ describe("init/people/graph-types", () => {
   test("parseGraphTypeDescriptor handles collections, enums, aliases, and scalars", () => {
     const aliases = new Map<string, PeopleGraphTypeAlias>([
       ["userAccountInformation", { tsAlias: "userAccountInformation", csName: "UserAccountInformation" }],
+      ["itemBody", { tsAlias: "ItemBody", csName: "ItemBody" }],
     ]);
 
     const relationshipDescriptor = parseGraphTypeDescriptor("Collection(graph.personRelationship)", aliases);
@@ -98,6 +99,10 @@ describe("init/people/graph-types", () => {
     const aliasDescriptor = parseGraphTypeDescriptor("graph.userAccountInformation", aliases);
     expect(aliasDescriptor.tsType).toBe("userAccountInformation");
     expect(aliasDescriptor.typeCheck).toBe("isRecord(value)");
+
+    const itemBodyDescriptor = parseGraphTypeDescriptor("graph.itemBody", aliases);
+    expect(itemBodyDescriptor.tsType).toBe("ItemBody");
+    expect(itemBodyDescriptor.typeCheck).toBe("isRecord(value)");
 
     const scalarCollection = parseGraphTypeDescriptor("Collection(Edm.String)", aliases);
     expect(scalarCollection.tsType).toBe("string[]");

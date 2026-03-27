@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated TypeScript connector runtimes now send Graph requests through the official Microsoft Graph client instead of a custom fetch-based transport layer.
 - Generated .NET people property transforms now instantiate official Microsoft Graph SDK profile model types for SDK-backed people payload shapes instead of emitting local copies of those Graph models.
 - Generated .NET people helpers no longer emit duplicate local Graph enum declarations when the generated payloads already bind to the official Microsoft Graph SDK enum types.
+- Generated TS and .NET people helpers now bind Graph `itemBody` through the official Microsoft Graph SDK model types instead of treating it as a local string-like special case.
 
 ## [1.0.50] - 2026-03-26
 

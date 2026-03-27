@@ -44,6 +44,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Route Graph `itemBody` through the official TS/.NET SDK model types instead of treating it as a string-like special case ✅
 - Stop emitting duplicate Graph enum declarations in generated .NET people helpers when the official SDK enum types are already used ✅
 - Route generated .NET people transform payloads through official Microsoft Graph SDK model types where available ✅
 - Switch generated TS connector transport from raw fetch to the official Microsoft Graph client ✅
