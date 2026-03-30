@@ -665,6 +665,8 @@ model PersonProfile {
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.WorkPosition");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.PositionDetail");
+    expect(transforms).not.toContain("(Microsoft.Graph.Beta.Models.WorkPosition)(new Microsoft.Graph.Beta.Models.WorkPosition");
+    expect(transforms).not.toContain("(Microsoft.Graph.Beta.Models.PersonName)(new Microsoft.Graph.Beta.Models.PersonName");
     expect(transforms).toContain("StartMonthYear = RowParser.ParseDate(");
 
     const rowParser = await readFile(path.join(outDir, "Datasource", "RowParser.cs"), "utf8");
@@ -717,8 +719,8 @@ model PersonProfile {
     await initTsProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
     const helpers = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(helpers).toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
-    expect(helpers).toContain("export type SkillProficiency = MicrosoftGraphBeta.SkillProficiency;");
+    expect(helpers).not.toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
+    expect(helpers).not.toContain("export type SkillProficiency = MicrosoftGraphBeta.SkillProficiency;");
     expect(helpers).not.toContain("export type PersonAward = MicrosoftGraphBeta.PersonAward;");
     expect(helpers).not.toContain("export type PeopleLabelSerializationOptions = {");
     expect(helpers).toContain("export function serializeSdkPeopleLabelValue<T>(");
@@ -727,6 +729,8 @@ model PersonProfile {
     expect(helpers).not.toContain("export function validateSkillProficiency");
 
     const payload = await readFile(path.join(outDir, "src", schemaFolder, "itemPayload.ts"), "utf8");
+    expect(payload).toContain('from "@microsoft/microsoft-graph-types-beta";');
+    expect(payload).toContain("SkillProficiency,");
     expect(payload).toContain("serializeSdkPeopleLabelValue<SkillProficiency>(");
     expect(payload).toContain('import { idPropertyName } from "./constants.js";');
     expect(payload).not.toContain("contentPropertyName");

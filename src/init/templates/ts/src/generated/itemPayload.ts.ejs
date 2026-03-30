@@ -5,11 +5,27 @@ import type { <%= itemTypeName %> } from "./model.js";
 import { <%= hasContentProperty ? "contentPropertyName, " : "" %>idPropertyName } from "./constants.js";
 import { getItemId as getItemIdFromCore, type IdEncoding } from "../core/itemId.js";
 <% if (usesGenericPeopleLabelSerializer) { -%>
+<% if (payloadPeopleTypeImports?.stable?.length > 0) { -%>
 import type {
-<% for (const graphTypeAlias of payloadPeopleGraphTypes) { -%>
+<% for (const graphTypeAlias of payloadPeopleTypeImports.stable) { -%>
+  <%= graphTypeAlias %>,
+<% } -%>
+} from "@microsoft/microsoft-graph-types";
+<% } -%>
+<% if (payloadPeopleTypeImports?.beta?.length > 0) { -%>
+import type {
+<% for (const graphTypeAlias of payloadPeopleTypeImports.beta) { -%>
+  <%= graphTypeAlias %>,
+<% } -%>
+} from "@microsoft/microsoft-graph-types-beta";
+<% } -%>
+<% if (payloadPeopleTypeImports?.local?.length > 0) { -%>
+import type {
+<% for (const graphTypeAlias of payloadPeopleTypeImports.local) { -%>
   <%= graphTypeAlias %>,
 <% } -%>
 } from "../core/people.js";
+<% } -%>
 import { serializeSdkPeopleLabelValue } from "../core/people.js";
 <% } -%>
 <% if (usesPrincipal) { -%>

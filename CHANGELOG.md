@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Generated TypeScript people connectors now reference official stable and beta Microsoft Graph type packages for Graph profile payload models instead of fully redefining those models in generated code.
 - Generated TypeScript people helpers no longer emit redundant field-by-field runtime validation for SDK-backed Graph profile models; they keep only minimal object and read-only checks and still fully validate locally derived helper shapes.
-- Generated TypeScript people helpers now alias SDK-backed Graph profile models directly instead of wrapping them in local `Open<T>` aliases.
+- Generated TypeScript people payload and transform files now import official stable and beta Microsoft Graph profile types directly instead of routing them through re-exports from `src/core/people.ts`.
 - Generated TypeScript people label serializers now route SDK-backed Graph profile payloads through shared generic SDK serialization helpers instead of emitting per-type validation wrappers.
 - Generated TypeScript connector runtimes now send Graph requests through the official Microsoft Graph client instead of a custom fetch-based transport layer.
 - Generated .NET people property transforms now instantiate official Microsoft Graph SDK profile model types for SDK-backed people payload shapes instead of emitting local copies of those Graph models.
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated TS and .NET people helpers now bind Graph `itemBody` through the official Microsoft Graph SDK model types instead of treating it as a local string-like special case.
 - Generated TS and .NET people helpers now omit local model and enum boilerplate when a connector is fully SDK-backed and only needs shared people payload validation/serialization utilities.
 - Generated .NET people payloads now pass inline per-property serialization options into a generic shared people helper instead of relying on emitted label-definition dictionaries and payload-kind enums.
-- Generated TypeScript people helpers now export only the Graph SDK aliases that are actually referenced by emitted payload and transform files instead of emitting the entire discovered profile alias set.
+- Generated .NET people transforms no longer wrap SDK model object initializers in redundant outer casts before serializing them.
 - Generated TypeScript people helpers no longer export the internal label-serialization options type, and generated TS item payloads now avoid importing `contentPropertyName` when the schema has no content field.
 - Generated TypeScript property-transform files now import only the datasource and validation helpers that their rendered transform expressions actually use.
 - Generated TS and .NET people collection transforms no longer emit local `getCollectionValue` helpers when the rendered object graph only needs scalar per-index lookups.

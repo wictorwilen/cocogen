@@ -17,9 +17,23 @@ import {
 <% } -%>
 } from "../core/validation.js";
 <% } -%>
-<% if (peopleEntityTypes && peopleEntityTypes.length > 0) { -%>
+<% if (peopleEntityTypeImports?.stable?.length > 0) { -%>
 import type {
-<% for (const typeName of peopleEntityTypes) { -%>
+<% for (const typeName of peopleEntityTypeImports.stable) { -%>
+  <%= typeName %>,
+<% } -%>
+} from "@microsoft/microsoft-graph-types";
+<% } -%>
+<% if (peopleEntityTypeImports?.beta?.length > 0) { -%>
+import type {
+<% for (const typeName of peopleEntityTypeImports.beta) { -%>
+  <%= typeName %>,
+<% } -%>
+} from "@microsoft/microsoft-graph-types-beta";
+<% } -%>
+<% if (peopleEntityTypeImports?.local?.length > 0) { -%>
+import type {
+<% for (const typeName of peopleEntityTypeImports.local) { -%>
   <%= typeName %>,
 <% } -%>
 } from "../core/people.js";

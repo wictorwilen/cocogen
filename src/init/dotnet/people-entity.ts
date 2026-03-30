@@ -472,11 +472,8 @@ export function buildCsPersonEntityExpression(
     typeMap,
     2
   );
-  const typedObjectExpression = typeInfo
-    ? `(${typeInfo.typeName})(${objectExpression})`
-    : objectExpression;
 
-  return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${typedObjectExpression}\n${indentUnit.repeat(2)})`;
+  return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${objectExpression}\n${indentUnit.repeat(2)})`;
 }
 
 /** Build a C# JSON string list expression for person-entity collections. */

@@ -45,10 +45,11 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Remove redundant outer SDK casts from generated .NET people object serialization so emitted transforms serialize `new Microsoft.Graph.Beta.Models.* { ... }` directly ✅
+- Stop re-exporting SDK-backed Graph type aliases from generated TS people helpers; generated payload and transform files now import official Graph types directly ✅
 - Stop emitting unused `getCollectionValue` / `GetCollectionValue` helpers in generated TS and .NET people collection transforms when the rendered object graph only needs scalar lookups ✅
 - Trim generated TS property-transform imports to only the datasource and validation helpers each file actually uses ✅
 - Stop exporting internal TS people-helper option types and avoid importing `contentPropertyName` in generated TS item payloads when a schema has no content field ✅
-- Trim generated TS people helpers to only export Graph aliases that are actually referenced by emitted payload/transform files ✅
 - Replace generated .NET people helper label-definition dictionaries with inline per-property serialization options so the helper stays a generic shared validator/serializer ✅
 - Trim generated TS/.NET people helpers when outputs are fully SDK-backed so they only emit shared validation/serialization boilerplate ✅
 - Route Graph `itemBody` through the official TS/.NET SDK model types instead of treating it as a string-like special case ✅

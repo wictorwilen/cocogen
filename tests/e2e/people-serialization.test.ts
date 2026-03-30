@@ -74,7 +74,7 @@ describe("people label serialization (e2e)", () => {
       scriptPath,
       [
         "import { serializeSdkPeopleLabelValue } from './src/core/people.ts';",
-        "import type { PersonName, ItemEmail } from './src/core/people.ts';",
+        "import type { PersonName, ItemEmail } from '@microsoft/microsoft-graph-types-beta';",
         "const assertThrows = (fn, label) => {",
         "  try { fn(); throw new Error('no-error'); } catch (err) {",
         "    if (err instanceof Error && err.message === 'no-error') throw err;",
@@ -98,8 +98,9 @@ describe("people label serialization (e2e)", () => {
     expect(run.code).toBe(0);
 
     const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(peopleTs).toContain("export type PersonName = MicrosoftGraphBeta.PersonName;");
-    expect(peopleTs).toContain("export type ItemEmail = MicrosoftGraphBeta.ItemEmail;");
+  expect(peopleTs).not.toContain("export type PersonName = MicrosoftGraphBeta.PersonName;");
+  expect(peopleTs).not.toContain("export type ItemEmail = MicrosoftGraphBeta.ItemEmail;");
+  expect(peopleTs).not.toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
     expect(peopleTs).not.toContain("export type PeopleLabelSerializationOptions = {");
     expect(peopleTs).not.toContain("export type RelatedPerson = MicrosoftGraphBeta.RelatedPerson;");
     expect(peopleTs).not.toContain("export type ItemBody = MicrosoftGraphBeta.ItemBody;");
@@ -107,6 +108,9 @@ describe("people label serialization (e2e)", () => {
     expect(peopleTs).not.toContain("type Open<T> = T & Record<string, unknown>;");
 
     const itemPayloadTs = await readFile(path.join(outDir, "src", "PeopleConnector", "itemPayload.ts"), "utf8");
+    expect(itemPayloadTs).toContain('from "@microsoft/microsoft-graph-types-beta";');
+    expect(itemPayloadTs).toContain("ItemEmail,");
+    expect(itemPayloadTs).toContain("PersonName,");
     expect(itemPayloadTs).toContain('import { idPropertyName } from "./constants.js";');
     expect(itemPayloadTs).not.toContain("contentPropertyName");
   });

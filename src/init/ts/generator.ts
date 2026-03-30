@@ -35,6 +35,12 @@ export type TsGeneratorSettings = {
   tspPath: string;
 };
 
+type TsPeopleTypeImports = {
+  local: string[];
+  stable: string[];
+  beta: string[];
+};
+
 /** Generates TypeScript connector scaffolds and generated files. */
 export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
   protected lang = "ts" as const;
@@ -201,6 +207,32 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
     const graphAliases = peopleGraphTypesBundle ? peopleGraphTypesBundle.aliases : new Map<string, PeopleGraphTypeAlias>();
     const peopleGraphTypeByAlias = new Map(peopleGraphTypes.map((type) => [type.alias, type]));
     const peopleProfileTypeInfoByAlias = new Map<string, TsPersonEntityTypeInfo>();
+    const buildPeopleTypeImports = (aliases: Iterable<string>): TsPeopleTypeImports => {
+      const local = new Set<string>();
+      const stable = new Set<string>();
+      const beta = new Set<string>();
+
+      for (const alias of aliases) {
+        const graphType = peopleGraphTypeByAlias.get(alias);
+        if (!graphType || !graphType.sourcePackage) {
+          local.add(alias);
+          continue;
+        }
+
+        if (graphType.sourcePackage === "v1") {
+          stable.add(alias);
+          continue;
+        }
+
+        beta.add(alias);
+      }
+
+      return {
+        local: Array.from(local).sort(),
+        stable: Array.from(stable).sort(),
+        beta: Array.from(beta).sort(),
+      };
+    };
     if (hasPeopleSupport && peopleGraphTypesBundle) {
       for (const type of graphProfileSchema.types) {
         const alias = toTsIdentifier(type.name);
@@ -505,6 +537,8 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
           valueExpression,
         };
       });
+    const peopleEntityTypeImports = buildPeopleTypeImports(peopleEntityTypes);
+    const payloadPeopleTypeImports = buildPeopleTypeImports(payloadPeopleGraphTypes);
 
     const collectPeopleHelperGraphTypes = (directAliases: Iterable<string>) => {
       const selected = new Set<string>();
@@ -536,7 +570,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
     };
 
     const peopleHelperGraphTypes = collectPeopleHelperGraphTypes(
-      new Set([...peopleEntityTypes, ...payloadPeopleGraphTypes])
+      new Set([...peopleEntityTypeImports.local, ...payloadPeopleTypeImports.local])
     );
 
     await writeFile(
@@ -616,7 +650,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
         properties: transformProperties,
         usesPrincipal,
-        peopleEntityTypes: Array.from(peopleEntityTypes),
+        peopleEntityTypeImports,
         rowHelperImports: tsRowHelperImports,
         validationImports: tsValidationImports,
       }),
@@ -654,7 +688,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       await renderTemplate("ts/src/generated/itemPayload.ts.ejs", {
         properties: payloadProperties,
         usesGenericPeopleLabelSerializer,
-        payloadPeopleGraphTypes: Array.from(payloadPeopleGraphTypes).sort(),
+        payloadPeopleTypeImports,
         hasContentProperty: Boolean(this.ir.item.contentPropertyName),
         contentValueExpression,
         contentType,

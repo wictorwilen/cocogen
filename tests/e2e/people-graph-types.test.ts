@@ -62,9 +62,14 @@ describe("people graph types (e2e)", () => {
     expect(init.code).toBe(0);
 
     const peopleTs = await readFile(path.join(outDir, "src", "core", "people.ts"), "utf8");
-    expect(peopleTs).toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
-    expect(peopleTs).toContain("export type CompanyDetail = MicrosoftGraphBeta.CompanyDetail;");
-    expect(peopleTs).toContain("export type ProjectParticipation = MicrosoftGraphBeta.ProjectParticipation;");
+    expect(peopleTs).not.toContain('import type * as MicrosoftGraphBeta from "@microsoft/microsoft-graph-types-beta"');
+
+    const transforms = await readFile(path.join(outDir, "src", "PeopleConnector", "propertyTransformBase.ts"), "utf8");
+    expect(transforms).toContain('from "@microsoft/microsoft-graph-types-beta";');
+    expect(transforms).toContain("CompanyDetail,");
+    expect(transforms).toContain("ProjectParticipation,");
+    expect(transforms).toContain("} as CompanyDetail)");
+    expect(transforms).toContain("} as ProjectParticipation)");
   });
 
   test("generates complex types with properties in dotnet output", async () => {
@@ -89,11 +94,13 @@ describe("people graph types (e2e)", () => {
     expect(init.code).toBe(0);
 
     const payload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
-    expect(payload).toContain("using Date = System.DateOnly;");
+    expect(payload).toContain("public sealed record PeopleLabelSerializationOptions(");
+    expect(payload).not.toContain("using Date = System.DateOnly;");
     expect(payload).not.toContain("public sealed class CompanyDetail");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.ProjectParticipation");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.CompanyDetail");
+    expect(transforms).not.toContain("(Microsoft.Graph.Beta.Models.ProjectParticipation)(new Microsoft.Graph.Beta.Models.ProjectParticipation");
   });
 });

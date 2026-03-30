@@ -180,13 +180,7 @@ const is<%= enumDef.tsName %> = (value: unknown): value is <%= enumDef.tsName %>
 <% } -%>
 
 <% for (const type of graphTypes) { -%>
-<% if (type.sourcePackage === "v1") { -%>
-export type <%= type.alias %> = MicrosoftGraph.<%= type.alias %>;
-
-<% } else if (type.sourcePackage === "beta") { -%>
-export type <%= type.alias %> = MicrosoftGraphBeta.<%= type.alias %>;
-
-<% } else { -%>
+<% if (!type.sourcePackage) { -%>
 export type <%= type.alias %> = Open<
 <% if (type.baseAlias) { -%>
   <%= type.baseAlias %> &
