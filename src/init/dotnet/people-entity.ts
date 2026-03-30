@@ -124,6 +124,25 @@ const resolveEnumType = (propType: string | null): { name: string; isCollection:
   return graphEnumNames.has(toTypeLookupName(trimmed)) ? { name: trimmed, isCollection: false } : null;
 };
 
+const buildCsCollectionMaxLenLine = (fieldVars: string[], bodyIndent: string): string =>
+  fieldVars.length > 0
+    ? `${bodyIndent}var maxLen = new[] { ${fieldVars.map((value) => `${value}.Count`).join(", ")} }.Max();`
+    : `${bodyIndent}var maxLen = 0;`;
+
+const buildCsIndexedValueHelpers = (
+  bodyIndent: string,
+  indentUnit: string,
+  usesCollectionHelper: boolean
+): string => {
+  const getValueBlock = `${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return "";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? "";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? "") : "";\n${bodyIndent}}`;
+
+  if (!usesCollectionHelper) {
+    return getValueBlock;
+  }
+
+  return `${getValueBlock}\n${bodyIndent}List<string> GetCollectionValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return new List<string>();\n${bodyIndent}${indentUnit}if (values.Count == 1) return new List<string> { values[0] ?? "" };\n${bodyIndent}${indentUnit}return index < values.Count ? new List<string> { values[index] ?? "" } : new List<string>();\n${bodyIndent}}`;
+};
+
 /** Build shared renderers for C# people-entity collections. */
 function createCollectionRenderers(
   typeMap: CsPersonEntityTypeMap,
@@ -378,7 +397,6 @@ export function buildCsPersonEntityObjectExpression(
       return renderDictionary(node, level, info);
     }
 
-    const indent = indentUnit.repeat(level);
     const childIndent = indentUnit.repeat(level + 1);
     const renderedEntries = entries.map(([key, value]) => {
       const propInfo = info.properties.get(key)!;
@@ -443,7 +461,7 @@ export function buildCsPersonEntityObjectExpression(
       return `${childIndent}${propInfo.csName} = ${renderedValue}`;
     });
 
-    return `new ${info.typeName}\n${indent}{\n${renderedEntries.join(",\n")}\n${indent}}`;
+    return `new ${info.typeName}\n${indentUnit.repeat(level)}{\n${renderedEntries.join(",\n")}\n${indentUnit.repeat(level)}}`;
   };
 
   if (!typeInfo) {
@@ -568,17 +586,13 @@ export function buildCsPersonEntityCollectionExpression(
   });
 
   const fieldVars = [...fieldVarByPath.values()];
-  const lengthLines = fieldVars.length > 0
-    ? `        var maxLen = new[] { ${fieldVars.map((v) => `${v}.Count`).join(", ")} }.Max();`
-    : "        var maxLen = 0;";
+  const maxLenLine = buildCsCollectionMaxLenLine(fieldVars, "        ");
 
   const objectExpression = renderNodeForCollectionMany(tree, 2, typeInfo, fieldVarByPath);
 
   const typedObjectExpression = objectExpression;
   const usesCollectionHelper = typedObjectExpression.includes("GetCollectionValue(");
-  const collectionHelperBlock = usesCollectionHelper
-    ? `\n        List<string> GetCollectionValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return new List<string>();\n            if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n            return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n        }`
-    : "";
+  const indexedValueHelpers = buildCsIndexedValueHelpers("        ", "    ", usesCollectionHelper);
 
-  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n        string GetValue(List<string> values, int index)\n        {\n            if (values.Count == 0) return \"\";\n            if (values.Count == 1) return values[0] ?? \"\";\n            return index < values.Count ? (values[index] ?? \"\") : \"\";\n        }${collectionHelperBlock}\n${lengthLines}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
+  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n${indexedValueHelpers}\n${maxLenLine}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
 }
