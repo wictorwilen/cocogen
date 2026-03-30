@@ -359,6 +359,7 @@ Graph ingestion will be throttled.
 - Ingest supports:
   - `--dry-run`
   - `--limit N`
+  - `--batch-size N` (default `1`, max `20`, flushes concurrent PUTs in batches)
   - `--since` (future)
 - Logging: structured logs to stdout.
 

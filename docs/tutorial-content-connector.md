@@ -323,6 +323,7 @@ Helpful flags:
 - `--dry-run` (build payloads without sending to Graph)
 - `--verbose` (print payloads)
 - `--limit 10` (limit items)
+- `--batch-size 5` (send up to 5 PUT requests in parallel before waiting for the next batch)
 
 ---
 

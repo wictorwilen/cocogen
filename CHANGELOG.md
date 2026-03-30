@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated .NET `PropertyTransformBase` files now indent multi-line people transform expressions consistently, including nested serializer calls and collection object initializers.
 
 ### Changed
+- Generated TS and .NET connector CLIs now support `--batch-size` for bounded parallel ingestion, with a default of `1` and a maximum of `20` concurrent item PUT requests per batch.
+
+### Fixed
+- Generated TS and .NET Graph transport layers now retry transient 408/429/5xx responses with exponential backoff, jitter, and `Retry-After`/`x-ms-retry-after-ms` handling, including raw profile-source admin HTTP calls.
 - Generated TypeScript people connectors now reference official stable and beta Microsoft Graph type packages for Graph profile payload models instead of fully redefining those models in generated code.
 - Generated TypeScript people helpers no longer emit redundant field-by-field runtime validation for SDK-backed Graph profile models; they keep only minimal object and read-only checks and still fully validate locally derived helper shapes.
 - Generated TypeScript people payload and transform files now import official stable and beta Microsoft Graph profile types directly instead of routing them through re-exports from `src/core/people.ts`.

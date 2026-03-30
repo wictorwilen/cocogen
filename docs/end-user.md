@@ -190,6 +190,7 @@ For local development with client secret, set `TENANT_ID`, `CLIENT_ID`, and `CLI
 Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
 - `--limit <n>` limits items ingested
+- `--batch-size <n>` sends up to `n` concurrent PUT requests per batch (`1` by default, max `20`)
 - `--verbose` prints item payloads
 - `--input <path>` overrides the input file path
 
@@ -231,6 +232,7 @@ For local development with client secret, set the AzureAd settings in `appsettin
 Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
 - `--limit <n>` limits items ingested
+- `--batch-size <n>` sends up to `n` concurrent PUT requests per batch (`1` by default, max `20`)
 - `--verbose` prints item payloads
 - `--input <path>` overrides the input file path
 

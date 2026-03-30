@@ -61,6 +61,7 @@ Use `npm run ingest --` with:
 - `--dry-run` (build payloads without sending)
 - `--fail-fast` (abort on the first item failure)
 - `--limit <n>` (ingest only N items)
+- `--batch-size <n>` (send up to N concurrent PUT requests per batch, default `1`, max `20`)
 - `--verbose` (print the exact payload sent to Graph)
 
 Note: `--dry-run` does not require CONNECTION_ID, but you still need it for real ingestion.

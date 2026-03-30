@@ -430,7 +430,9 @@ describe("project init/update", () => {
     expect(core).toContain('from "@microsoft/microsoft-graph-client"');
     expect(core).toContain("Client.initWithMiddleware");
     expect(core).toContain("ResponseType.RAW");
-    expect(core).not.toContain("Retry-After");
+    expect(core).toContain("Retry-After");
+    expect(core).toContain("x-ms-retry-after-ms");
+    expect(core).toContain("throttled");
     expect(core).not.toContain("fetch(");
 
     const pkg = await readFile(path.join(outDir, "package.json"), "utf8");
@@ -463,6 +465,25 @@ describe("project init/update", () => {
     expect(core).toContain("current.includes(sourceUrl)");
     expect(core).toContain("profilePropertySettings");
     expect(core).toContain("prioritizedSourceUrls: [sourceUrl]");
+  });
+
+  test("initTsProject emits ingest batch-size support", async () => {
+    const tspPath = await writeTempTspFile(complexSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "ts-batch-size");
+
+    await initTsProject({ tspPath, outDir, force: false });
+
+    const core = await readFile(path.join(outDir, "src", "core", "connectorCore.ts"), "utf8");
+    expect(core).toContain("const batchSize = options.batchSize ?? 1");
+    expect(core).toContain("await Promise.all(");
+    expect(core).toContain("pending.length >= batchSize");
+    expect(core).toContain("Invalid batch size: expected integer between 1 and 20.");
+
+    const cli = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
+    expect(cli).toContain('option("--batch-size <n>"');
+    expect(cli).toContain("parseBatchSize");
+    expect(cli).toContain("batchSize: options.batchSize");
   });
 
   test("updateProject regenerates schema from updated tsp", async () => {
@@ -542,6 +563,7 @@ model Item {
     expect(core).toContain("RetryAsync");
     expect(core).toContain("Retry-After");
     expect(core).toContain("throttled");
+    expect(core).toContain("statusCode == 408 || statusCode == 429 || statusCode >= 500");
   });
 
   test("initDotnetProject logs existing and created connection paths", async () => {
@@ -585,6 +607,25 @@ model Item {
     expect(core).toContain("existing.Contains(sourceUrl");
     expect(core).toContain("profilePropertySettings");
     expect(core).toContain("prioritizedSourceUrls");
+  });
+
+  test("initDotnetProject emits ingest batch-size support", async () => {
+    const tspPath = await writeTempTspFile(complexSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "dotnet-batch-size");
+
+    await initDotnetProject({ tspPath, outDir, force: false });
+
+    const core = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
+    expect(core).toContain("int batchSize");
+    expect(core).toContain("Task.WhenAll(tasks)");
+    expect(core).toContain("pending.Count >= batchSize");
+    expect(core).toContain("Invalid batch size: expected integer between 1 and 20.");
+
+    const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
+    expect(program).toContain('new Option<int?>("--batch-size")');
+    expect(program).toContain("ValidateBatchSize");
+    expect(program).toContain("await IngestAsync(input, dryRun, limit, batchSize, verbose, failFast);");
   });
 
   test("initDotnetProject avoids property name matching model name", async () => {
@@ -861,7 +902,8 @@ model PersonProfile {
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("Detail = new Microsoft.Graph.Beta.Models.PositionDetail");
-    expect(transforms).toContain("JsonSerializer.Serialize(new Microsoft.Graph.Beta.Models.SkillProficiency");
+    expect(transforms).toContain("results.Add(JsonSerializer.Serialize(");
+    expect(transforms).toContain("new Microsoft.Graph.Beta.Models.SkillProficiency");
   });
 
   test("initTsProject includes related person graph types", async () => {

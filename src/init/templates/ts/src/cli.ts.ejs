@@ -3,7 +3,7 @@
  */
 import "dotenv/config";
 
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import { ClientSecretCredential, ManagedIdentityCredential } from "@azure/identity";
 
 import type { <%= itemTypeName %> } from "./<%= schemaFolderName %>/model.js";
@@ -108,6 +108,14 @@ function resolveInputPath(inputPath?: string): string {
       ? ""
       : "data.csv"
   ) %>;
+}
+
+function parseBatchSize(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
+    throw new InvalidArgumentError("expected an integer between 1 and 20");
+  }
+  return parsed;
 }
 
 function buildItemSource(path: string): ItemSource<<%= itemTypeName %>> {
@@ -219,6 +227,7 @@ async function ingest(options: {
   inputPath?: string;
   dryRun?: boolean;
   limit?: number;
+  batchSize?: number;
   verbose?: boolean;
   failFast?: boolean;
 }): Promise<void> {
@@ -231,6 +240,7 @@ async function ingest(options: {
     connectionId,
     dryRun: options.dryRun,
     limit: options.limit,
+    batchSize: options.batchSize,
     verbose: options.verbose,
     failFast: options.failFast,
     toExternalItem
@@ -252,13 +262,15 @@ program
   .option("--dry-run", "Build payloads but do not send to Graph")
   .option("--fail-fast", "Abort on the first item failure")
   .option("--limit <n>", "Limit number of items", (value) => Number(value))
+  .option("--batch-size <n>", "Number of concurrent PUT requests to send per batch (1-20)", parseBatchSize, 1)
   .option("--verbose", "Print payloads sent to Graph")
-  .action((options: { input?: string; dryRun?: boolean; limit?: number; verbose?: boolean; failFast?: boolean }) =>
+  .action((options: { input?: string; dryRun?: boolean; limit?: number; batchSize?: number; verbose?: boolean; failFast?: boolean }) =>
     ingest({
       inputPath: options.input,
       dryRun: options.dryRun,
       failFast: options.failFast,
       limit: options.limit,
+      batchSize: options.batchSize,
       verbose: options.verbose,
     })
   );

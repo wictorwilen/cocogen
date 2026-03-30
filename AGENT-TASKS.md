@@ -45,6 +45,8 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Harden generated TS/.NET Graph transport retries to respect throttling headers, retry transient 408/429/5xx responses, and cover raw profile-source HTTP requests as well as normal Graph SDK ingestion ✅
+- Add configurable ingest batching to generated TS/.NET CLIs and runtimes via `--batch-size` (default `1`, max `20`) so Graph item PUTs can run in bounded parallel batches ✅
 - Normalize generated .NET `PropertyTransformBase` indentation for multi-line people transform expressions so nested serializer and collection object initializers stay readable ✅
 - Refactor duplicated TS/.NET indexed collection-renderer scaffolding behind local helpers to simplify the shared people renderer code without changing emitted output ✅
 - Remove redundant outer SDK casts from generated .NET people object serialization so emitted transforms serialize `new Microsoft.Graph.Beta.Models.* { ... }` directly ✅

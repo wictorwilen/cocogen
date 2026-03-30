@@ -174,6 +174,7 @@ Helpful flags:
 - `--dry-run`
 - `--verbose`
 - `--limit 10`
+- `--batch-size 5`
 
 ---
 

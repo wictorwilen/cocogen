@@ -40,6 +40,7 @@ export type IngestOptions<Item> = {
   connectionId: string;
   dryRun?: boolean;
   limit?: number;
+  batchSize?: number;
   verbose?: boolean;
   failFast?: boolean;
   toExternalItem: (item: Item) => unknown;
@@ -224,25 +225,66 @@ export class ConnectorCore<Item> {
    * Ingest items from a datasource.
    */
   async ingest(options: IngestOptions<Item>): Promise<void> {
+    const batchSize = options.batchSize ?? 1;
+    if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 20) {
+      throw new Error("Invalid batch size: expected integer between 1 and 20.");
+    }
+
     let count = 0;
     let successCount = 0;
     const failures: Array<{ index: number; id: string; message: string }> = [];
+    const pending: Array<{ index: number; id: string; item: Item }> = [];
+
+    const flushBatch = async (): Promise<void> => {
+      if (pending.length === 0) {
+        return;
+      }
+
+      for (const entry of pending) {
+        console.log(`info: ingesting item ${entry.index} (id=${entry.id})`);
+      }
+
+      const currentBatch = pending.splice(0, pending.length);
+      const results = await Promise.all(
+        currentBatch.map(async (entry) => {
+          try {
+            await this.putItem(options.connectionId, entry.item, Boolean(options.verbose));
+            return { ...entry, success: true as const };
+          } catch (error) {
+            return { ...entry, success: false as const, error };
+          }
+        })
+      );
+
+      let firstError: unknown = null;
+      for (const result of results) {
+        if (result.success) {
+          console.log(`ok: ingested item ${result.index} (id=${result.id})`);
+          successCount++;
+          continue;
+        }
+
+        const message = result.error instanceof Error ? result.error.message : String(result.error);
+        console.error(`error: failed item ${result.index} (id=${result.id})`);
+        failures.push({ index: result.index, id: result.id, message });
+        if (options.failFast && firstError === null) {
+          firstError = result.error;
+        }
+      }
+
+      if (firstError !== null) {
+        throw firstError;
+      }
+    };
+
     for await (const item of options.source.getItems()) {
       if (options.limit && count >= options.limit) break;
+      const index = count + 1;
       const itemId = this.getItemId(item as Item);
       if (!options.dryRun) {
-        console.log(`info: ingesting item ${count + 1} (id=${itemId})`);
-        try {
-          await this.putItem(options.connectionId, item as Item, Boolean(options.verbose));
-          console.log(`ok: ingested item ${count + 1} (id=${itemId})`);
-          successCount++;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          console.error(`error: failed item ${count + 1} (id=${itemId})`);
-          failures.push({ index: count + 1, id: itemId, message });
-          if (options.failFast) {
-            throw error;
-          }
+        pending.push({ index, id: itemId, item: item as Item });
+        if (pending.length >= batchSize) {
+          await flushBatch();
         }
       } else if (options.verbose) {
         const payload = options.toExternalItem(item as Item) as any;
@@ -251,9 +293,13 @@ export class ConnectorCore<Item> {
           id: itemId,
           content: payload?.content ?? { type: "text", value: "" },
         };
-        console.log(`verbose: DRY RUN item ${count + 1} (id=${itemId})`, JSON.stringify(payloadWithId, null, 2));
+        console.log(`verbose: DRY RUN item ${index} (id=${itemId})`, JSON.stringify(payloadWithId, null, 2));
       }
       count++;
+    }
+
+    if (!options.dryRun) {
+      await flushBatch();
     }
 
     if (!options.dryRun) {
@@ -271,21 +317,30 @@ export class ConnectorCore<Item> {
   }
 
   private async graphRequest(method: string, url: string, body?: unknown): Promise<Response> {
-    const request = this.graphClient.api(url).responseType(ResponseType.RAW);
-    switch (method) {
-      case "GET":
-        return (await request.get()) as Response;
-      case "POST":
-        return (await request.post(body ?? {})) as Response;
-      case "PATCH":
-        return (await request.patch(body ?? {})) as Response;
-      case "PUT":
-        return (await request.put(body ?? {})) as Response;
-      case "DELETE":
-        return (await request.delete()) as Response;
-      default:
-        throw new Error(`Unsupported Graph method '${method}'.`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const request = this.graphClient.api(url).responseType(ResponseType.RAW);
+        const response = await executeGraphRequest(request, method, body);
+        if (!shouldRetryStatus(response.status) || attempt === MAX_RETRIES) {
+          return response;
+        }
+
+        const delay = computeRetryDelayMs(attempt, response.headers);
+        console.warn(`warn: throttled (HTTP ${formatStatus(response)}) for ${method} ${url}, retrying in ${delay}ms`);
+        await sleep(delay);
+      } catch (error) {
+        if (!isRetryableTransportError(error) || attempt === MAX_RETRIES) {
+          throw error;
+        }
+
+        const delay = computeRetryDelayMs(attempt);
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`warn: transient Graph transport error for ${method} ${url}: ${message}. Retrying in ${delay}ms`);
+        await sleep(delay);
+      }
     }
+
+    throw new Error(`Graph request '${method} ${url}' exhausted retries.`);
   }
 
   private async listProfilePropertySettings(): Promise<
@@ -460,6 +515,9 @@ export class ConnectorCore<Item> {
 
 const SCHEMA_POLL_MAX_ATTEMPTS = 12;
 const SCHEMA_POLL_DELAY_MS = 30000;
+const MAX_RETRIES = 6;
+const BASE_RETRY_DELAY_MS = 1000;
+const MAX_RETRY_DELAY_MS = 30000;
 const SCHEMA_READY_STATES = new Set(["completed", "ready", "succeeded", "success"]);
 const SCHEMA_PENDING_STATES = new Set(["inprogress", "pending", "running", "updating"]);
 
@@ -470,6 +528,89 @@ function sleep(ms: number): Promise<void> {
 function formatStatus(res: Response): string {
   const text = res.statusText?.trim();
   return text ? `${res.status} ${text}` : `${res.status}`;
+}
+
+async function executeGraphRequest(
+  request: ReturnType<Client["api"]>,
+  method: string,
+  body?: unknown
+): Promise<Response> {
+  switch (method) {
+    case "GET":
+      return (await request.get()) as Response;
+    case "POST":
+      return (await request.post(body ?? {})) as Response;
+    case "PATCH":
+      return (await request.patch(body ?? {})) as Response;
+    case "PUT":
+      return (await request.put(body ?? {})) as Response;
+    case "DELETE":
+      return (await request.delete()) as Response;
+    default:
+      throw new Error(`Unsupported Graph method '${method}'.`);
+  }
+}
+
+function shouldRetryStatus(status: number): boolean {
+  return status === 408 || status === 429 || (status >= 500 && status <= 599);
+}
+
+function isRetryableTransportError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("fetch")
+    || message.includes("network")
+    || message.includes("timeout")
+    || message.includes("socket")
+    || message.includes("econnreset")
+    || message.includes("econnrefused")
+    || message.includes("etimedout")
+    || message.includes("temporary failure");
+}
+
+function computeRetryDelayMs(attempt: number, headers?: Headers): number {
+  const retryAfterMs = parseRetryDelayMs(headers);
+  if (retryAfterMs !== null) {
+    return Math.min(retryAfterMs, MAX_RETRY_DELAY_MS);
+  }
+
+  const exponential = Math.min(MAX_RETRY_DELAY_MS, BASE_RETRY_DELAY_MS * 2 ** attempt);
+  const jitter = Math.floor(Math.random() * 250);
+  return Math.min(MAX_RETRY_DELAY_MS, exponential + jitter);
+}
+
+function parseRetryDelayMs(headers?: Headers): number | null {
+  if (!headers) {
+    return null;
+  }
+
+  const msHeader = headers.get("x-ms-retry-after-ms")?.trim();
+  if (msHeader) {
+    const milliseconds = Number.parseInt(msHeader, 10);
+    if (Number.isFinite(milliseconds)) {
+      return Math.max(0, milliseconds);
+    }
+  }
+
+  const retryAfter = headers.get("Retry-After")?.trim();
+  if (!retryAfter) {
+    return null;
+  }
+
+  const seconds = Number.parseInt(retryAfter, 10);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+
+  const absolute = Date.parse(retryAfter);
+  if (Number.isFinite(absolute)) {
+    return Math.max(0, absolute - Date.now());
+  }
+
+  return null;
 }
 
 async function readGraphError(res: Response): Promise<string> {

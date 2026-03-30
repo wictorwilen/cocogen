@@ -190,48 +190,95 @@ public sealed class ConnectorCore<TItem>
     /// <summary>
     /// Ingest items from a datasource.
     /// </summary>
-    public async Task IngestAsync(IItemSource<TItem> source, bool dryRun, int? limit, bool verbose, bool failFast)
+    public async Task IngestAsync(IItemSource<TItem> source, bool dryRun, int? limit, int batchSize, bool verbose, bool failFast)
     {
+        if (batchSize < 1 || batchSize > 20)
+            throw new InvalidOperationException("Invalid batch size: expected integer between 1 and 20.");
+
         var count = 0;
         var successCount = 0;
         var failures = new List<(int Index, string Id, string Message)>();
+        var pending = new List<(int Index, string Id, TItem Item)>();
+
+        async Task<(int Index, string Id, bool Success, string Message, Exception? Error)> ProcessPendingItemAsync(
+            (int Index, string Id, TItem Item) pendingItem)
+        {
+            try
+            {
+                await PutItemAsync(pendingItem.Item, verbose);
+                return (pendingItem.Index, pendingItem.Id, true, string.Empty, null);
+            }
+            catch (Exception ex)
+            {
+                return (pendingItem.Index, pendingItem.Id, false, ex.Message, ex);
+            }
+        }
+
+        async Task FlushBatchAsync()
+        {
+            if (pending.Count == 0)
+                return;
+
+            var tasks = new List<Task<(int Index, string Id, bool Success, string Message, Exception? Error)>>();
+            foreach (var pendingItem in pending)
+            {
+                Console.WriteLine($"info: ingesting item {pendingItem.Index} (id={pendingItem.Id})");
+                tasks.Add(ProcessPendingItemAsync(pendingItem));
+            }
+
+            pending.Clear();
+            var results = await Task.WhenAll(tasks);
+            Exception? firstError = null;
+
+            foreach (var result in results)
+            {
+                if (result.Success)
+                {
+                    Console.WriteLine($"ok: ingested item {result.Index} (id={result.Id})");
+                    successCount++;
+                    continue;
+                }
+
+                Console.Error.WriteLine($"error: failed item {result.Index} (id={result.Id})");
+                failures.Add((result.Index, result.Id, result.Message));
+                if (failFast && firstError is null)
+                {
+                    firstError = result.Error;
+                }
+            }
+
+            if (firstError is not null)
+                throw firstError;
+        }
+
         await foreach (var item in source.GetItemsAsync())
         {
             if (limit.HasValue && count >= limit.Value)
                 break;
 
+            var index = count + 1;
+            var itemId = _itemPayload.GetItemId(item);
+
             if (!dryRun)
             {
-                var itemId = _itemPayload.GetItemId(item);
-                Console.WriteLine($"info: ingesting item {count + 1} (id={itemId})");
-                try
-                {
-                    await PutItemAsync(item, verbose);
-                    Console.WriteLine($"ok: ingested item {count + 1} (id={itemId})");
-                    successCount++;
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"error: failed item {count + 1} (id={itemId})");
-                    failures.Add((count + 1, itemId, ex.Message));
-                    if (failFast)
-                    {
-                        throw;
-                    }
-                }
+                pending.Add((index, itemId, item));
+                if (pending.Count >= batchSize)
+                    await FlushBatchAsync();
             }
             else if (verbose)
             {
-                var itemId = _itemPayload.GetItemId(item);
                 var payloadJson = JsonSerializer.Serialize(
                     _itemPayload.ToExternalItem(item),
                     new JsonSerializerOptions { WriteIndented = true }
                 );
-                Console.WriteLine($"verbose: DRY RUN item {count + 1} (id={itemId}) payload " + payloadJson);
+                Console.WriteLine($"verbose: DRY RUN item {index} (id={itemId}) payload " + payloadJson);
             }
 
             count++;
         }
+
+        if (!dryRun)
+            await FlushBatchAsync();
 
         if (!dryRun)
         {
@@ -396,12 +443,69 @@ public sealed class ConnectorCore<TItem>
         }
     }
 
-    private static bool ShouldRetry(int statusCode) => statusCode is 429 or 503 or 504;
+    private static bool ShouldRetry(int statusCode) => statusCode == 408 || statusCode == 429 || statusCode >= 500;
 
     private static int? ParseRetryAfterMs(IDictionary<string, IEnumerable<string>>? headers)
     {
         if (headers is null) return null;
+        if (headers.TryGetValue("x-ms-retry-after-ms", out var retryAfterMsValues))
+        {
+            string? retryAfterMsValue = null;
+            foreach (var entry in retryAfterMsValues)
+            {
+                retryAfterMsValue = entry;
+                break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(retryAfterMsValue) && int.TryParse(retryAfterMsValue, out var milliseconds))
+            {
+                return Math.Max(0, milliseconds);
+            }
+        }
+
         if (!headers.TryGetValue("Retry-After", out var values)) return null;
+
+        string? value = null;
+        foreach (var entry in values)
+        {
+            value = entry;
+            break;
+        }
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        if (int.TryParse(value, out var seconds))
+        {
+            return Math.Max(0, seconds * 1000);
+        }
+
+        if (DateTimeOffset.TryParse(value, out var date))
+        {
+            var delta = date - DateTimeOffset.UtcNow;
+            return Math.Max(0, (int)delta.TotalMilliseconds);
+        }
+
+        return null;
+    }
+
+    private static int? ParseRetryAfterMs(HttpHeaders? headers)
+    {
+        if (headers is null) return null;
+        if (headers.TryGetValues("x-ms-retry-after-ms", out var retryAfterMsValues))
+        {
+            string? retryAfterMsValue = null;
+            foreach (var entry in retryAfterMsValues)
+            {
+                retryAfterMsValue = entry;
+                break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(retryAfterMsValue) && int.TryParse(retryAfterMsValue, out var milliseconds))
+            {
+                return Math.Max(0, milliseconds);
+            }
+        }
+
+        if (!headers.TryGetValues("Retry-After", out var values)) return null;
 
         string? value = null;
         foreach (var entry in values)
@@ -431,6 +535,24 @@ public sealed class ConnectorCore<TItem>
         var exp = Math.Min(MaxDelayMs, BaseDelayMs * (int)Math.Pow(2, attempt));
         var jitter = Random.Shared.Next(0, 250);
         return Math.Min(MaxDelayMs, exp + jitter);
+    }
+
+    private static int ComputeDelayMs(
+        int attempt,
+        IDictionary<string, IEnumerable<string>>? headers,
+        IDictionary<string, IEnumerable<string>>? contentHeaders)
+    {
+        var retryAfterMs = ParseRetryAfterMs(headers) ?? ParseRetryAfterMs(contentHeaders);
+        return ComputeDelayMs(attempt, retryAfterMs);
+    }
+
+    private static int ComputeDelayMs(
+        int attempt,
+        HttpHeaders? headers,
+        HttpHeaders? contentHeaders)
+    {
+        var retryAfterMs = ParseRetryAfterMs(headers) ?? ParseRetryAfterMs(contentHeaders);
+        return ComputeDelayMs(attempt, retryAfterMs);
     }
 
     private static string BuildApiErrorMessage(ApiException ex, string operation)
@@ -484,18 +606,47 @@ public sealed class ConnectorCore<TItem>
         string url,
         object? body = null)
     {
-        using var http = new HttpClient();
-        var token = await GetAccessTokenAsync(credential);
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var request = new HttpRequestMessage(method, url);
-        if (body is not null)
+        for (var attempt = 0; attempt <= MaxRetries; attempt++)
         {
-            var json = JsonSerializer.Serialize(body);
-            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var http = new HttpClient();
+            var token = await GetAccessTokenAsync(credential);
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var request = new HttpRequestMessage(method, url);
+            if (body is not null)
+            {
+                var json = JsonSerializer.Serialize(body);
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            }
+
+            try
+            {
+                var response = await http.SendAsync(request);
+                if (!ShouldRetry((int)response.StatusCode) || attempt == MaxRetries)
+                {
+                    return response;
+                }
+
+                var delay = ComputeDelayMs(attempt, response.Headers, response.Content?.Headers);
+                Console.WriteLine($"warn: throttled (HTTP {(int)response.StatusCode}) for {method} {url}, retrying in {delay}ms");
+                response.Dispose();
+                await Task.Delay(delay);
+            }
+            catch (HttpRequestException ex) when (attempt < MaxRetries)
+            {
+                var delay = ComputeDelayMs(attempt, (int?)null);
+                Console.WriteLine($"warn: transient Graph transport error for {method} {url}: {ex.Message}. Retrying in {delay}ms");
+                await Task.Delay(delay);
+            }
+            catch (TaskCanceledException ex) when (attempt < MaxRetries)
+            {
+                var delay = ComputeDelayMs(attempt, (int?)null);
+                Console.WriteLine($"warn: Graph request timeout for {method} {url}: {ex.Message}. Retrying in {delay}ms");
+                await Task.Delay(delay);
+            }
         }
 
-        return await http.SendAsync(request);
+        throw new InvalidOperationException($"{method} {url} exhausted retries.");
     }
 
     private async Task RegisterProfileSourceInternalAsync(string connectionId)
