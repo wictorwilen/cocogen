@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Generated .NET `PropertyTransformBase` files now indent multi-line people transform expressions consistently, including nested serializer calls and collection object initializers.
+
 ### Changed
 - Generated TypeScript people connectors now reference official stable and beta Microsoft Graph type packages for Graph profile payload models instead of fully redefining those models in generated code.
 - Generated TypeScript people helpers no longer emit redundant field-by-field runtime validation for SDK-backed Graph profile models; they keep only minimal object and read-only checks and still fully validate locally derived helper shapes.

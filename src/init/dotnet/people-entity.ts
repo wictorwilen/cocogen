@@ -143,6 +143,30 @@ const buildCsIndexedValueHelpers = (
   return `${getValueBlock}\n${bodyIndent}List<string> GetCollectionValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return new List<string>();\n${bodyIndent}${indentUnit}if (values.Count == 1) return new List<string> { values[0] ?? "" };\n${bodyIndent}${indentUnit}return index < values.Count ? new List<string> { values[index] ?? "" } : new List<string>();\n${bodyIndent}}`;
 };
 
+const formatCsEmbeddedExpression = (expression: string, lineIndent: string): string => {
+  const lines = expression.split("\n");
+  if (lines.length === 1) {
+    return `${lineIndent}${expression}`;
+  }
+
+  const trailingLines = lines.slice(1);
+  const nonEmptyTrailingLines = trailingLines.filter((line) => line.trim().length > 0);
+  const minIndent = nonEmptyTrailingLines.length === 0
+    ? 0
+    : Math.min(...nonEmptyTrailingLines.map((line) => line.match(/^\s*/)?.[0].length ?? 0));
+
+  return [
+    `${lineIndent}${lines[0]}`,
+    ...trailingLines.map((line) => {
+      if (line.trim().length === 0) {
+        return line;
+      }
+
+      return `${lineIndent}${line.slice(minIndent)}`;
+    }),
+  ].join("\n");
+};
+
 /** Build shared renderers for C# people-entity collections. */
 function createCollectionRenderers(
   typeMap: CsPersonEntityTypeMap,
@@ -274,10 +298,12 @@ function createCollectionRenderers(
       const sourceLiteral = buildCsSourceLiteral(field.source);
       const objectExpression = renderNodeForCollection(node, level + 2, "value", elementInfo);
 
+      const formattedObjectExpression = formatCsEmbeddedExpression(objectExpression, `${bodyIndent}${indentUnit}${indentUnit}`);
+
       return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${bodyIndent}var values = ${applySourceCollectionExpression(
         `RowParser.ParseStringCollection(row, ${sourceLiteral})`,
         field.source
-      )};\n${bodyIndent}if (values.Count == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}foreach (var value in values)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
+      )};\n${bodyIndent}if (values.Count == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}foreach (var value in values)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(\n${formattedObjectExpression}\n${bodyIndent}${indentUnit});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
     }
 
     const fieldVarByPath = new Map<string, string>();
@@ -301,7 +327,9 @@ function createCollectionRenderers(
       ? `\n${bodyIndent}List<string> GetCollectionValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return new List<string>();\n${bodyIndent}${indentUnit}if (values.Count == 1) return new List<string> { values[0] ?? \"\" };\n${bodyIndent}${indentUnit}return index < values.Count ? new List<string> { values[index] ?? \"\" } : new List<string>();\n${bodyIndent}}`
       : "";
 
-    return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${fieldLines.join("\n")}\n${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return \"\";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? \"\") : \"\";\n${bodyIndent}}${collectionHelperBlock}\n${lengthLines}\n${bodyIndent}if (maxLen == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}for (var index = 0; index < maxLen; index++)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(${objectExpression});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
+    const formattedObjectExpression = formatCsEmbeddedExpression(objectExpression, `${bodyIndent}${indentUnit}${indentUnit}`);
+
+    return `new Func<List<${elementType}>?>(() =>\n${indent}{\n${fieldLines.join("\n")}\n${bodyIndent}string GetValue(List<string> values, int index)\n${bodyIndent}{\n${bodyIndent}${indentUnit}if (values.Count == 0) return \"\";\n${bodyIndent}${indentUnit}if (values.Count == 1) return values[0] ?? \"\";\n${bodyIndent}${indentUnit}return index < values.Count ? (values[index] ?? \"\") : \"\";\n${bodyIndent}}${collectionHelperBlock}\n${lengthLines}\n${bodyIndent}if (maxLen == 0) return null;\n${bodyIndent}var results = new List<${elementType}>();\n${bodyIndent}for (var index = 0; index < maxLen; index++)\n${bodyIndent}{\n${bodyIndent}${indentUnit}results.Add(\n${formattedObjectExpression}\n${bodyIndent}${indentUnit});\n${bodyIndent}}\n${bodyIndent}return results;\n${indent}}).Invoke()`;
   };
 
   return {
@@ -552,7 +580,9 @@ export function buildCsPersonEntityCollectionExpression(
 
       const typedObjectExpression = objectExpression;
 
-      return `new Func<List<string>>(() =>\n    {\n        var results = new List<string>();\n        foreach (var entry in RowParser.ReadArrayEntries(row, ${JSON.stringify(common.root)}))\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
+      const formattedObjectExpression = formatCsEmbeddedExpression(typedObjectExpression, "                ");
+
+      return `new Func<List<string>>(() =>\n    {\n        var results = new List<string>();\n        foreach (var entry in RowParser.ReadArrayEntries(row, ${JSON.stringify(common.root)}))\n        {\n            results.Add(JsonSerializer.Serialize(\n${formattedObjectExpression}\n            ));\n        }\n        return results;\n    }).Invoke()`;
     }
   }
 
@@ -570,8 +600,10 @@ export function buildCsPersonEntityCollectionExpression(
 
     const typedObjectExpression = objectExpression;
 
+    const formattedObjectExpression = formatCsEmbeddedExpression(typedObjectExpression, `${indentUnit.repeat(4)}`);
+
     return `${applySourceCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
-                .Select(value => JsonSerializer.Serialize(\n${indentUnit.repeat(3)}${typedObjectExpression}\n${indentUnit.repeat(3)}))
+          .Select(value => JsonSerializer.Serialize(\n${formattedObjectExpression}\n                ))
             .ToList()`;
   }
 
@@ -594,5 +626,7 @@ export function buildCsPersonEntityCollectionExpression(
   const usesCollectionHelper = typedObjectExpression.includes("GetCollectionValue(");
   const indexedValueHelpers = buildCsIndexedValueHelpers("        ", "    ", usesCollectionHelper);
 
-  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n${indexedValueHelpers}\n${maxLenLine}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(${typedObjectExpression}));\n        }\n        return results;\n    }).Invoke()`;
+  const formattedObjectExpression = formatCsEmbeddedExpression(typedObjectExpression, "                ");
+
+  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n${indexedValueHelpers}\n${maxLenLine}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(\n${formattedObjectExpression}\n            ));\n        }\n        return results;\n    }).Invoke()`;
 }

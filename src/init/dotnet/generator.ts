@@ -44,6 +44,31 @@ export type DotnetGeneratorSettings = {
   tspPath: string;
 };
 
+function formatCsTransformExpression(expression: string, continuationIndent: number): string {
+  const lines = expression.split("\n");
+  if (lines.length === 1) {
+    return expression;
+  }
+
+  const trailingLines = lines.slice(1);
+  const nonEmptyTrailingLines = trailingLines.filter((line) => line.trim().length > 0);
+  const minIndent = nonEmptyTrailingLines.length === 0
+    ? 0
+    : Math.min(...nonEmptyTrailingLines.map((line) => line.match(/^\s*/)?.[0].length ?? 0));
+  const indentPrefix = " ".repeat(continuationIndent);
+
+  return [
+    lines[0],
+    ...trailingLines.map((line) => {
+      if (line.trim().length === 0) {
+        return line;
+      }
+
+      return `${indentPrefix}${line.slice(minIndent)}`;
+    }),
+  ].join("\n");
+}
+
 /** Generates .NET connector scaffolds and generated files. */
 export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
   protected lang = "dotnet" as const;
@@ -591,7 +616,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         source: p.source,
         personEntity,
         parseFn,
-        transformExpression: validatedExpression,
+        transformExpression: formatCsTransformExpression(validatedExpression, needsManualEntity ? 8 : 12),
         transformThrows: needsManualEntity,
         graphTypeEnumName: toGraphPropertyTypeEnumName(p.type),
         description: p.description,

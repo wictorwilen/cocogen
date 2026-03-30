@@ -45,6 +45,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Normalize generated .NET `PropertyTransformBase` indentation for multi-line people transform expressions so nested serializer and collection object initializers stay readable ✅
 - Refactor duplicated TS/.NET indexed collection-renderer scaffolding behind local helpers to simplify the shared people renderer code without changing emitted output ✅
 - Remove redundant outer SDK casts from generated .NET people object serialization so emitted transforms serialize `new Microsoft.Graph.Beta.Models.* { ... }` directly ✅
 - Stop re-exporting SDK-backed Graph type aliases from generated TS people helpers; generated payload and transform files now import official Graph types directly ✅
