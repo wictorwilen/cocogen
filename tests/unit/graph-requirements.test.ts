@@ -73,7 +73,6 @@ describe("graph requirements", () => {
       expect.arrayContaining([
         "connection.contentCategory uses Graph /beta property 'contentCategory' during connection provisioning",
         "connection.profileSource uses Graph /beta profile source registration",
-        "property 'owners' uses Graph /beta property type 'principalCollection' for schema registration and item ingestion",
       ])
     );
   });
@@ -111,9 +110,9 @@ describe("graph requirements", () => {
     );
 
     expect(connectionRequirement?.minGraphApiVersion).toBe("beta");
-    expect(schemaRequirement?.minGraphApiVersion).toBe("beta");
+    expect(schemaRequirement?.minGraphApiVersion).toBe("v1.0");
     expect(profileSourceRequirement?.minGraphApiVersion).toBe("v1.0");
-    expect(schemaRequirement?.reasons).toHaveLength(1);
+    expect(schemaRequirement?.reasons).toHaveLength(0);
   });
 
   test("collects beta-only label reasons when capability data marks a label as beta", async () => {

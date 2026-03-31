@@ -213,8 +213,8 @@ describe("init coverage", () => {
     const peopleHelpers = await import("node:fs/promises").then((fs) =>
       fs.readFile(path.join(outDir, "src", "core", "people.ts"), "utf8")
     );
-    expect(peopleHelpers).toContain("PositionDetail");
-    expect(peopleHelpers).toContain("OriginTenantInfo");
+    expect(peopleHelpers).toContain("export function serializeSdkPeopleLabelValue<T>(");
+    expect(peopleHelpers).toContain("const normalizeCollectionValue = (");
   });
 
   test("initDotnetProject and initRestProject cover additional branches", async () => {

@@ -370,7 +370,7 @@ describe("init people entity builders", () => {
         csvField("position.title", "Title"),
       ];
       const expression = buildTsPersonEntityCollectionExpression(fields, undefined, tsPersonType, tsTypeMap);
-      expect(expression).toContain("getCollectionValue");
+      expect(expression).toContain("const getValue = (values: string[], index: number): string =>");
       expect(expression).toContain("const maxLen = Math.max(0, ...lengths);");
     });
 
@@ -853,7 +853,7 @@ describe("init people entity builders", () => {
 
       const expression = buildCsPersonEntityExpression(fields, undefined, csPersonType, csTypeMap);
       expect(expression).toContain("JsonSerializer.Serialize(");
-      expect(expression).toContain("GetCollectionValue(List<string> values, int index)");
+      expect(expression).toContain("string GetValue(List<string> values, int index)");
       expect(expression).toContain("RowParser.ParseStringCollection");
     });
 

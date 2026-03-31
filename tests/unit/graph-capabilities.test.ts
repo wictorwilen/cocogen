@@ -19,7 +19,7 @@ describe("graph capabilities snapshot", () => {
   });
 
   test("exposes property type capability metadata", () => {
-    expect(getPropertyTypeCapability("principal")?.minGraphApiVersion).toBe("beta");
+    expect(getPropertyTypeCapability("principal")?.minGraphApiVersion).toBe("v1.0");
   });
 
   test("exposes people label capability metadata", () => {

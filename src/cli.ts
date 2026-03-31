@@ -76,6 +76,36 @@ function normalizeVersion(version: string): { base: number[]; pre?: string } {
   return pre ? { base, pre } : { base };
 }
 
+function comparePrereleaseIdentifiers(left: string, right: string): number {
+  const a = left.split(".");
+  const b = right.split(".");
+  const max = Math.max(a.length, b.length);
+
+  for (let i = 0; i < max; i += 1) {
+    const leftPart = a[i];
+    const rightPart = b[i];
+    if (leftPart === undefined) return -1;
+    if (rightPart === undefined) return 1;
+
+    const leftIsNumeric = /^\d+$/.test(leftPart);
+    const rightIsNumeric = /^\d+$/.test(rightPart);
+
+    if (leftIsNumeric && rightIsNumeric) {
+      const delta = Number.parseInt(leftPart, 10) - Number.parseInt(rightPart, 10);
+      if (delta !== 0) return delta;
+      continue;
+    }
+
+    if (leftIsNumeric && !rightIsNumeric) return -1;
+    if (!leftIsNumeric && rightIsNumeric) return 1;
+
+    const delta = leftPart.localeCompare(rightPart);
+    if (delta !== 0) return delta;
+  }
+
+  return 0;
+}
+
 function compareVersions(left: string, right: string): number {
   const a = normalizeVersion(left);
   const b = normalizeVersion(right);
@@ -86,7 +116,7 @@ function compareVersions(left: string, right: string): number {
   }
   if (!a.pre && b.pre) return 1;
   if (a.pre && !b.pre) return -1;
-  if (a.pre && b.pre) return a.pre.localeCompare(b.pre);
+  if (a.pre && b.pre) return comparePrereleaseIdentifiers(a.pre, b.pre);
   return 0;
 }
 

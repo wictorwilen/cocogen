@@ -108,7 +108,7 @@ describe("loadIrFromTypeSpec", () => {
     const ir = await loadIrFromTypeSpec(entry);
     const ownersProp = ir.properties.find((p) => p.name === "owners");
     expect(ownersProp?.type).toBe("principalCollection");
-    expect(ir.connection.graphApiVersion).toBe("beta");
+    expect(ir.connection.graphApiVersion).toBe("v1.0");
   });
 
   test("rejects nested models", async () => {
@@ -954,7 +954,7 @@ describe("loadIrFromTypeSpec", () => {
     expect(ir.connection.graphApiVersion).toBe("beta");
   });
 
-  test("uses beta graph API version when principal properties are present", async () => {
+  test("keeps graph API version at v1.0 when principal properties are present", async () => {
     const entry = await writeTempTspFile(`
       @coco.item
       model Item {
@@ -965,7 +965,13 @@ describe("loadIrFromTypeSpec", () => {
     `);
 
     const ir = await loadIrFromTypeSpec(entry);
-    expect(ir.connection.graphApiVersion).toBe("beta");
+    expect(ir.connection.graphApiVersion).toBe("v1.0");
+    expect(ir.connection.graphOperationVersions).toEqual({
+      connectionProvisioning: "v1.0",
+      schemaRegistration: "v1.0",
+      itemIngestion: "v1.0",
+      profileSourceRegistration: "v1.0",
+    });
   });
 
   test("falls back to property name for blank @coco.source", async () => {

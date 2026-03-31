@@ -141,7 +141,7 @@ describe("cocogen validate (e2e)", () => {
     expect(result.stderr).toMatch(/use-preview-features/i);
   });
 
-  test("fails when principal is used without preview features", async () => {
+  test("accepts principal without preview features", async () => {
     const entry = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
       @coco.item
@@ -164,11 +164,11 @@ describe("cocogen validate (e2e)", () => {
       }
     );
 
-    expect(result.code).toBe(1);
-    expect(result.stderr).toMatch(/use-preview-features/i);
+    expect(result.code).toBe(0);
+    expect(result.stderr).not.toMatch(/use-preview-features/i);
   });
 
-  test("prints actionable error when preview required (no JSON)", async () => {
+  test("accepts principal collections without preview features in JSON mode", async () => {
     const entry = await writeTempTspFile(`
       @coco.connection({ name: "Test connector", connectionId: "testconnection", connectionDescription: "Test connector" })
       @coco.item
@@ -188,9 +188,11 @@ describe("cocogen validate (e2e)", () => {
       },
     });
 
-    expect(result.code).toBe(1);
-    expect(result.stdout.trim()).toBe("");
-    expect(result.stderr).toMatch(/use-preview-features/i);
+    expect(result.code).toBe(0);
+    expect(result.stderr.trim()).toBe("");
+    const parsed = JSON.parse(result.stdout) as { ok: boolean; errors: unknown[]; warnings: unknown[] };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.errors).toHaveLength(0);
   });
 });
 
