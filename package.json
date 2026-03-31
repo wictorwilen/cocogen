@@ -1,6 +1,6 @@
 {
   "name": "@wictorwilen/cocogen",
-  "version": "1.0.50",
+  "version": "1.1.0-preview",
   "description": "TypeSpec-driven Microsoft Copilot connector generator",
   "license": "MIT",
   "author": "Wictor Wilén <wictor@wictorwilen.se>",
@@ -36,6 +36,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "prebuild": "tsx scripts/update-graph-principal-templates.ts",
     "build": "tsc -p tsconfig.build.json && node ./scripts/copy-init-templates.mjs",
     "prepublishOnly": "npm run build && node ./scripts/update-changelog.mjs",
     "update-graph-profile-schema": "tsx scripts/update-graph-profile-schema.ts",

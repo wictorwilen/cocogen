@@ -262,7 +262,7 @@ describe("scripts/update-graph-profile-schema", () => {
     expect(capabilities.labels.personManager.minGraphApiVersion).toBe("beta");
     expect(capabilities.profileTypes.userAccountInformation.minGraphApiVersion).toBe("v1.0");
     expect(capabilities.connectionProperties.contentCategory?.minGraphApiVersion).toBe("beta");
-    expect(capabilities.propertyTypes.principal?.minGraphApiVersion).toBe("beta");
+    expect(capabilities.propertyTypes.principal?.minGraphApiVersion).toBe("v1.0");
   });
 
   test("writes the capability snapshot to the data folder", async () => {

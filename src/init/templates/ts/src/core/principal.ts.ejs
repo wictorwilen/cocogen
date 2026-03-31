@@ -3,13 +3,13 @@
  */
 export type Principal = {
   "@odata.type": "#microsoft.graph.externalConnectors.principal";
-  externalName?: string;
-  externalId?: string;
+  email?: string;
   entraDisplayName?: string;
   entraId?: string;
-  email?: string;
-  upn?: string;
+  externalId?: string;
+  externalName?: string;
   tenantId?: string;
+  upn?: string;
   [key: string]: string | undefined;
 };
 

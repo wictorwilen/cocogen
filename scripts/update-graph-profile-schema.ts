@@ -402,8 +402,8 @@ export const buildGraphCapabilitySnapshot = (
       profileSourceRegistration: computeAvailability(false, true),
     },
     propertyTypes: {
-      principal: computeAvailability(false, true),
-      principalCollection: computeAvailability(false, true),
+      principal: computeAvailability(true, true),
+      principalCollection: computeAvailability(true, true),
     },
     labels,
     peopleLabels,

@@ -1,4 +1,3 @@
-<% if (graphApiVersion === 'beta') { -%>
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
@@ -10,20 +9,20 @@ public sealed class Principal : IAdditionalDataHolder, IParsable
 {
     [JsonPropertyName("@odata.type")]
     public string? OdataType { get; set; } = "#microsoft.graph.externalConnectors.principal";
-    [JsonPropertyName("externalName")]
-    public string? ExternalName { get; set; }
-    [JsonPropertyName("externalId")]
-    public string? ExternalId { get; set; }
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
     [JsonPropertyName("entraDisplayName")]
     public string? EntraDisplayName { get; set; }
     [JsonPropertyName("entraId")]
     public string? EntraId { get; set; }
-    [JsonPropertyName("email")]
-    public string? Email { get; set; }
-    [JsonPropertyName("upn")]
-    public string? Upn { get; set; }
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+    [JsonPropertyName("externalName")]
+    public string? ExternalName { get; set; }
     [JsonPropertyName("tenantId")]
     public string? TenantId { get; set; }
+    [JsonPropertyName("upn")]
+    public string? Upn { get; set; }
     public IDictionary<string, object> AdditionalData { get; set; } = new Dictionary<string, object>();
 
     public static Principal CreateFromDiscriminatorValue(IParseNode parseNode) => new();
@@ -33,27 +32,26 @@ public sealed class Principal : IAdditionalDataHolder, IParsable
         return new Dictionary<string, Action<IParseNode>>(StringComparer.OrdinalIgnoreCase)
         {
             { "@odata.type", n => OdataType = n.GetStringValue() },
-            { "externalName", n => ExternalName = n.GetStringValue() },
-            { "externalId", n => ExternalId = n.GetStringValue() },
+            { "email", n => Email = n.GetStringValue() },
             { "entraDisplayName", n => EntraDisplayName = n.GetStringValue() },
             { "entraId", n => EntraId = n.GetStringValue() },
-            { "email", n => Email = n.GetStringValue() },
-            { "upn", n => Upn = n.GetStringValue() },
+            { "externalId", n => ExternalId = n.GetStringValue() },
+            { "externalName", n => ExternalName = n.GetStringValue() },
             { "tenantId", n => TenantId = n.GetStringValue() },
+            { "upn", n => Upn = n.GetStringValue() },
         };
     }
 
     public void Serialize(ISerializationWriter writer)
     {
         writer.WriteStringValue("@odata.type", OdataType);
-        writer.WriteStringValue("externalName", ExternalName);
-        writer.WriteStringValue("externalId", ExternalId);
+        writer.WriteStringValue("email", Email);
         writer.WriteStringValue("entraDisplayName", EntraDisplayName);
         writer.WriteStringValue("entraId", EntraId);
-        writer.WriteStringValue("email", Email);
-        writer.WriteStringValue("upn", Upn);
+        writer.WriteStringValue("externalId", ExternalId);
+        writer.WriteStringValue("externalName", ExternalName);
         writer.WriteStringValue("tenantId", TenantId);
+        writer.WriteStringValue("upn", Upn);
         writer.WriteAdditionalData(AdditionalData);
     }
 }
-<% } -%>

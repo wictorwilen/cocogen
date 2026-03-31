@@ -12,12 +12,12 @@
   },
   "propertyTypes": {
     "principal": {
-      "availableIn": ["beta"],
-      "minGraphApiVersion": "beta"
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0"
     },
     "principalCollection": {
-      "availableIn": ["beta"],
-      "minGraphApiVersion": "beta"
+      "availableIn": ["v1.0", "beta"],
+      "minGraphApiVersion": "v1.0"
     }
   },
   "labels": {

@@ -45,6 +45,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Generate TS/.NET principal helper templates from the live Graph `microsoft.graph.externalConnectors.principal` complex type during `prebuild`, with a cached metadata snapshot fallback, and mark principal property types as available in `v1.0` ✅
 - Harden generated TS/.NET Graph transport retries to respect throttling headers, retry transient 408/429/5xx responses, and cover raw profile-source HTTP requests as well as normal Graph SDK ingestion ✅
 - Add configurable ingest batching to generated TS/.NET CLIs and runtimes via `--batch-size` (default `1`, max `20`) so Graph item PUTs can run in bounded parallel batches ✅
 - Normalize generated .NET `PropertyTransformBase` indentation for multi-line people transform expressions so nested serializer and collection object initializers stay readable ✅

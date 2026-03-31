@@ -52,7 +52,7 @@ describe("cocogen generate principal outputs (e2e)", () => {
     const outDir = path.join(path.dirname(entry), "out-principal-ts");
 
     const result = await runNode(
-      [distCliPath(), "generate", "--tsp", entry, "--out", outDir, "--use-preview-features"],
+      [distCliPath(), "generate", "--tsp", entry, "--out", outDir],
       {
         cwd: repoRoot,
         env: {
@@ -109,7 +109,6 @@ describe("cocogen generate principal outputs (e2e)", () => {
         entry,
         "--out",
         outDir,
-        "--use-preview-features",
       ],
       {
         cwd: repoRoot,

@@ -640,8 +640,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     const schemaPropertyLines = properties
       .filter((p) => p.name !== this.ir.item.contentPropertyName)
       .map((p) => {
-        const isPrincipalCollection =
-          this.ir.connection.graphApiVersion === "beta" && p.type === "principalCollection";
+        const isPrincipalCollection = p.type === "principalCollection";
         const labels =
           p.labels.length > 0
             ? `new List<string> { ${p.labels.map((l) => JSON.stringify(l)).join(", ")} }`
@@ -941,12 +940,11 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       "utf8"
     );
 
-    if (usesPrincipal && this.ir.connection.graphApiVersion === "beta") {
+    if (usesPrincipal) {
       await writeFile(
         path.join(this.outDir, "Core", "Principal.cs"),
         await renderTemplate("dotnet/Core/Principal.cs.ejs", {
           namespaceName,
-          graphApiVersion: this.ir.connection.graphApiVersion,
         }),
         "utf8"
       );

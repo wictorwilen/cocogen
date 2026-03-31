@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Principal helper templates for generated TS and .NET connectors are now derived from the live Graph `microsoft.graph.externalConnectors.principal` metadata during `prebuild`, with a checked-in snapshot used as a fallback when metadata refresh is unavailable.
+- Principal and principal-collection schema property types now resolve to `v1.0` Graph capability instead of being treated as beta-only.
+
 ### Fixed
 - Generated .NET `PropertyTransformBase` files now indent multi-line people transform expressions consistently, including nested serializer calls and collection object initializers.
 

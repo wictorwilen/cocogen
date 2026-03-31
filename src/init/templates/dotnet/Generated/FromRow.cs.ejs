@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using <%= namespaceName %>;
 using <%= namespaceName %>.Datasource;
-<% if (usesPrincipal && graphApiVersion === 'beta') { -%>
+<% if (usesPrincipal) { -%>
 using <%= namespaceName %>.Core;
 <% } -%>
 

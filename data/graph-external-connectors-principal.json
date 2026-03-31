@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-03-30T15:33:58.367Z",
+  "graphVersion": "v1.0",
+  "sourceUrl": "https://graph.microsoft.com/v1.0/$metadata",
+  "namespace": "microsoft.graph.externalConnectors",
+  "name": "principal",
+  "fullName": "microsoft.graph.externalConnectors.principal",
+  "properties": [
+    {
+      "name": "email",
+      "type": "Edm.String",
+      "nullable": true
+    },
+    {
+      "name": "entraDisplayName",
+      "type": "Edm.String",
+      "nullable": true
+    },
+    {
+      "name": "entraId",
+      "type": "Edm.String",
+      "nullable": true
+    },
+    {
+      "name": "externalId",
+      "type": "Edm.String",
+      "nullable": true
+    },
+    {
+      "name": "externalName",
+      "type": "Edm.String",
+      "nullable": true
+    },
+    {
+      "name": "tenantId",
+      "type": "Edm.String",
+      "nullable": true
+    },
+    {
+      "name": "upn",
+      "type": "Edm.String",
+      "nullable": true
+    }
+  ]
+}
