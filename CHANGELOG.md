@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-preview.1] - 2026-03-31
+
 ### Changed
 - Principal helper templates for generated TS and .NET connectors are now derived from the live Graph `microsoft.graph.externalConnectors.principal` metadata during `prebuild`, with a checked-in snapshot used as a fallback when metadata refresh is unavailable.
 - Principal and principal-collection schema property types now resolve to `v1.0` Graph capability instead of being treated as beta-only.
@@ -333,6 +335,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.1.0-preview.1]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.1
 [1.0.50]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.50
 [1.0.49]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.49
 [1.0.48]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.48
