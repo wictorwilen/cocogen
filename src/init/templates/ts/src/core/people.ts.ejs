@@ -112,6 +112,24 @@ const validateSdkGraphObject = <T>(
   return value as T;
 };
 
+const stripNullObjectProperties = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stripNullObjectProperties(entry));
+  }
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const cleaned: UnknownObject = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === null || entry === undefined) {
+      continue;
+    }
+    cleaned[key] = stripNullObjectProperties(entry);
+  }
+  return cleaned;
+};
+
 const serializeSdkSingleValue = <T>(
   value: unknown,
   fieldName: string,
@@ -119,7 +137,8 @@ const serializeSdkSingleValue = <T>(
 ): string | undefined => {
   const payload = normalizeSingleValue(value, fieldName);
   if (!payload) return undefined;
-  return JSON.stringify(validateSdkGraphObject<T>(payload, fieldName, disallowReadonlyItemFacetFields));
+  const validated = validateSdkGraphObject<T>(payload, fieldName, disallowReadonlyItemFacetFields);
+  return JSON.stringify(stripNullObjectProperties(validated));
 };
 
 const serializeSdkCollectionValue = <T>(
@@ -129,7 +148,9 @@ const serializeSdkCollectionValue = <T>(
 ): string[] =>
   payloads.map((payload, index) =>
     JSON.stringify(
-      validateSdkGraphObject<T>(payload, `${fieldName}[${index}]`, disallowReadonlyItemFacetFields)
+      stripNullObjectProperties(
+        validateSdkGraphObject<T>(payload, `${fieldName}[${index}]`, disallowReadonlyItemFacetFields)
+      )
     )
   );
 

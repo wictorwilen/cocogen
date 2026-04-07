@@ -819,6 +819,8 @@ model PersonProfile {
     expect(helpers).not.toContain("export type PersonAward = MicrosoftGraphBeta.PersonAward;");
     expect(helpers).not.toContain("export type PeopleLabelSerializationOptions = {");
     expect(helpers).toContain("export function serializeSdkPeopleLabelValue<T>(");
+    expect(helpers).toContain("const stripNullObjectProperties = (value: unknown): unknown => {");
+    expect(helpers).toContain("return JSON.stringify(stripNullObjectProperties(validated));");
     expect(helpers).toContain("const serializeSdkCollectionValue = <T>(");
     expect(helpers).not.toContain("export function serializePersonSkills");
     expect(helpers).not.toContain("export function validateSkillProficiency");
@@ -853,6 +855,9 @@ model PersonProfile {
 
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(peoplePayload).toContain("PeoplePayload");
+
+    const connectorCore = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
+    expect(connectorCore).toContain("DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull");
 
     await updateProject({ outDir, usePreviewFeatures: true });
     const overridesAfter = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");

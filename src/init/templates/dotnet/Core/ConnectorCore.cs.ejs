@@ -14,6 +14,7 @@ using System.CommandLine;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 
 using <%= namespaceName %>.Datasource;
@@ -26,6 +27,12 @@ namespace <%= namespaceName %>.Core;
 /// </summary>
 public sealed class ConnectorCore<TItem>
 {
+    private static readonly JsonSerializerOptions VerbosePayloadSerializerOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
     private readonly GraphServiceClient? _graph;
     private readonly TokenCredential? _credential;
     private readonly IItemPayload<TItem> _itemPayload;
@@ -150,7 +157,7 @@ public sealed class ConnectorCore<TItem>
             Console.WriteLine("verbose: PUT " + url);
             var payloadJson = JsonSerializer.Serialize(
                 externalItem,
-                new JsonSerializerOptions { WriteIndented = true }
+                VerbosePayloadSerializerOptions
             );
             Console.WriteLine("verbose: payload " + payloadJson);
         }
@@ -269,7 +276,7 @@ public sealed class ConnectorCore<TItem>
             {
                 var payloadJson = JsonSerializer.Serialize(
                     _itemPayload.ToExternalItem(item),
-                    new JsonSerializerOptions { WriteIndented = true }
+                    VerbosePayloadSerializerOptions
                 );
                 Console.WriteLine($"verbose: DRY RUN item {index} (id={itemId}) payload " + payloadJson);
             }
