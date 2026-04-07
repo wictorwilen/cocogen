@@ -115,7 +115,7 @@ describe("people label serialization (e2e)", () => {
     expect(itemPayloadTs).not.toContain("contentPropertyName");
   });
 
-  test("dotnet output includes JSON enforcement for people payloads", async () => {
+  test("dotnet output keeps only collection limit enforcement for people payloads", async () => {
     const entry = await writeTempTspFile(peopleSchema);
     const outDir = path.join(path.dirname(entry), "out-people-dotnet");
 
@@ -137,12 +137,17 @@ describe("people label serialization (e2e)", () => {
     expect(init.code).toBe(0);
 
     const payload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
-    expect(payload).toContain("non-empty JSON string");
-    expect(payload).toContain("read-only");
+    expect(payload).toContain("Property '");
+    expect(payload).toContain("exceeds people label collection limit");
+    expect(payload).not.toContain("non-empty JSON string");
+    expect(payload).not.toContain("read-only");
     expect(payload).not.toContain("public enum PersonRelationship");
     expect(payload).not.toContain("public sealed class ItemBody");
     expect(payload).not.toContain("using Date = System.DateOnly;");
     expect(payload).toContain("public sealed record PeopleLabelSerializationOptions(");
+    expect(payload).toContain("int? CollectionLimit");
+    expect(payload).not.toContain("RequiredFields");
+    expect(payload).not.toContain("DisallowReadonlyItemFacetFields");
     expect(payload).not.toContain("public sealed record PeopleLabelDefinition(");
     expect(payload).not.toContain("public enum PeoplePayloadKind");
 

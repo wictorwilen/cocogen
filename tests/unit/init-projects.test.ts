@@ -748,6 +748,8 @@ model PersonProfile {
     expect(peoplePayload).not.toContain("using Date = System.DateOnly;");
     expect(peoplePayload).not.toContain("public sealed class WorkPosition");
     expect(peoplePayload).toContain("public sealed record PeopleLabelSerializationOptions(");
+    expect(peoplePayload).toContain("int? CollectionLimit");
+    expect(peoplePayload).not.toContain("RequiredFields");
     expect(peoplePayload).not.toContain("public sealed record PeopleLabelDefinition(");
     expect(peoplePayload).not.toContain("public enum PeoplePayloadKind");
 

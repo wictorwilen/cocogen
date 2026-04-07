@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.Json;
 <% const hasLocalGraphTypes = peopleProfileTypes.some((type) => !type.sourcePackage); -%>
 <% if (hasLocalGraphTypes) { -%>
 using System.Text.Json.Serialization;
@@ -10,35 +9,13 @@ using Date = System.DateOnly;
 namespace <%= namespaceName %>.Core;
 
 public sealed record PeopleLabelSerializationOptions(
-    string Label,
-    IReadOnlyList<string> RequiredFields,
-    int? CollectionLimit,
-    bool DisallowReadonlyItemFacetFields
+    int? CollectionLimit
 );
 
 public static class PeoplePayload
 {
-    private static readonly string[] ItemFacetReadOnlyFields =
-    {
-<% for (const field of itemFacetReadOnlyFields ?? []) { -%>
-        <%= JSON.stringify(field) %>,
-<% } -%>
-    };
-
     public static string? SerializeStringLabel(string? value, string propertyName, PeopleLabelSerializationOptions options)
     {
-        if (value is null) return value;
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidOperationException(
-                $"People label '{options.Label}' on property '{propertyName}' must be a non-empty JSON string.");
-        }
-        var element = ParseJsonObject(options.Label, value, propertyName);
-        if (options.DisallowReadonlyItemFacetFields)
-        {
-            EnsureItemFacetReadOnlyFields(options.Label, element, propertyName);
-        }
-        ValidateRequiredFields(options, element, propertyName);
         return value;
     }
 
@@ -48,70 +25,10 @@ public static class PeoplePayload
         if (options.CollectionLimit.HasValue && values.Count > options.CollectionLimit.Value)
         {
             throw new InvalidOperationException(
-                $"People label '{options.Label}' on property '{propertyName}' exceeds collection limit of {options.CollectionLimit.Value}.");
-        }
-
-        for (var index = 0; index < values.Count; index++)
-        {
-            var value = values[index];
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                throw new InvalidOperationException(
-                    $"People label '{options.Label}' on property '{propertyName}' contains an empty payload at index {index}.");
-            }
-
-            var element = ParseJsonObject(options.Label, value, propertyName);
-            if (options.DisallowReadonlyItemFacetFields)
-            {
-                EnsureItemFacetReadOnlyFields(options.Label, element, propertyName);
-            }
-            ValidateRequiredFields(options, element, propertyName);
+                $"Property '{propertyName}' exceeds people label collection limit of {options.CollectionLimit.Value}.");
         }
 
         return values;
-    }
-
-    private static JsonElement ParseJsonObject(string label, string value, string propertyName)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(value);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                throw new InvalidOperationException(
-                    $"People label '{label}' on property '{propertyName}' must be a JSON object.");
-            }
-            return document.RootElement.Clone();
-        }
-        catch (JsonException)
-        {
-            throw new InvalidOperationException(
-                $"People label '{label}' on property '{propertyName}' must be valid JSON.");
-        }
-    }
-
-    private static void ValidateRequiredFields(PeopleLabelSerializationOptions options, JsonElement element, string propertyName)
-    {
-        foreach (var required in options.RequiredFields)
-        {
-            if (!element.TryGetProperty(required, out var property) || property.ValueKind == JsonValueKind.Null)
-            {
-                throw new InvalidOperationException(
-                    $"People label '{options.Label}' on property '{propertyName}' is missing required field '{required}'.");
-            }
-        }
-    }
-
-    private static void EnsureItemFacetReadOnlyFields(string label, JsonElement element, string propertyName)
-    {
-        foreach (var field in ItemFacetReadOnlyFields)
-        {
-            if (element.TryGetProperty(field, out _))
-            {
-                throw new InvalidOperationException(
-                    $"People label '{label}' on property '{propertyName}' cannot include '{field}' because it is read-only.");
-            }
-        }
     }
 }
 

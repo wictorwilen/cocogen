@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Generated `.NET` people payload helpers no longer re-validate serialized JSON field names and read-only item facet fields at runtime; they now rely on schema validation and typed construction, while still enforcing collection limits.
+
 ## [1.1.0-preview.3] - 2026-04-07
 
 ### Fixed

@@ -435,9 +435,6 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       }
       return false;
     };
-    const itemFacetTypeNames = graphProfileSchema.types
-      .map((type) => type.name)
-      .filter((typeName) => isItemFacetType(typeName));
     const peopleProfileTypeInfoByName = new Map(
       peopleProfileTypes.map((type) => [
         type.csName,
@@ -727,10 +724,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
           if (!peopleLabelDefinition) {
             throw new Error(`Missing people label definition for '${p.peopleLabel}'.`);
           }
-          const requiredFieldsLiteral = peopleLabelDefinition.requiredFields.length
-            ? `new[] { ${peopleLabelDefinition.requiredFields.map((field) => JSON.stringify(field)).join(", ")} }`
-            : "Array.Empty<string>()";
-          const peopleOptionsLiteral = `new PeopleLabelSerializationOptions(${JSON.stringify(peopleLabelDefinition.label)}, ${requiredFieldsLiteral}, ${peopleLabelDefinition.collectionLimit ?? "null"}, ${peopleLabelDefinition.inheritsItemFacet ? "true" : "false"})`;
+          const peopleOptionsLiteral = `new PeopleLabelSerializationOptions(${peopleLabelDefinition.collectionLimit ?? "null"})`;
           if (p.type === "string") {
             valueExpression = `PeoplePayload.SerializeStringLabel(item.${p.csName}, ${propertyLiteral}, ${peopleOptionsLiteral})`;
           } else if (p.type === "stringCollection") {
@@ -925,17 +919,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
           peopleLabelDefinitions,
           peopleProfileTypes,
           baseTypeNames,
-          itemFacetTypeNames,
           graphEnums: buildGraphEnumTemplates(),
-          itemFacetReadOnlyFields: [
-            "id",
-            "createdBy",
-            "createdDateTime",
-            "lastModifiedBy",
-            "lastModifiedDateTime",
-            "source",
-            "sources",
-          ],
         }),
         "utf8"
       );
