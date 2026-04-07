@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-preview.4] - 2026-04-07
+
 ### Fixed
 - Generated `.NET` people payload helpers no longer re-validate serialized JSON field names and read-only item facet fields at runtime; they now rely on schema validation and typed construction, while still enforcing collection limits.
 
@@ -354,6 +356,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.1.0-preview.4]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.4
 [1.1.0-preview.3]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.3
 [1.1.0-preview.2]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.2
 [1.1.0-preview.1]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.1
