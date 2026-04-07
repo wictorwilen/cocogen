@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-preview.2] - 2026-04-07
+
 ### Fixed
 - `npm run update-graph-profile-schema` now refreshes the profile CSDL snapshot from the official `microsoftgraph/msgraph-metadata` raw schema files because the live Graph `$metadata` endpoints no longer return XML reliably for this workflow.
 
@@ -343,6 +345,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.1.0-preview.2]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.2
 [1.1.0-preview.1]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.1
 [1.0.50]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.50
 [1.0.49]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.49
