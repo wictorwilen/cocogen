@@ -128,6 +128,18 @@ describe("init people entity builders", () => {
       expect(expression).toContain(`"nickname": parseString(readSourceValue(row, ["Nickname"]))`);
     });
 
+    test("omits undefined values when serializing TS person payloads", () => {
+      const expression = buildTsPersonEntityExpression(
+        [csvField("nickname", "Nickname")],
+        () => "undefined",
+        null,
+        tsTypeMap
+      );
+      const serialized = new Function(`return (${expression});`)() as string;
+      expect(serialized).toBe("{}");
+      expect(serialized).not.toContain("null");
+    });
+
     test("handles nested objects without type info", () => {
       const fields = [
         csvField("user.name", "Name"),
@@ -853,6 +865,7 @@ describe("init people entity builders", () => {
 
       const expression = buildCsPersonEntityExpression(fields, undefined, csPersonType, csTypeMap);
       expect(expression).toContain("JsonSerializer.Serialize(");
+      expect(expression).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
       expect(expression).toContain("string GetValue(List<string> values, int index)");
       expect(expression).toContain("RowParser.ParseStringCollection");
     });
@@ -1358,6 +1371,7 @@ describe("init people entity builders", () => {
         "csv"
       );
       expect(expression).toContain(".Select(value => JsonSerializer.Serialize(");
+      expect(expression).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
     });
 
     test("flattens JSON array roots", () => {
@@ -1374,6 +1388,7 @@ describe("init people entity builders", () => {
       );
       expect(expression).toContain("RowParser.ReadArrayEntries");
       expect(expression).toContain("results.Add(JsonSerializer.Serialize(");
+      expect(expression).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
     });
 
     test("handles JSON array roots with different roots (no common root)", () => {

@@ -846,6 +846,7 @@ model PersonProfile {
     const defaults = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(defaults).toContain("skill");
     expect(defaults).not.toContain("List<string> GetCollectionValue(List<string> values, int index)");
+    expect(defaults).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
 
     const overrides = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overrides).toContain("PropertyTransform");
@@ -877,6 +878,7 @@ model PersonProfile {
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(dotnetTransforms).toContain("Select(value => JsonSerializer.Serialize");
+    expect(dotnetTransforms).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
     expect(dotnetTransforms).toContain("default!");
 
     const csv = await readFile(path.join(outTs, "data.csv"), "utf8");
