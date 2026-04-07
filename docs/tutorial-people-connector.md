@@ -131,7 +131,7 @@ npx @wictorwilen/cocogen@latest generate \
 
 ## 5) Quick tour of the scaffold
 In `people-skills-connector/`:
-- `Program.cs` — CLI: provision, ingest, delete
+- `Program.cs` — CLI: provision, register-profile-source, ingest, delete
 - `Datasource/JsonItemSource.cs` — JSON reader
 - `PropertyTransformBase.cs` — generated mapping
 - `PropertyTransform.cs` — **your customization hook**
@@ -160,6 +160,12 @@ public sealed class PropertyTransform : PropertyTransformBase
 ## 7) Provision the connection
 ```bash
 dotnet run -- provision
+```
+
+For people connectors, register the profile source in a separate step:
+
+```bash
+dotnet run -- register-profile-source
 ```
 
 ---

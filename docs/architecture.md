@@ -177,7 +177,9 @@ People connectors (preview) helpers:
 
 Runtime serialization rules (people connectors):
 - People labels must be JSON-encoded strings (single label) or arrays of JSON strings (collection labels).
-- The runtime helpers live in `src/core/people.ts` (TS) and `Core/PeoplePayload.cs` (.NET) and validate required Graph fields + collection limits before emitting the payload; TS and .NET generators now bind SDK-backed Graph profile shapes to the official Microsoft Graph SDK model/type packages instead of fully redefining those models locally.
+- The runtime helpers live in `src/core/people.ts` (TS) and `Core/PeoplePayload.cs` (.NET).
+- The generated TS helper validates JSON payload shape, rejects read-only item facet fields, and enforces collection limits before emitting the payload.
+- The generated .NET helper now relies on schema validation plus typed construction for payload shape and only enforces collection limits at runtime; both TS and .NET generators bind SDK-backed Graph profile shapes to the official Microsoft Graph SDK model/type packages instead of fully redefining those models locally.
 - Graph enum-like profile fields are emitted as real TS/C# enums when the Graph metadata snapshot includes `EnumType` members.
 - `scripts/update-graph-profile-schema.ts` now captures referenced Graph enums into `data/graph-profile-schema.json` under `enums[]`, and the TS/.NET people payload generators consume that snapshot directly.
 
@@ -385,6 +387,7 @@ Generated output should:
 - Include a `README` section describing the required steps and pointing to the official people connectors guidance.
 - Include a command that registers the connection as a profile source and updates prioritized source settings using Graph beta admin APIs.
 - Allow configuring whether the profile source is inserted first or last in `prioritizedSourceUrls`.
+- Keep `provision` focused on connection + schema provisioning; profile source registration remains a separate explicit step.
 
 At minimum, the generated output must not claim to be "fully configured" until these admin steps are completed.
 

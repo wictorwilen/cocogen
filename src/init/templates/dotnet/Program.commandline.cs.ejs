@@ -165,7 +165,7 @@ ConnectorCore<ItemModel> BuildConnectorCore(GraphServiceClient? graph, TokenCred
 }
 
 /// <summary>
-/// Provision the connection and schema (then profile source for people connectors).
+/// Provision the connection and schema.
 /// </summary>
 async Task ProvisionAsync()
 {
@@ -176,10 +176,6 @@ async Task ProvisionAsync()
 
     await core.ProvisionAsync();
     Console.WriteLine("ok: connection + schema provisioned");
-<% if (isPeopleConnector) { -%>
-    await core.ProvisionProfileSourceAsync();
-    Console.WriteLine("ok: profile source registered");
-<% } -%>
     Console.WriteLine("ok: provisioned");
 }
 

@@ -31,6 +31,7 @@
 ## What you can do with the generated project 🔧
 - ✅ Create or update an external connection
 - ✅ Patch schema changes
+- ✅ Register a people profile source with a dedicated command
 - ✅ Ingest items from CSV (or your own datasource)
 - ✅ Retry throttled requests with backoff + logging
 - ✅ Customize transforms without losing changes on update

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Generated people connector `provision` commands no longer auto-register the connection as a profile source; use the dedicated `register-profile-source` command instead.
+
 ## [1.1.0-preview.4] - 2026-04-07
 
 ### Fixed

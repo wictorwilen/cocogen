@@ -450,6 +450,8 @@ describe("project init/update", () => {
     expect(core).toContain("provisionProfileSource");
     const cli = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
     expect(cli).toContain("provisionProfileSource");
+    expect(cli).toContain('"register-profile-source"');
+    expect(cli).not.toContain("ok: profile source registered");
   });
 
   test("initTsProject skips duplicate people profile source updates", async () => {
@@ -604,6 +606,8 @@ model Item {
     expect(core).toContain("SchemaRegistrationGraphBaseUrl");
     const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
     expect(program).toContain("ProvisionProfileSourceAsync");
+    expect(program).toContain('new Command("register-profile-source"');
+    expect(program).not.toContain("ok: profile source registered");
   });
 
   test("initDotnetProject skips duplicate people profile source updates", async () => {

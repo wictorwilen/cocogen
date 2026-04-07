@@ -100,9 +100,9 @@ Mark tasks one-by-one in AGENT-TASKS.md using statuses: not-started, in-progress
 
 **Runtime validation details**
 
-1. `Core/PeoplePayload.cs` now holds all Graph profile types plus label metadata (payload type, required fields, collection limits).
-2. `ItemPayload.cs` routes people-labeled properties through `PeoplePayload.Serialize*`, which parses JSON, validates required fields, and enforces collection limits.
-3. Errors include the label + property name for quick diagnosis.
+1. `Core/PeoplePayload.cs` now holds all Graph profile types plus label metadata needed by the generated runtime.
+2. `ItemPayload.cs` routes people-labeled properties through `PeoplePayload.Serialize*`; the current .NET helper keeps collection-limit enforcement but otherwise relies on schema validation and typed payload construction.
+3. Errors include the property context for the remaining runtime checks.
 
 ### 6) Serialization rules *(status: completed)*
 - [x] Enforce JSON-encoded string for string labels.
@@ -112,7 +112,7 @@ Mark tasks one-by-one in AGENT-TASKS.md using statuses: not-started, in-progress
 **Serialization enforcement**
 
 1. TS `core/people.ts` now requires string labels to be JSON strings and collection labels to be arrays of JSON strings (no object/array shortcuts).
-2. .NET `Core/PeoplePayload.cs` rejects empty strings and validates JSON object shape for each entry.
+2. .NET `Core/PeoplePayload.cs` no longer re-validates JSON object shape for generated SDK-backed payloads; it only keeps collection-limit enforcement.
 
 ### 7) Tests *(status: completed)*
 - [x] Unit tests for label registry and schema validation logic.

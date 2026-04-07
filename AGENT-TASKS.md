@@ -45,6 +45,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Stop generated people connector `provision` commands from auto-registering profile sources; keep that behavior behind the dedicated `register-profile-source` command ✅
 - Move people profile source registration and stable people connector operation routing to Graph `v1.0`, keeping `--use-preview-features` only for beta-only people labels ✅
 - Refresh Graph people-label metadata to pick up beta-only `personEducationalActivities`, `personInterests`, `personLanguages`, `personPatents`, and `personPublications`, and wire them through capability detection + validation ✅
 - Generate TS/.NET principal helper templates from the live Graph `microsoft.graph.externalConnectors.principal` complex type during `prebuild`, with a cached metadata snapshot fallback, and mark principal property types as available in `v1.0` ✅
