@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 <% const hasLocalGraphTypes = peopleProfileTypes.some((type) => !type.sourcePackage); -%>
 <% if (hasLocalGraphTypes) { -%>
 using System.Text.Json.Serialization;
@@ -14,6 +16,14 @@ public sealed record PeopleLabelSerializationOptions(
 
 public static class PeoplePayload
 {
+    private static readonly HashSet<string> KiotaMetadataKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "AdditionalData",
+        "BackingStore",
+        "OdataType",
+        "@odata.type",
+    };
+
     public static string? SerializeStringLabel(string? value, string propertyName, PeopleLabelSerializationOptions options)
     {
         return value;
@@ -29,6 +39,58 @@ public static class PeoplePayload
         }
 
         return values;
+    }
+
+    public static string NormalizeSerializedLabelJson(string json)
+    {
+        var node = JsonNode.Parse(json);
+        var normalized = NormalizeNode(node);
+        return normalized?.ToJsonString() ?? "{}";
+    }
+
+    private static JsonNode? NormalizeNode(JsonNode? node)
+    {
+        if (node is null)
+            return null;
+
+        if (node is JsonObject jsonObject)
+        {
+            var result = new JsonObject();
+            foreach (var (key, value) in jsonObject)
+            {
+                if (key is null || KiotaMetadataKeys.Contains(key))
+                    continue;
+
+                var normalizedValue = NormalizeNode(value);
+                if (normalizedValue is null)
+                    continue;
+
+                var normalizedKey = key.StartsWith("@", StringComparison.Ordinal)
+                    ? key
+                    : JsonNamingPolicy.CamelCase.ConvertName(key);
+
+                result[normalizedKey] = normalizedValue;
+            }
+
+            return result;
+        }
+
+        if (node is JsonArray jsonArray)
+        {
+            var result = new JsonArray();
+            foreach (var item in jsonArray)
+            {
+                var normalizedItem = NormalizeNode(item);
+                if (normalizedItem is null)
+                    continue;
+
+                result.Add(normalizedItem);
+            }
+
+            return result;
+        }
+
+        return node.DeepClone();
     }
 }
 

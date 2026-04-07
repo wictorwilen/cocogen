@@ -14,6 +14,7 @@ using System.CommandLine;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading;
 
@@ -66,6 +67,80 @@ public sealed class ConnectorCore<TItem>
         _profileSourceWebUrl = profileSourceWebUrl;
         _profileSourceDisplayName = profileSourceDisplayName;
         _profileSourcePriority = profileSourcePriority;
+    }
+
+    private static readonly HashSet<string> VerboseMetadataKeysToStrip = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "AdditionalData",
+        "BackingStore",
+        "OdataType",
+        "@odata.type",
+    };
+
+    private static string SerializeVerbosePayload(object payload)
+    {
+        var json = JsonSerializer.Serialize(payload, VerbosePayloadSerializerOptions);
+        var node = JsonNode.Parse(json);
+        var normalized = NormalizeVerboseNode(node);
+        return normalized?.ToJsonString(VerbosePayloadSerializerOptions) ?? "{}";
+    }
+
+    private static JsonNode? NormalizeVerboseNode(JsonNode? node)
+    {
+        if (node is null)
+            return null;
+
+        if (node is JsonObject jsonObject)
+        {
+            var result = new JsonObject();
+            foreach (var (key, value) in jsonObject)
+            {
+                if (string.Equals(key, "AdditionalData", StringComparison.OrdinalIgnoreCase) && value is JsonObject additionalData)
+                {
+                    foreach (var (extraKey, extraValue) in additionalData)
+                    {
+                        if (extraKey is null || VerboseMetadataKeysToStrip.Contains(extraKey))
+                            continue;
+
+                        var normalizedExtraValue = NormalizeVerboseNode(extraValue);
+                        if (normalizedExtraValue is null)
+                            continue;
+
+                        result[extraKey] = normalizedExtraValue;
+                    }
+
+                    continue;
+                }
+
+                if (key is null || VerboseMetadataKeysToStrip.Contains(key))
+                    continue;
+
+                var normalizedValue = NormalizeVerboseNode(value);
+                if (normalizedValue is null)
+                    continue;
+
+                result[key] = normalizedValue;
+            }
+
+            return result;
+        }
+
+        if (node is JsonArray jsonArray)
+        {
+            var result = new JsonArray();
+            foreach (var item in jsonArray)
+            {
+                var normalizedItem = NormalizeVerboseNode(item);
+                if (normalizedItem is null)
+                    continue;
+
+                result.Add(normalizedItem);
+            }
+
+            return result;
+        }
+
+        return node.DeepClone();
     }
 
     /// <summary>
@@ -155,10 +230,7 @@ public sealed class ConnectorCore<TItem>
             var baseUrl = SchemaConstants.ItemIngestionGraphBaseUrl;
             var url = $"{baseUrl}/external/connections/{_connectionId}/items/{Uri.EscapeDataString(itemId)}";
             Console.WriteLine("verbose: PUT " + url);
-            var payloadJson = JsonSerializer.Serialize(
-                externalItem,
-                VerbosePayloadSerializerOptions
-            );
+            var payloadJson = SerializeVerbosePayload(externalItem);
             Console.WriteLine("verbose: payload " + payloadJson);
         }
 
@@ -274,10 +346,7 @@ public sealed class ConnectorCore<TItem>
             }
             else if (verbose)
             {
-                var payloadJson = JsonSerializer.Serialize(
-                    _itemPayload.ToExternalItem(item),
-                    VerbosePayloadSerializerOptions
-                );
+                var payloadJson = SerializeVerbosePayload(_itemPayload.ToExternalItem(item));
                 Console.WriteLine($"verbose: DRY RUN item {index} (id={itemId}) payload " + payloadJson);
             }
 

@@ -29,8 +29,8 @@ for example_name in "${required_examples[@]}"; do
   fi
 done
 
-printf "| Example | Format | Lang | Generate | Build | Dry-run |\n" > "$REPORT_PATH"
-printf "| --- | --- | --- | --- | --- | --- |\n" >> "$REPORT_PATH"
+printf "| Example | Format | Lang | Generate | Build | Dry-run | Payload clean |\n" > "$REPORT_PATH"
+printf "| --- | --- | --- | --- | --- | --- | --- |\n" >> "$REPORT_PATH"
 
 run_step() {
   local label="$1"
@@ -53,6 +53,33 @@ run_step() {
   else
     printf "fail"
   fi
+}
+
+validate_payload_log() {
+  local label="$1"
+  local log_path="$LOG_DIR/${label}.log"
+
+  if [[ ! -f "$log_path" ]]; then
+    printf "skip"
+    return
+  fi
+
+  if grep -Eq ':[[:space:]]*null([,}])' "$log_path"; then
+    printf "fail"
+    return
+  fi
+
+  if grep -Eq '"(AdditionalData|BackingStore|OdataType)"[[:space:]]*:' "$log_path"; then
+    printf "fail"
+    return
+  fi
+
+  if grep -Eq '"@odata.type"[[:space:]]*:' "$log_path"; then
+    printf "fail"
+    return
+  fi
+
+  printf "ok"
 }
 
 if [[ -n "${INPUT_FORMATS:-}" ]]; then
@@ -91,8 +118,9 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
     else
       dry_ts_status="$(run_step "${base}-ts-${input_format}-dry" "$out_ts" node "dist/cli.js" ingest --dry-run)"
     fi
+    payload_ts_status="skip"
 
-    printf "| %s | %s | ts | %s | %s | %s |\n" "$base" "$input_format" "$gen_ts_status" "$build_ts_status" "$dry_ts_status" >> "$REPORT_PATH"
+    printf "| %s | %s | ts | %s | %s | %s | %s |\n" "$base" "$input_format" "$gen_ts_status" "$build_ts_status" "$dry_ts_status" "$payload_ts_status" >> "$REPORT_PATH"
 
     gen_dotnet_status="$(run_step "${base}-dotnet-${input_format}-generate" "$ROOT_DIR" node "$CLI" generate --tsp "$tsp" --out "$out_dotnet" --lang dotnet --force --data-format "$input_format" "${preview[@]}")"
     if [[ "$base" == "people-connector-complex" && "$input_format" == "json" ]]; then
@@ -102,10 +130,15 @@ for tsp in "$EXAMPLES_DIR"/*.tsp; do
     if [[ "$input_format" == "rest" ]]; then
       dry_dotnet_status="skip"
     else
-      dry_dotnet_status="$(run_step "${base}-dotnet-${input_format}-dry" "$out_dotnet" dotnet run -- ingest --dry-run)"
+      dry_dotnet_status="$(run_step "${base}-dotnet-${input_format}-dry" "$out_dotnet" dotnet run -- ingest --dry-run --verbose)"
     fi
 
-    printf "| %s | %s | dotnet | %s | %s | %s |\n" "$base" "$input_format" "$gen_dotnet_status" "$build_dotnet_status" "$dry_dotnet_status" >> "$REPORT_PATH"
+    payload_dotnet_status="skip"
+    if [[ "$dry_dotnet_status" == "ok" && "$input_format" != "rest" && "$base" == people-* ]]; then
+      payload_dotnet_status="$(validate_payload_log "${base}-dotnet-${input_format}-dry")"
+    fi
+
+    printf "| %s | %s | dotnet | %s | %s | %s | %s |\n" "$base" "$input_format" "$gen_dotnet_status" "$build_dotnet_status" "$dry_dotnet_status" "$payload_dotnet_status" >> "$REPORT_PATH"
 
     printf "Report updated: %s\n" "$REPORT_PATH"
   done

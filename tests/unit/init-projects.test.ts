@@ -855,9 +855,17 @@ model PersonProfile {
 
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
     expect(peoplePayload).toContain("PeoplePayload");
+    expect(peoplePayload).toContain("public static string NormalizeSerializedLabelJson(string json)");
+    expect(peoplePayload).toContain("\"AdditionalData\"");
+    expect(peoplePayload).toContain("\"BackingStore\"");
+    expect(peoplePayload).toContain("\"OdataType\"");
 
     const connectorCore = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
     expect(connectorCore).toContain("DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull");
+    expect(connectorCore).toContain("private static string SerializeVerbosePayload(object payload)");
+    expect(connectorCore).toContain("\"AdditionalData\"");
+    expect(connectorCore).toContain("\"BackingStore\"");
+    expect(connectorCore).toContain("\"OdataType\"");
 
     await updateProject({ outDir, usePreviewFeatures: true });
     const overridesAfter = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
@@ -882,7 +890,7 @@ model PersonProfile {
     expect(tsTransforms).toContain("undefined as unknown as string");
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
-    expect(dotnetTransforms).toContain("Select(value => JsonSerializer.Serialize");
+    expect(dotnetTransforms).toContain("Select(value => PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize");
     expect(dotnetTransforms).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
     expect(dotnetTransforms).toContain("default!");
 
@@ -939,6 +947,27 @@ model PersonProfile {
     expect(dotnetRowParser).toContain('case "uppercase":');
   });
 
+  test("updateProject include-scaffold refreshes .NET core serializers", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "people-update-scaffold");
+
+    await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+    await updateProject({ outDir, usePreviewFeatures: true, includeScaffold: true });
+
+    const connectorCore = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
+    expect(connectorCore).toContain("private static string SerializeVerbosePayload(object payload)");
+    expect(connectorCore).toContain("\"AdditionalData\"");
+    expect(connectorCore).toContain("\"BackingStore\"");
+    expect(connectorCore).toContain("\"OdataType\"");
+
+    const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
+    expect(peoplePayload).toContain("public static string NormalizeSerializedLabelJson(string json)");
+
+    const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
+    expect(transforms).toContain("PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
+  });
+
   test("initDotnetProject emits nullable-safe TryParseJsonPath for json input", async () => {
     const tspPath = await writeTempTspFile(baseSchema);
     const outRoot = await writeTempDir();
@@ -963,7 +992,7 @@ model PersonProfile {
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("Detail = new Microsoft.Graph.Beta.Models.PositionDetail");
-    expect(transforms).toContain("results.Add(JsonSerializer.Serialize(");
+    expect(transforms).toContain("results.Add(PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.SkillProficiency");
   });
 
