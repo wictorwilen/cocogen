@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `cocogen update` now refreshes generated `.NET` `Program.cs` files even without `--include-scaffold`, so schema-driven entrypoint changes do not stay stale after updates.
+- Validation now warns when people-label `@coco.source(..., to)` mappings reference unknown Graph target paths (for example `program.fieldOfStudy` instead of `program.fieldsOfStudy`) so fallback object generation is easier to diagnose.
 
 ## [1.1.0-preview.2] - 2026-04-07
 

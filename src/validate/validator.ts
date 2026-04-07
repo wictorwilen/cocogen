@@ -5,6 +5,7 @@ import {
   getPeopleLabelInfo,
   isSupportedPeopleLabel
 } from "../people/label-registry.js";
+import { getProfileType } from "../people/profile-schema.js";
 
 export type ValidationSeverity = "error" | "warning";
 
@@ -29,6 +30,42 @@ function hasSearchFlags(flags: { [key: string]: unknown }): boolean {
 function matchesRequiredField(path: string, fieldName: string): boolean {
   if (!path) return false;
   return path === fieldName || path.startsWith(`${fieldName}.`);
+}
+
+function resolvePersonEntityPathIssue(entityName: string, path: string): { invalidSegment: string; parentPath: string } | null {
+  if (!path) return null;
+  const segments = path.split(".").map((segment) => segment.trim()).filter(Boolean);
+  if (segments.length === 0) return null;
+
+  let currentType = getProfileType(entityName);
+  if (!currentType) return null;
+
+  const consumedSegments: string[] = [];
+  for (const segment of segments) {
+    if (!currentType) return null;
+
+    const lookupSegment = segment.replace(/\[.*\]$/, "");
+    const prop = currentType.properties.find((property) => property.name === lookupSegment);
+    if (!prop) {
+      return {
+        invalidSegment: segment,
+        parentPath: consumedSegments.length > 0 ? consumedSegments.join(".") : entityName,
+      };
+    }
+
+    consumedSegments.push(lookupSegment);
+
+    const collectionMatch = /^Collection\((.+)\)$/.exec(prop.type);
+    const nextTypeName = collectionMatch ? collectionMatch[1]! : prop.type;
+    if (!nextTypeName.startsWith("graph.")) {
+      currentType = undefined;
+      continue;
+    }
+
+    currentType = getProfileType(nextTypeName.slice("graph.".length));
+  }
+
+  return null;
 }
 const SEMANTIC_LABEL_TYPE_RULES = new Map<string, PropertyType[]>([
   ["title", ["string"]],
@@ -414,6 +451,19 @@ export function validateIr(ir: ConnectorIr): ValidationIssue[] {
               hint: "Add @coco.source({ from, to }) entries for each required field.",
             });
           }
+        }
+
+        for (const field of prop.personEntity.fields ?? []) {
+          const fieldPath = field.path?.trim();
+          if (!fieldPath) continue;
+          const pathIssue = resolvePersonEntityPathIssue(prop.personEntity.entity, fieldPath);
+          if (!pathIssue) continue;
+
+          issues.push({
+            severity: "warning",
+            message: `People label '${label}' on property '${prop.name}' maps unknown Graph path '${fieldPath}' (invalid segment '${pathIssue.invalidSegment}').`,
+            hint: `Check the @coco.source(..., to) path. '${pathIssue.invalidSegment}' is not a property under '${pathIssue.parentPath}'.`,
+          });
         }
       }
 

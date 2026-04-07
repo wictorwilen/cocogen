@@ -746,6 +746,64 @@ describe("validateIr", () => {
     ).toBe(false);
   });
 
+  test("people label mappings warn on unknown Graph target paths", () => {
+    const ir = baseIr();
+    ir.connection = {
+      graphApiVersion: "beta",
+      contentCategory: "people",
+      profileSource: { webUrl: "https://contoso.com", displayName: "Directory" },
+    };
+    ir.properties.push({
+      name: "account",
+      type: "string",
+      labels: ["personAccount"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["account"] },
+      personEntity: {
+        entity: "userAccountInformation",
+        fields: [
+          {
+            path: "userPrincipalName",
+            source: { csvHeaders: ["account"] },
+          },
+        ],
+      },
+    });
+    ir.properties.push({
+      name: "education",
+      type: "stringCollection",
+      labels: ["personEducationalActivities"],
+      aliases: [],
+      search: {},
+      source: { csvHeaders: ["education"] },
+      personEntity: {
+        entity: "educationalActivity",
+        fields: [
+          {
+            path: "displayName",
+            source: { csvHeaders: ["education"] },
+          },
+          {
+            path: "program.fieldOfStudy",
+            source: { csvHeaders: ["education"] },
+          },
+        ],
+      },
+    });
+
+    const issues = validateIr(ir);
+    expect(
+      issues.some(
+        (i) =>
+          i.severity === "warning" &&
+          i.message.includes("personEducationalActivities") &&
+          i.message.includes("program.fieldOfStudy") &&
+          i.message.includes("unknown Graph path")
+      )
+    ).toBe(true);
+  });
+
   test("profileSource is invalid for non-people connectors", () => {
     const ir = baseIr();
     ir.connection = {
