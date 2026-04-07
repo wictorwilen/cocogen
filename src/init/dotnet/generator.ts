@@ -124,18 +124,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       "utf8"
     );
 
-    await writeFile(
-      path.join(this.outDir, "Program.cs"),
-      await renderTemplate("dotnet/Program.commandline.cs.ejs", {
-        namespaceName,
-        schemaNamespace,
-        itemTypeName: this.ir.item.typeName,
-        isPeopleConnector: this.ir.connection.contentCategory === "people",
-        graphApiVersion: this.ir.connection.graphApiVersion,
-        inputFormat: this.ir.connection.inputFormat,
-      }),
-      "utf8"
-    );
+    await this.writeProgramFile();
 
     await writeFile(
       path.join(this.outDir, "Datasource", "IItemSource.cs"),
@@ -233,6 +222,24 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     );
 
     await this.writeProjectConfig(this.settings.tspPath);
+  }
+
+  /** Write the generated Program.cs entrypoint. */
+  async writeProgramFile(): Promise<void> {
+    const { namespaceName, schemaNamespace } = this;
+
+    await writeFile(
+      path.join(this.outDir, "Program.cs"),
+      await renderTemplate("dotnet/Program.commandline.cs.ejs", {
+        namespaceName,
+        schemaNamespace,
+        itemTypeName: this.ir.item.typeName,
+        isPeopleConnector: this.ir.connection.contentCategory === "people",
+        graphApiVersion: this.ir.connection.graphApiVersion,
+        inputFormat: this.ir.connection.inputFormat,
+      }),
+      "utf8"
+    );
   }
 
   /** Write generated .NET files based on the IR. */

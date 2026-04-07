@@ -110,6 +110,7 @@ The generator output is intentionally split:
 - Everything else in the generated project is “runtime” code and should remain stable across schema updates.
 
 The `cocogen update` command regenerates only `src/<ConnectionName>/**` based on the `.tsp` referenced by `cocogen.json`.
+For generated .NET projects, `Program.cs` is also regenerated on `update` because it contains schema-derived entrypoint wiring.
 Use `--include-scaffold` to also rewrite the runtime/scaffold files (overwrites local edits).
 - which field (if any) is the content body (full-text)
 

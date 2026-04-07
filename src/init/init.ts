@@ -249,6 +249,7 @@ export async function updateDotnetProject(
     ir,
     settings: { projectName: path.basename(outDir), tspPath },
   });
+  await generator.writeProgramFile();
   if (options.includeScaffold) {
     await generator.writeScaffold();
   }

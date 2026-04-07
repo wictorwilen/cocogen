@@ -159,6 +159,8 @@ When you change the schema, regenerate only the TypeSpec-derived files:
 npx @wictorwilen/cocogen@latest update --out ./my-connector
 ```
 
+For generated .NET projects, `update` also refreshes `Program.cs` because it carries schema-derived wiring such as the item model and people-connector provisioning flow.
+
 Override the TypeSpec entrypoint (also updates `cocogen.json`):
 
 ```bash
