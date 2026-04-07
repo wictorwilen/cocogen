@@ -925,16 +925,16 @@ describe("loadIrFromTypeSpec", () => {
     `);
     const ir = await loadIrFromTypeSpec(entry);
 
-    expect(ir.connection.graphApiVersion).toBe("beta");
+    expect(ir.connection.graphApiVersion).toBe("v1.0");
     expect(ir.connection.graphOperationVersions).toEqual({
-      connectionProvisioning: "beta",
+      connectionProvisioning: "v1.0",
       schemaRegistration: "v1.0",
       itemIngestion: "v1.0",
-      profileSourceRegistration: "beta",
+      profileSourceRegistration: "v1.0",
     });
   });
 
-  test("uses beta graph API version when contentCategory is set", async () => {
+  test("keeps graph API version at v1.0 when contentCategory is set", async () => {
     const entry = await writeTempTspFile(`
       @coco.connection({
         contentCategory: "crm",
@@ -947,6 +947,34 @@ describe("loadIrFromTypeSpec", () => {
         @coco.id
         id: string;
         title: string;
+      }
+    `);
+
+    const ir = await loadIrFromTypeSpec(entry);
+    expect(ir.connection.graphApiVersion).toBe("v1.0");
+  });
+
+  test("uses beta graph API version when a beta-only people label is present", async () => {
+    const entry = await writeTempTspFile(`using coco;
+
+      @coco.connection({
+        contentCategory: "people",
+        name: "People beta connector",
+        connectionId: "peoplebetaconnector",
+        connectionDescription: "People connector with beta labels"
+      })
+      @coco.profileSource({
+        webUrl: "https://example.com",
+        displayName: "Example"
+      })
+      @coco.item
+      model PersonProfile {
+        @coco.id
+        @coco.label("personAccount")
+        id: string;
+
+        @coco.label("personLanguages")
+        languages: string[];
       }
     `);
 

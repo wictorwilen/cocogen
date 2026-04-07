@@ -13,7 +13,12 @@ Supported labels (must be enforced):
 - personPhones → itemPhone (stringCollection)
 - personAwards → personAward (stringCollection)
 - personCertifications → personCertification (stringCollection)
+- personEducationalActivities → educationalActivity (stringCollection, beta)
 - personProjects → projectParticipation (stringCollection)
+- personInterests → personInterest (stringCollection, beta)
+- personLanguages → languageProficiency (stringCollection, beta)
+- personPatents → itemPatent (stringCollection, beta)
+- personPublications → itemPublication (stringCollection, beta)
 - personSkills → skillProficiency (stringCollection)
 - personWebAccounts → webAccount (stringCollection)
 - personWebSite → webSite (string)
@@ -48,7 +53,7 @@ Mark tasks one-by-one in AGENT-TASKS.md using statuses: not-started, in-progress
 
 **Snapshot refresh instructions**
 
-1. Run `npm run update-graph-profile-schema` to pull the latest beta metadata and regenerate `data/graph-profile-schema.json`.
+1. Run `npm run update-graph-profile-schema` to pull the latest Graph CSDL and OpenAPI snapshots from `microsoftgraph/msgraph-metadata` and regenerate `data/graph-profile-schema.json`.
 2. Review the diff (especially required/nullable fields) and commit the updated snapshot with any label validation changes.
 3. Graph currently names the anniversary and website types `personAnnualEvent` and `personWebsite`; the snapshot preserves aliases (`personAnniversary`, `webSite`) so downstream logic can keep using the plan terminology.
 

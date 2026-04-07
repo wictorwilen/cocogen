@@ -72,8 +72,23 @@ const metadataXml = `<?xml version="1.0" encoding="utf-8"?>
       <EntityType Name="personCertification" BaseType="microsoft.graph.itemFacet">
         <Property Name="displayName" Type="Edm.String" Nullable="true" />
       </EntityType>
+      <EntityType Name="educationalActivity" BaseType="microsoft.graph.itemFacet">
+        <Property Name="program" Type="microsoft.graph.educationalActivityDetail" Nullable="true" />
+      </EntityType>
+      <EntityType Name="personInterest" BaseType="microsoft.graph.itemFacet">
+        <Property Name="displayName" Type="Edm.String" Nullable="true" />
+      </EntityType>
+      <EntityType Name="languageProficiency" BaseType="microsoft.graph.itemFacet">
+        <Property Name="proficiency" Type="microsoft.graph.skillProficiencyLevel" Nullable="true" />
+      </EntityType>
+      <EntityType Name="itemPatent" BaseType="microsoft.graph.itemFacet">
+        <Property Name="displayName" Type="Edm.String" Nullable="true" />
+      </EntityType>
       <EntityType Name="projectParticipation" BaseType="microsoft.graph.itemFacet">
         <Property Name="detail" Type="microsoft.graph.positionDetail" Nullable="true" />
+      </EntityType>
+      <EntityType Name="itemPublication" BaseType="microsoft.graph.itemFacet">
+        <Property Name="displayName" Type="Edm.String" Nullable="true" />
       </EntityType>
       <EntityType Name="skillProficiency" BaseType="microsoft.graph.itemFacet">
         <Property Name="proficiency" Type="microsoft.graph.skillProficiencyLevel" Nullable="true" />
@@ -93,6 +108,9 @@ const metadataXml = `<?xml version="1.0" encoding="utf-8"?>
       <ComplexType Name="positionDetail">
         <Property Name="company" Type="microsoft.graph.companyDetail" Nullable="true" />
         <Property Name="layer" Type="Edm.Int32" Nullable="true" />
+      </ComplexType>
+      <ComplexType Name="educationalActivityDetail">
+        <Property Name="abbreviation" Type="Edm.String" Nullable="true" />
       </ComplexType>
       <ComplexType Name="companyDetail">
         <Property Name="address" Type="microsoft.graph.physicalAddress" Nullable="true" />
@@ -136,7 +154,12 @@ const v1MetadataXml = `<?xml version="1.0" encoding="utf-8"?>
       </EntityType>
       <EntityType Name="personAward" BaseType="microsoft.graph.itemFacet" />
       <EntityType Name="personCertification" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="educationalActivity" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="personInterest" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="languageProficiency" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="itemPatent" BaseType="microsoft.graph.itemFacet" />
       <EntityType Name="projectParticipation" BaseType="microsoft.graph.itemFacet" />
+      <EntityType Name="itemPublication" BaseType="microsoft.graph.itemFacet" />
       <EntityType Name="skillProficiency" BaseType="microsoft.graph.itemFacet" />
       <EntityType Name="webAccount" BaseType="microsoft.graph.itemFacet" />
       <EntityType Name="personWebsite" BaseType="microsoft.graph.itemFacet" />
@@ -173,7 +196,7 @@ const betaOpenApiYaml = `components:
     microsoft.graph.externalConnectors.property:
       properties:
         labels:
-          description: 'Specifies one or more well-known tags added against a property. The possible values are: title, url, createdBy, containerName, itemPath. Use the Prefer: include-unknown-enum-members request header to retrieve additional values defined in this evolvable enum, For People Connectors you can include : personAccount, personWebSite, personAnniversaries, personManager.'
+          description: 'Specifies one or more well-known tags added against a property. The possible values are: title, url, createdBy, containerName, itemPath. Use the Prefer: include-unknown-enum-members request header to retrieve additional values defined in this evolvable enum, For People Connectors you can include : personAccount, personWebSite, personAnniversaries, personManager, personEducationalActivities, personInterests, personLanguages, personPatents, personPublications.'
 `;
 
 describe("scripts/update-graph-profile-schema", () => {
@@ -259,9 +282,12 @@ describe("scripts/update-graph-profile-schema", () => {
 
     expect(capabilities.peopleLabels.personAccount.minGraphApiVersion).toBe("v1.0");
     expect(capabilities.peopleLabels.personWebSite.minGraphApiVersion).toBe("v1.0");
+    expect(capabilities.peopleLabels.personEducationalActivities.minGraphApiVersion).toBe("beta");
+    expect(capabilities.peopleLabels.personLanguages.minGraphApiVersion).toBe("beta");
     expect(capabilities.labels.personManager.minGraphApiVersion).toBe("beta");
     expect(capabilities.profileTypes.userAccountInformation.minGraphApiVersion).toBe("v1.0");
-    expect(capabilities.connectionProperties.contentCategory?.minGraphApiVersion).toBe("beta");
+    expect(capabilities.connectionProperties.contentCategory?.minGraphApiVersion).toBe("v1.0");
+    expect(capabilities.connectionProperties.profileSourceRegistration?.minGraphApiVersion).toBe("v1.0");
     expect(capabilities.propertyTypes.principal?.minGraphApiVersion).toBe("v1.0");
   });
 
@@ -282,7 +308,9 @@ describe("scripts/update-graph-profile-schema", () => {
 
     expect(outPath).toBe(path.join(cwd, "data", "graph-capabilities.json"));
     expect(disk.peopleLabels.personWebSite.minGraphApiVersion).toBe("v1.0");
+    expect(disk.peopleLabels.personPublications.minGraphApiVersion).toBe("beta");
     expect(disk.labels.personManager.minGraphApiVersion).toBe("beta");
-    expect(disk.connectionProperties.contentCategory?.minGraphApiVersion).toBe("beta");
+    expect(disk.connectionProperties.contentCategory?.minGraphApiVersion).toBe("v1.0");
+    expect(disk.connectionProperties.profileSourceRegistration?.minGraphApiVersion).toBe("v1.0");
   });
 });

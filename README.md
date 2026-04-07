@@ -120,7 +120,7 @@ cocogen --help
 | `emit` | Emit cocogen IR as JSON | `--tsp <path>`, `--out <path>`, `--use-preview-features` |
 
 Notes:
-- `--use-preview-features` is required for Graph beta schemas (for example people connectors).
+- `--use-preview-features` is required only when a schema uses Graph beta capabilities such as beta-only people labels.
 
 ### Create a starter TypeSpec file
 
@@ -136,7 +136,7 @@ npx @wictorwilen/cocogen@latest init --prompt
 npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp
 ```
 
-Use `--use-preview-features` for Graph beta schemas (for example people connectors).
+Use `--use-preview-features` when cocogen reports a Graph beta requirement.
 
 ### Generate a runnable project
 
@@ -146,7 +146,7 @@ npx @wictorwilen/cocogen@latest generate --tsp ./schema.tsp --out ./my-connector
 
 Notes:
 - `cocogen` will fail fast if the schema is invalid.
-- Beta features require `--use-preview-features`.
+- Graph beta features require `--use-preview-features`.
 - Use `--data-format custom` to emit a stub datasource for custom backends.
 
 ### Update generated code after changing TypeSpec

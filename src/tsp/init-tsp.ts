@@ -73,7 +73,7 @@ function starterTspContents(options: {
     return `import "@wictorwilen/cocogen";
 using coco;
 
-// People connectors use Graph /beta. Use --use-preview-features with cocogen validate/generate/update.
+// People connectors may require preview features for beta-only labels. Use --use-preview-features when cocogen reports a Graph beta requirement.
 @coco.profileSource({
   webUrl: "https://contoso.com/people",
   displayName: "Contoso HR",
@@ -171,7 +171,7 @@ export async function initStarterTsp(options: StarterTspOptions): Promise<{ outP
       default: kind,
       choices: [
         { value: "content", name: "content (Graph v1.0)" },
-        { value: "people", name: "people (Graph beta)" }
+        { value: "people", name: "people (Graph v1.0, beta labels optional)" }
       ]
     });
 

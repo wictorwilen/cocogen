@@ -23,7 +23,7 @@ Generated people connectors also bind row-to-payload transforms to the official 
 <% } -%>
 
 ## Graph API version note
-If your schema sets `@coco.connection({ contentCategory: "..." })`, provisioning must use Microsoft Graph **/beta** because `externalConnection.contentCategory` is currently exposed on the beta endpoint.
+`externalConnection.contentCategory` and `principal`/`principalCollection` are available on Microsoft Graph **v1.0**. This project only needs Microsoft Graph **/beta** when the schema uses beta-only people labels or registers the connection as a profile source.
 
 ## Multiple connections
 This generated CLI currently targets a single connection ID from configuration. Multi-connection support is planned for a future version.

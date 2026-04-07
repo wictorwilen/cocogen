@@ -15,7 +15,8 @@ describe("graph capabilities snapshot", () => {
   });
 
   test("exposes connection property capability metadata", () => {
-    expect(getConnectionPropertyCapability("contentCategory")?.minGraphApiVersion).toBe("beta");
+    expect(getConnectionPropertyCapability("contentCategory")?.minGraphApiVersion).toBe("v1.0");
+    expect(getConnectionPropertyCapability("profileSourceRegistration")?.minGraphApiVersion).toBe("v1.0");
   });
 
   test("exposes property type capability metadata", () => {

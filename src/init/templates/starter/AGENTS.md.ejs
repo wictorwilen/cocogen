@@ -118,13 +118,13 @@ Common fixes:
 - Missing `@coco.connection` → add connection metadata at top level
 - Missing or multiple `@coco.id` → ensure exactly one stable ID field
 - Optional properties → make required (connectors require non-optional schema properties)
-- People schemas without preview flag → re-run with `--use-preview-features`
+- Schemas with beta-only labels and no preview flag → re-run with `--use-preview-features`
 
 <% if (kind === "people") { %>
-## People connectors (preview)
+## People connectors
 
-People connectors use Microsoft Graph **/beta**.
+People connectors use Microsoft Graph **v1.0** unless they use beta-only labels.
 
-- Always validate/generate with: `--use-preview-features`
-- Expect breaking changes as Graph beta evolves
+- Use `--use-preview-features` only when cocogen reports a Graph beta requirement
+- Expect breaking changes only for beta-only Graph labels and models
 <% } %>

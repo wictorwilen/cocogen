@@ -41,10 +41,6 @@ describe("graph requirements", () => {
         ...baseIr.connection,
         graphApiVersion: "beta",
         contentCategory: "people",
-        profileSource: {
-          webUrl: "https://example.com",
-          displayName: "Example people source",
-        },
       },
       properties: [
         ...baseIr.properties,
@@ -57,12 +53,12 @@ describe("graph requirements", () => {
           source: { csvHeaders: ["owners"] },
         },
         {
-          name: "manager",
-          type: "string",
-          labels: ["personManager"],
+          name: "languages",
+          type: "stringCollection",
+          labels: ["personLanguages"],
           aliases: [],
           search: {},
-          source: { csvHeaders: ["manager"] },
+          source: { csvHeaders: ["languages"] },
         },
       ],
     };
@@ -71,8 +67,7 @@ describe("graph requirements", () => {
 
     expect(reasons.map((reason) => reason.message)).toEqual(
       expect.arrayContaining([
-        "connection.contentCategory uses Graph /beta property 'contentCategory' during connection provisioning",
-        "connection.profileSource uses Graph /beta profile source registration",
+        "property 'languages' uses Graph /beta label 'personLanguages' for schema registration and item ingestion",
       ])
     );
   });
@@ -82,7 +77,7 @@ describe("graph requirements", () => {
       ...baseIr,
       connection: {
         ...baseIr.connection,
-        graphApiVersion: "beta",
+        graphApiVersion: "v1.0",
         contentCategory: "people",
       },
       properties: [
@@ -90,7 +85,7 @@ describe("graph requirements", () => {
         {
           name: "owners",
           type: "principal",
-          labels: ["personManager"],
+          labels: [],
           aliases: [],
           search: {},
           source: { csvHeaders: ["owners"] },
@@ -109,7 +104,7 @@ describe("graph requirements", () => {
       (requirement) => requirement.operation === "profileSourceRegistration"
     );
 
-    expect(connectionRequirement?.minGraphApiVersion).toBe("beta");
+    expect(connectionRequirement?.minGraphApiVersion).toBe("v1.0");
     expect(schemaRequirement?.minGraphApiVersion).toBe("v1.0");
     expect(profileSourceRequirement?.minGraphApiVersion).toBe("v1.0");
     expect(schemaRequirement?.reasons).toHaveLength(0);
@@ -162,15 +157,23 @@ describe("graph requirements", () => {
       connection: {
         ...baseIr.connection,
         graphApiVersion: "beta",
-        contentCategory: "people",
       },
+      properties: [
+        ...baseIr.properties,
+        {
+          name: "languages",
+          type: "stringCollection",
+          labels: ["personLanguages"],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: ["languages"] },
+        },
+      ],
     };
 
     const message = formatPreviewFeatureRequirement(ir);
 
-    expect(message).toContain(
-      "connection.contentCategory uses Graph /beta property 'contentCategory' during connection provisioning"
-    );
+    expect(message).toContain("property 'languages' uses Graph /beta label 'personLanguages'");
     expect(message).toContain("Re-run with --use-preview-features.");
   });
 
@@ -180,12 +183,22 @@ describe("graph requirements", () => {
       connection: {
         ...baseIr.connection,
         graphApiVersion: "beta",
-        contentCategory: "people",
       },
+      properties: [
+        ...baseIr.properties,
+        {
+          name: "languages",
+          type: "stringCollection",
+          labels: ["personLanguages"],
+          aliases: [],
+          search: {},
+          source: { csvHeaders: ["languages"] },
+        },
+      ],
     };
 
     expect(getGraphBetaNoteLines(ir)).toContain(
-      "connection.contentCategory uses Graph /beta property 'contentCategory' during connection provisioning; connection provisioning will use /beta"
+      "property 'languages' uses Graph /beta label 'personLanguages' for schema registration and item ingestion; schema registration + item ingestion will use /beta"
     );
   });
 });

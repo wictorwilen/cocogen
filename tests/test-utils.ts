@@ -45,14 +45,18 @@ export async function runCommand(
   }
 ): Promise<RunResult> {
   const timeoutMs = options?.timeoutMs ?? 60_000;
+  const env = {
+    ...process.env,
+    ...options?.env,
+  };
+  if (env.NO_COLOR) {
+    delete env.FORCE_COLOR;
+  }
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options?.cwd,
-      env: {
-        ...process.env,
-        ...options?.env,
-      },
+      env,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -105,14 +109,18 @@ export async function runNode(
   }
 ): Promise<RunResult> {
   const timeoutMs = options?.timeoutMs ?? 60_000;
+  const env = {
+    ...process.env,
+    ...options?.env,
+  };
+  if (env.NO_COLOR) {
+    delete env.FORCE_COLOR;
+  }
 
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, {
       cwd: options?.cwd,
-      env: {
-        ...process.env,
-        ...options?.env,
-      },
+      env,
       stdio: ["ignore", "pipe", "pipe"],
     });
 

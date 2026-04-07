@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import type { GraphProfileSchemaSnapshot } from "../src/people/profile-schema.js";
 import type { GraphCapabilitySnapshot } from "../src/graph/capabilities.js";
 
-const V1_METADATA_URL = "https://graph.microsoft.com/v1.0/$metadata";
-const METADATA_URL = "https://graph.microsoft.com/beta/$metadata";
+const V1_METADATA_URL = "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/schemas/v1.0-Prod.csdl";
+const METADATA_URL = "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/schemas/beta-Prod.csdl";
 const V1_OPENAPI_URL = "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml";
 const BETA_OPENAPI_URL = "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/beta/openapi.yaml";
 
@@ -20,13 +20,26 @@ const labelTypeMap = {
   personPhones: "itemPhone",
   personAwards: "personAward",
   personCertifications: "personCertification",
+  personEducationalActivities: "educationalActivity",
+  personInterests: "personInterest",
+  personLanguages: "languageProficiency",
+  personPatents: "itemPatent",
   personProjects: "projectParticipation",
+  personPublications: "itemPublication",
   personSkills: "skillProficiency",
   personWebAccounts: "webAccount",
   personWebSite: "webSite",
   personAnniversaries: "personAnniversary",
   personNote: "personAnnotation"
 } as const;
+
+const DOCUMENTED_BETA_ONLY_PEOPLE_LABELS = [
+  "personEducationalActivities",
+  "personInterests",
+  "personLanguages",
+  "personPatents",
+  "personPublications",
+] as const;
 
 const graphAliases: Record<string, string> = {
   personAnniversary: "personAnnualEvent",
@@ -223,9 +236,12 @@ export const parseExternalConnectorLabelSets = (openApiYaml: string): ExternalCo
   const standardLabels = descriptionMatch ? splitLabelList(descriptionMatch[1]!) : [];
   const peopleLabels = descriptionMatch ? splitLabelList(descriptionMatch[2]!) : [];
 
+  const isBetaLabelSet = enumLabels.includes("assignedToPeople") || enumLabels.includes("numberOfReactions");
+  const documentedBetaLabels = isBetaLabelSet ? [...DOCUMENTED_BETA_ONLY_PEOPLE_LABELS] : [];
+
   return {
-    allLabels: [...new Set([...enumLabels, ...standardLabels, ...peopleLabels])],
-    peopleLabels: [...new Set(peopleLabels)],
+    allLabels: [...new Set([...enumLabels, ...standardLabels, ...peopleLabels, ...documentedBetaLabels])],
+    peopleLabels: [...new Set([...peopleLabels, ...documentedBetaLabels])],
   };
 };
 
@@ -251,7 +267,8 @@ export const parseGraphMetadataSnapshot = (
   const graphTypeNames = createInitialGraphTypeNames();
 
   const addBaseTypes = (name: string): void => {
-    const entry = findTypeByName(entityIndex, name);
+    const entry = tryFindTypeByName(entityIndex, name);
+    if (!entry) return;
     if (entry.name === "itemFacet") return;
     if (!entry.baseType) return;
     const baseName = entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop();
@@ -289,28 +306,30 @@ export const parseGraphMetadataSnapshot = (
     }
   }
 
-  const types = Array.from(graphTypeNames).map((graphName) => {
-    const entry = findTypeByName(entityIndex, graphName);
-    const baseType = entry.baseType
-      ? entry.name === "itemFacet"
-        ? undefined
-        : entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop()
-      : undefined;
-    const properties = collectProperties(entityIndex, entry).map((prop) => ({
-      name: prop.name,
-      type: prop.type,
-      nullable: prop.nullable
-    }));
-    const required = properties.filter((prop) => !prop.nullable).map((prop) => prop.name);
-    return {
-      name: entry.name,
-      fullName: entry.fullName,
-      namespace: entry.namespace,
-      baseType,
-      properties,
-      required
-    };
-  });
+  const types = Array.from(graphTypeNames)
+    .map((graphName) => tryFindTypeByName(entityIndex, graphName))
+    .filter((entry): entry is RawEntityType => Boolean(entry))
+    .map((entry) => {
+      const baseType = entry.baseType
+        ? entry.name === "itemFacet"
+          ? undefined
+          : entityIndex.get(entry.baseType)?.name ?? entry.baseType.split(".").pop()
+        : undefined;
+      const properties = collectProperties(entityIndex, entry).map((prop) => ({
+        name: prop.name,
+        type: prop.type,
+        nullable: prop.nullable
+      }));
+      const required = properties.filter((prop) => !prop.nullable).map((prop) => prop.name);
+      return {
+        name: entry.name,
+        fullName: entry.fullName,
+        namespace: entry.namespace,
+        baseType,
+        properties,
+        required
+      };
+    });
 
   const enums = Array.from(enumTypeNames)
     .map((enumName) => tryFindEnumByName(enumIndex, enumName))
@@ -398,8 +417,8 @@ export const buildGraphCapabilitySnapshot = (
   return {
     generatedAt,
     connectionProperties: {
-      contentCategory: computeAvailability(false, true),
-      profileSourceRegistration: computeAvailability(false, true),
+      contentCategory: computeAvailability(true, true),
+      profileSourceRegistration: computeAvailability(true, true),
     },
     propertyTypes: {
       principal: computeAvailability(true, true),
@@ -444,7 +463,7 @@ export const fetchGraphMetadataXml = async (url = METADATA_URL): Promise<string>
     }
   });
   if (!res.ok) {
-    throw new Error(`Failed to download Graph metadata: ${res.status} ${res.statusText}`);
+    throw new Error(`Failed to download Graph CSDL metadata: ${res.status} ${res.statusText}`);
   }
   return res.text();
 };

@@ -103,6 +103,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       path.join(this.outDir, `${this.settings.projectName}.csproj`),
       await renderTemplate("dotnet/project.csproj.ejs", {
         graphApiVersion: this.ir.connection.graphApiVersion,
+        isPeopleConnector: this.ir.connection.contentCategory === "people",
         userSecretsId: randomUUID(),
         inputFormat: this.ir.connection.inputFormat,
       }),
@@ -265,6 +266,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     const graphAliases = peopleGraphTypesBundle.aliases;
     const peopleGraphTypeByTsAlias = new Map(peopleGraphTypesBundle.templates.map((type) => [type.alias, type]));
     const graphSchemaTypeNames = new Set(graphProfileSchema.types.map((type) => type.name));
+    const defaultGraphPackage = this.ir.connection.graphApiVersion === "beta" ? "beta" : "v1";
 
     const qualifyGraphModelType = (csName: string, sourcePackage: "v1" | "beta"): string =>
       sourcePackage === "v1" ? `Microsoft.Graph.Models.${csName}` : `Microsoft.Graph.Beta.Models.${csName}`;
@@ -277,7 +279,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         return qualifyGraphModelType(alias.csName, template.sourcePackage);
       }
       if (graphSchemaTypeNames.has(graphName)) {
-        return qualifyGraphModelType(alias.csName, "beta");
+        return qualifyGraphModelType(alias.csName, defaultGraphPackage);
       }
       return alias.csName;
     };
@@ -640,7 +642,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     const schemaPropertyLines = properties
       .filter((p) => p.name !== this.ir.item.contentPropertyName)
       .map((p) => {
-        const isPrincipalCollection = p.type === "principalCollection";
+        const isPrincipalType = p.type === "principal" || p.type === "principalCollection";
         const labels =
           p.labels.length > 0
             ? `new List<string> { ${p.labels.map((l) => JSON.stringify(l)).join(", ")} }`
@@ -653,7 +655,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         const additionalDataEntries: string[] = [];
         if (p.description) additionalDataEntries.push(`                        ["description"] = ${JSON.stringify(p.description)},`);
         if (labels) additionalDataEntries.push(`                        ["labels"] = ${labels},`);
-        if (isPrincipalCollection) additionalDataEntries.push(`                        ["type"] = "principalCollection",`);
+        if (isPrincipalType) additionalDataEntries.push(`                        ["type"] = ${JSON.stringify(p.type)},`);
 
         const additionalDataBlock =
           additionalDataEntries.length > 0
@@ -669,7 +671,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
           "                new Property",
           "                {",
           `                    Name = ${JSON.stringify(p.name)},`,
-          ...(isPrincipalCollection ? [] : [`                    Type = PropertyType.${p.graphTypeEnumName},`]),
+          ...(isPrincipalType ? [] : [`                    Type = PropertyType.${p.graphTypeEnumName},`]),
         ];
 
         if (p.search.searchable !== undefined) lines.push(`                    IsSearchable = ${p.search.searchable ? "true" : "false"},`);

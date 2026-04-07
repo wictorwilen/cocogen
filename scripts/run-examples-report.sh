@@ -21,7 +21,7 @@ fi
 
 shopt -s nullglob
 
-required_examples=("people-all-labels" "content-all-validations")
+required_examples=("people-all-labels" "people-v1-only" "people-beta-labels" "content-all-validations")
 for example_name in "${required_examples[@]}"; do
   if [[ ! -f "$EXAMPLES_DIR/${example_name}.tsp" ]]; then
     printf "Error: missing required example %s\n" "$example_name" >&2

@@ -2,6 +2,8 @@ import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
 
 import type { ConnectorIr } from "../../src/ir.js";
 
+const packageInfoOverride = vi.hoisted(() => ({ value: null as string | Error | null }));
+
 const writeIrJsonMock = vi.fn<Parameters<typeof import("../../src/emit/emit.js").writeIrJson>, Promise<string>>();
 const loadIrMock = vi.fn<Parameters<typeof import("../../src/tsp/loader.js").loadIrFromTypeSpec>, Promise<ConnectorIr>>();
 const validateIrMock = vi.fn<Parameters<typeof import("../../src/validate/validator.js").validateIr>, ReturnType<typeof import("../../src/validate/validator.js").validateIr>>();
@@ -21,6 +23,21 @@ vi.mock("../../src/init/init.js", () => ({
   initRestProject: initRestMock,
   updateProject: updateProjectMock,
 }));
+vi.mock("node:fs", async (importActual) => {
+  const actual = await importActual<typeof import("node:fs")>();
+  return {
+    ...actual,
+    readFileSync: (...args: Parameters<typeof actual.readFileSync>) => {
+      if (packageInfoOverride.value instanceof Error) {
+        throw packageInfoOverride.value;
+      }
+      if (typeof packageInfoOverride.value === "string") {
+        return packageInfoOverride.value;
+      }
+      return actual.readFileSync(...args);
+    },
+  };
+});
 vi.mock("ora", () => ({
   default: () => ({
     start: () => ({ stop: vi.fn(), succeed: vi.fn() }),
@@ -73,10 +90,12 @@ function captureStderr(fn: () => Promise<void>): Promise<string> {
 }
 
 beforeEach(() => {
+  vi.resetModules();
   process.env.NO_COLOR = "1";
   process.env.COCOGEN_SKIP_AUTO_RUN = "1";
   process.env.COCOGEN_SKIP_UPDATE_CHECK = "1";
   process.exitCode = undefined;
+  packageInfoOverride.value = null;
   writeIrJsonMock.mockReset();
   loadIrMock.mockReset();
   validateIrMock.mockReset();
@@ -91,6 +110,10 @@ afterEach(() => {
   delete process.env.NO_COLOR;
   delete process.env.COCOGEN_SKIP_AUTO_RUN;
   delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
+  delete process.env.CI;
+  delete process.env.NPM_CONFIG_REGISTRY;
+  packageInfoOverride.value = null;
+  vi.unstubAllGlobals();
   process.exitCode = undefined;
 });
 
@@ -388,12 +411,23 @@ describe("cli", () => {
     expect(process.exitCode).toBe(0);
   });
 
-  test("update prints beta note for contentCategory", async () => {
+  test("update prints beta note for beta-only people labels", async () => {
     updateProjectMock.mockResolvedValue({
       outDir: "/tmp/out",
       ir: {
         ...minimalIr,
-        connection: { ...minimalIr.connection, graphApiVersion: "beta", contentCategory: "people" },
+        connection: { ...minimalIr.connection, graphApiVersion: "beta" },
+        properties: [
+          ...minimalIr.properties,
+          {
+            name: "languages",
+            type: "stringCollection",
+            labels: ["personLanguages"],
+            aliases: [],
+            search: {},
+            source: { csvHeaders: ["languages"] },
+          },
+        ],
       },
     });
 
@@ -402,7 +436,7 @@ describe("cli", () => {
       await main(["node", "cli", "update", "--out", "/tmp/out"]);
     });
 
-    expect(stdout).toContain("connection.contentCategory uses Graph /beta property 'contentCategory'");
+    expect(stdout).toContain("property 'languages' uses Graph /beta label 'personLanguages'");
     expect(process.exitCode).toBe(0);
   });
 
@@ -607,12 +641,23 @@ describe("cli", () => {
     expect(process.exitCode).toBe(0);
   });
 
-  test("generate prints beta note for contentCategory", async () => {
+  test("generate prints beta note for profileSource registration", async () => {
     initTsMock.mockResolvedValue({
       outDir: "/tmp/out",
       ir: {
         ...minimalIr,
-        connection: { ...minimalIr.connection, graphApiVersion: "beta", contentCategory: "people" },
+        connection: { ...minimalIr.connection, graphApiVersion: "beta" },
+        properties: [
+          ...minimalIr.properties,
+          {
+            name: "languages",
+            type: "stringCollection",
+            labels: ["personLanguages"],
+            aliases: [],
+            search: {},
+            source: { csvHeaders: ["languages"] },
+          },
+        ],
       },
     });
 
@@ -621,7 +666,7 @@ describe("cli", () => {
       await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
     });
 
-    expect(stdout).toContain("connection.contentCategory uses Graph /beta property 'contentCategory'");
+    expect(stdout).toContain("property 'languages' uses Graph /beta label 'personLanguages'");
     expect(process.exitCode).toBe(0);
   });
 
@@ -878,16 +923,7 @@ describe("cli", () => {
   });
 
   test("falls back to v0.0.0 when package info is unavailable", async () => {
-    vi.resetModules();
-    vi.doMock("node:fs", async (importActual) => {
-      const actual = await importActual<typeof import("node:fs")>();
-      return {
-        ...actual,
-        readFileSync: () => {
-          throw new Error("no package");
-        },
-      };
-    });
+    packageInfoOverride.value = new Error("no package");
 
     delete process.env.CI;
     const originalTty = process.stderr.isTTY;
@@ -904,24 +940,16 @@ describe("cli", () => {
 
     expect(stderr).toContain("v0.0.0");
 
-    vi.doUnmock("node:fs");
     Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
   });
 
   test("treats prerelease current versions as older", async () => {
-    vi.resetModules();
     delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
     delete process.env.CI;
     const originalTty = process.stderr.isTTY;
     Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
 
-    vi.doMock("node:fs", async (importActual) => {
-      const actual = await importActual<typeof import("node:fs")>();
-      return {
-        ...actual,
-        readFileSync: () => JSON.stringify({ name: "cocogen", version: "1.0.0-beta" }),
-      };
-    });
+    packageInfoOverride.value = JSON.stringify({ name: "cocogen", version: "1.0.0-beta" });
 
     const fetchMock = vi.fn(async () =>
       Promise.resolve({
@@ -942,25 +970,16 @@ describe("cli", () => {
 
     expect(stderr).toContain("update available");
 
-    vi.doUnmock("node:fs");
-    vi.unstubAllGlobals();
     Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
   });
 
   test("does not offer updates when only prerelease is newer", async () => {
-    vi.resetModules();
     delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
     delete process.env.CI;
     const originalTty = process.stderr.isTTY;
     Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
 
-    vi.doMock("node:fs", async (importActual) => {
-      const actual = await importActual<typeof import("node:fs")>();
-      return {
-        ...actual,
-        readFileSync: () => JSON.stringify({ name: "cocogen", version: "1.0.0" }),
-      };
-    });
+    packageInfoOverride.value = JSON.stringify({ name: "cocogen", version: "1.0.0" });
 
     const fetchMock = vi.fn(async () =>
       Promise.resolve({
@@ -981,25 +1000,16 @@ describe("cli", () => {
 
     expect(stderr).not.toContain("update available");
 
-    vi.doUnmock("node:fs");
-    vi.unstubAllGlobals();
     Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
   });
 
   test("orders prerelease tags when comparing versions", async () => {
-    vi.resetModules();
     delete process.env.COCOGEN_SKIP_UPDATE_CHECK;
     delete process.env.CI;
     const originalTty = process.stderr.isTTY;
     Object.defineProperty(process.stderr, "isTTY", { value: true, configurable: true });
 
-    vi.doMock("node:fs", async (importActual) => {
-      const actual = await importActual<typeof import("node:fs")>();
-      return {
-        ...actual,
-        readFileSync: () => JSON.stringify({ name: "cocogen", version: "1.0.0-alpha" }),
-      };
-    });
+    packageInfoOverride.value = JSON.stringify({ name: "cocogen", version: "1.0.0-alpha" });
 
     const fetchMock = vi.fn(async () =>
       Promise.resolve({
@@ -1020,8 +1030,6 @@ describe("cli", () => {
 
     expect(stderr).toContain("update available");
 
-    vi.doUnmock("node:fs");
-    vi.unstubAllGlobals();
     Object.defineProperty(process.stderr, "isTTY", { value: originalTty, configurable: true });
   });
 });

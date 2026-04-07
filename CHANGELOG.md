@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `npm run update-graph-profile-schema` now refreshes the profile CSDL snapshot from the official `microsoftgraph/msgraph-metadata` raw schema files because the live Graph `$metadata` endpoints no longer return XML reliably for this workflow.
+
+### Changed
+- People connector metadata refresh and validation now recognize the five current beta-only labels documented for people connectors: `personEducationalActivities`, `personInterests`, `personLanguages`, `personPatents`, and `personPublications`.
+- `externalConnection.contentCategory` now resolves to Graph `v1.0` capability in the generator metadata, matching `principal` and `principalCollection`.
+- People profile source registration now resolves to Graph `v1.0` capability as well, so stable people schemas no longer require preview features unless they use beta-only labels.
+
 ## [1.1.0-preview.1] - 2026-03-31
 
 ### Changed

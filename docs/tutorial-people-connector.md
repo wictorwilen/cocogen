@@ -18,10 +18,10 @@ npm install
 This scaffolds `schema.tsp`, `tspconfig.yaml`, and installs TypeSpec tooling for IntelliSense.
 
 ### Validate early
-People connectors use **preview features**, so always validate with:
+Stable people connectors validate on Graph **v1.0**, so start with:
 
 ```bash
-npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --use-preview-features
+npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp
 ```
 
 ---
@@ -58,7 +58,7 @@ model PersonProfile {
 Validate:
 
 ```bash
-npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --use-preview-features
+npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp
 ```
 
 ---
@@ -106,7 +106,7 @@ Reference docs:
 Validate again:
 
 ```bash
-npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --use-preview-features
+npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp
 ```
 
 ---
@@ -117,8 +117,7 @@ npx @wictorwilen/cocogen@latest generate \
   --tsp ./schema.tsp \
   --lang dotnet \
   --data-format json \
-  --out ./people-skills-connector \
-  --use-preview-features
+  --out ./people-skills-connector
 ```
 
 ### Input formats

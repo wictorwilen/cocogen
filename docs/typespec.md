@@ -71,15 +71,14 @@ Attach to the same model as `@coco.item()`.
 
 `contentCategory` maps to Microsoft Graph `externalConnection.contentCategory` (enum values enforced by TypeSpec).
 
-If you set `contentCategory`, `cocogen` requires `--use-preview-features` to allow Graph beta endpoints and SDKs.
 `name`, `connectionId`, and `connectionDescription` are required and set defaults for the generated configuration.
 
 Important:
-- This property is exposed on Microsoft Graph **/beta**.
-- If you set `contentCategory`, `cocogen` provisions using Graph `beta`.
-- If you omit `contentCategory`, `cocogen` provisions using Graph `v1.0`.
+- This property is available on Microsoft Graph **v1.0**.
+- Setting `contentCategory` alone does not require `--use-preview-features`.
+- `cocogen` only requires `--use-preview-features` when the schema still needs Graph `beta` for beta-only labels.
 
-Official values (Graph /beta):
+Official values (Graph v1.0):
 - `uncategorized` (default)
 - `knowledgeBase`
 - `wikis`
@@ -174,7 +173,12 @@ People connectors:
    - `personPhones`
    - `personAwards`
    - `personCertifications`
+   - `personEducationalActivities` (beta)
+   - `personInterests` (beta)
+   - `personLanguages` (beta)
+   - `personPatents` (beta)
    - `personProjects`
+   - `personPublications` (beta)
    - `personSkills`
    - `personWebAccounts`
    - `personWebSite`
@@ -451,7 +455,7 @@ Scalar types:
 - `int32 | int64` → Graph `int64`
 - `float32 | float64` → Graph `double`
 - `utcDateTime` → Graph `dateTime`
-- `coco.Principal` → Graph `principal` (**requires Graph beta / `--use-preview-features`**)
+- `coco.Principal` → Graph `principal`
 - TypeSpec `enum` → Graph `string`
 
 Collection types:
@@ -459,7 +463,7 @@ Collection types:
 - `int32[] | int64[]` → Graph `int64Collection`
 - `float32[] | float64[]` → Graph `doubleCollection`
 - `utcDateTime[]` → Graph `dateTimeCollection`
-- `coco.Principal[]` → Graph `principalCollection` (**requires Graph beta / `--use-preview-features`**)
+- `coco.Principal[]` → Graph `principalCollection`
 - `enum[]` → Graph `stringCollection`
 
 Not supported:

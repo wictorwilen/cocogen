@@ -12,7 +12,7 @@ This guide is for agents helping users craft TypeSpec schemas for cocogen. Keep 
 - Exactly one property must be decorated with `@coco.id`.
 
 ## Connector kinds
-- **Content connector**: default (Graph v1.0 unless `principal` or `contentCategory` forces beta).
+- **Content connector**: default (Graph v1.0; preview is only needed for beta-only labels).
 - **People connector**: set `@coco.connection({ contentCategory: "people", ... })` and include `@coco.profileSource`.
 
 ## Required connection settings

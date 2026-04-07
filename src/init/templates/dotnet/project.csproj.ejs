@@ -13,6 +13,9 @@
     <PackageReference Include="Azure.Identity" Version="1.17.1" />
     <% if (graphApiVersion === "beta") { -%>
     <PackageReference Include="Microsoft.Graph.Beta" Version="5.129.0-preview" />
+    <% } else if (isPeopleConnector) { -%>
+    <PackageReference Include="Microsoft.Graph" Version="5.100.0" />
+    <PackageReference Include="Microsoft.Graph.Beta" Version="5.129.0-preview" />
     <% } else { -%>
     <PackageReference Include="Microsoft.Graph" Version="5.100.0" />
     <% } -%>

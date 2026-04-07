@@ -33,11 +33,13 @@ describe("people label registry", () => {
 
   test("supported labels set is populated", () => {
     expect(SUPPORTED_PEOPLE_LABELS.has("personAccount")).toBe(true);
+    expect(SUPPORTED_PEOPLE_LABELS.has("personLanguages")).toBe(true);
   });
 
   test("supportedPeopleLabels lists raw labels", () => {
     const labels = supportedPeopleLabels();
     expect(labels).toContain("personAccount");
+    expect(labels).toContain("personEducationalActivities");
     expect(labels).toContain("personNote");
   });
 
@@ -48,6 +50,7 @@ describe("people label registry", () => {
   test("isSupportedPeopleLabel accepts known labels", () => {
     expect(isSupportedPeopleLabel("personAccount")).toBe(true);
     expect(isSupportedPeopleLabel("personSkills")).toBe(true);
+    expect(isSupportedPeopleLabel("personPublications")).toBe(true);
   });
 
   test("getPeopleLabelInfo throws for missing labels", () => {
@@ -60,6 +63,10 @@ describe("people label registry", () => {
 
     const collectionInfo = getPeopleLabelInfo("personSkills");
     expect(collectionInfo.payloadType).toBe("stringCollection");
+
+    const betaInfo = getPeopleLabelInfo("personLanguages");
+    expect(betaInfo.payloadType).toBe("stringCollection");
+    expect(betaInfo.minGraphApiVersion).toBe("beta");
   });
 
   test("getPeopleLabelInfo includes required fields", () => {

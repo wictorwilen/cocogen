@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-16T12:00:23.091Z",
+  "generatedAt": "2026-04-07T13:23:35.957Z",
   "graphVersion": "beta",
   "types": [
     {
@@ -314,6 +314,167 @@
       "required": []
     },
     {
+      "name": "educationalActivity",
+      "fullName": "microsoft.graph.educationalActivity",
+      "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
+      "properties": [
+        {
+          "name": "completionMonthYear",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "endMonthYear",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "institution",
+          "type": "graph.institutionData",
+          "nullable": true
+        },
+        {
+          "name": "program",
+          "type": "graph.educationalActivityDetail",
+          "nullable": true
+        },
+        {
+          "name": "startMonthYear",
+          "type": "Edm.Date",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "personInterest",
+      "fullName": "microsoft.graph.personInterest",
+      "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
+      "properties": [
+        {
+          "name": "categories",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "collaborationTags",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "languageProficiency",
+      "fullName": "microsoft.graph.languageProficiency",
+      "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
+      "properties": [
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "proficiency",
+          "type": "graph.languageProficiencyLevel",
+          "nullable": true
+        },
+        {
+          "name": "reading",
+          "type": "graph.languageProficiencyLevel",
+          "nullable": true
+        },
+        {
+          "name": "spoken",
+          "type": "graph.languageProficiencyLevel",
+          "nullable": true
+        },
+        {
+          "name": "tag",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "written",
+          "type": "graph.languageProficiencyLevel",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "itemPatent",
+      "fullName": "microsoft.graph.itemPatent",
+      "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
+      "properties": [
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "isPending",
+          "type": "Edm.Boolean",
+          "nullable": true
+        },
+        {
+          "name": "issuedDate",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "issuingAuthority",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "number",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
       "name": "projectParticipation",
       "fullName": "microsoft.graph.projectParticipation",
       "namespace": "microsoft.graph",
@@ -356,6 +517,45 @@
         },
         {
           "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "itemPublication",
+      "fullName": "microsoft.graph.itemPublication",
+      "namespace": "microsoft.graph",
+      "baseType": "itemFacet",
+      "properties": [
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "publishedDate",
+          "type": "Edm.Date",
+          "nullable": true
+        },
+        {
+          "name": "publisher",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "thumbnailUrl",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
           "type": "Edm.String",
           "nullable": true
         }
@@ -812,6 +1012,87 @@
       "required": []
     },
     {
+      "name": "institutionData",
+      "fullName": "microsoft.graph.institutionData",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "location",
+          "type": "graph.physicalAddress",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
+      "name": "educationalActivityDetail",
+      "fullName": "microsoft.graph.educationalActivityDetail",
+      "namespace": "microsoft.graph",
+      "properties": [
+        {
+          "name": "abbreviation",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "activities",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "awards",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "description",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "displayName",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "fieldsOfStudy",
+          "type": "Collection(Edm.String)",
+          "nullable": true
+        },
+        {
+          "name": "grade",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "notes",
+          "type": "Edm.String",
+          "nullable": true
+        },
+        {
+          "name": "webUrl",
+          "type": "Edm.String",
+          "nullable": true
+        }
+      ],
+      "required": []
+    },
+    {
       "name": "companyDetail",
       "fullName": "microsoft.graph.companyDetail",
       "namespace": "microsoft.graph",
@@ -1108,6 +1389,41 @@
       ]
     },
     {
+      "name": "languageProficiencyLevel",
+      "fullName": "microsoft.graph.languageProficiencyLevel",
+      "namespace": "microsoft.graph",
+      "members": [
+        {
+          "name": "elementary",
+          "value": "0"
+        },
+        {
+          "name": "conversational",
+          "value": "1"
+        },
+        {
+          "name": "limitedWorking",
+          "value": "2"
+        },
+        {
+          "name": "professionalWorking",
+          "value": "3"
+        },
+        {
+          "name": "fullProfessional",
+          "value": "4"
+        },
+        {
+          "name": "nativeOrBilingual",
+          "value": "5"
+        },
+        {
+          "name": "unknownFutureValue",
+          "value": "6"
+        }
+      ]
+    },
+    {
       "name": "skillProficiencyLevel",
       "fullName": "microsoft.graph.skillProficiencyLevel",
       "namespace": "microsoft.graph",
@@ -1327,7 +1643,12 @@
     "personPhones": "itemPhone",
     "personAwards": "personAward",
     "personCertifications": "personCertification",
+    "personEducationalActivities": "educationalActivity",
+    "personInterests": "personInterest",
+    "personLanguages": "languageProficiency",
+    "personPatents": "itemPatent",
     "personProjects": "projectParticipation",
+    "personPublications": "itemPublication",
     "personSkills": "skillProficiency",
     "personWebAccounts": "webAccount",
     "personWebSite": "webSite",

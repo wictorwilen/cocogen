@@ -299,7 +299,7 @@ describe("project init/update", () => {
 
     const createConnection = await readFile(path.join(outDir, "create-connection.http"), "utf8");
     expect(createConnection).toContain("/external/connections");
-    expect(createConnection).toContain("https://graph.microsoft.com/beta");
+    expect(createConnection).toContain("https://graph.microsoft.com/v1.0");
 
     const patchSchema = await readFile(path.join(outDir, "patch-schema.http"), "utf8");
     expect(patchSchema).toContain("/schema");
@@ -313,7 +313,7 @@ describe("project init/update", () => {
 
     const profileSource = await readFile(path.join(outDir, "profile-source.http"), "utf8");
     expect(profileSource).toContain("/admin/people/profileSources");
-    expect(profileSource).toContain("https://graph.microsoft.com/beta");
+    expect(profileSource).toContain("https://graph.microsoft.com/v1.0");
   });
 
   test("initRestProject emits principal collection objects", async () => {
@@ -364,10 +364,10 @@ describe("project init/update", () => {
 
     const constants = await readFile(path.join(outDir, "src", "PeopleConnector", "constants.ts"), "utf8");
 
-    expect(constants).toContain('"connectionProvisioning": "beta"');
+    expect(constants).toContain('"connectionProvisioning": "v1.0"');
     expect(constants).toContain('"schemaRegistration": "v1.0"');
     expect(constants).toContain('"itemIngestion": "v1.0"');
-    expect(constants).toContain('"profileSourceRegistration": "beta"');
+    expect(constants).toContain('"profileSourceRegistration": "v1.0"');
   });
 
   test("initTsProject builds text content from multiple sources", async () => {
@@ -550,6 +550,18 @@ model Item {
     expect(constants).toContain("ConnectionProvisioningGraphApiVersion = \"v1.0\"");
     expect(constants).toContain("SchemaRegistrationGraphApiVersion = \"v1.0\"");
     expect(constants).toContain("ItemIngestionGraphApiVersion = \"v1.0\"");
+  });
+
+  test("initDotnetProject includes stable and beta Graph SDK packages for stable people connectors", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "people-dotnet-packages");
+
+    await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
+
+    const csproj = await readFile(path.join(outDir, "people-dotnet-packages.csproj"), "utf8");
+    expect(csproj).toContain('PackageReference Include="Microsoft.Graph" Version="5.100.0"');
+    expect(csproj).toContain('PackageReference Include="Microsoft.Graph.Beta" Version="5.129.0-preview"');
   });
 
   test("initDotnetProject includes throttling retries", async () => {
@@ -1136,6 +1148,31 @@ model PersonProfile {
     const csPayload = await readFile(path.join(outDotnet, "TestConnector", "ItemPayload.cs"), "utf8");
     expect(csPayload).toContain("marketingContacts@odata.type");
     expect(csPayload).toContain("Collection(microsoft.graph.externalConnectors.principal)");
+  });
+
+  test("initDotnetProject emits principal schema property types via additionalData", async () => {
+    const tspPath = await writeTempTspFile(`
+      @coco.connection({ name: "Principal connector", connectionId: "principalconnector", connectionDescription: "Principal connector" })
+      @coco.item
+      model Item {
+        @coco.id
+        id: string;
+
+        owner: coco.Principal;
+        approvers: coco.Principal[];
+      }
+    `);
+
+    const outRoot = await writeTempDir();
+    const outDir = path.join(outRoot, "principal-schema-dotnet");
+
+    await initDotnetProject({ tspPath, outDir, force: false });
+
+    const payload = await readFile(path.join(outDir, "PrincipalConnector", "SchemaPayload.cs"), "utf8");
+    expect(payload).toContain('["type"] = "principal"');
+    expect(payload).toContain('["type"] = "principalCollection"');
+    expect(payload).not.toContain("Type = PropertyType.Principal");
+    expect(payload).not.toContain("Type = PropertyType.PrincipalCollection");
   });
 
   test("init projects use @example in CSV and emit validation", async () => {

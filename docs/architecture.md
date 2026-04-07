@@ -28,7 +28,7 @@ This spec defines the CLI UX, internal architecture, TypeSpec mapping rules, and
 
 ### People connectors (preview) goals
 - Support generating Microsoft 365 Copilot connectors for people data ("People connectors") by:
-  - setting `externalConnection.contentCategory = "people"` (Graph **beta** at time of writing)
+  - setting `externalConnection.contentCategory = "people"`
   - enforcing people-specific schema rules (labels + constraints)
   - enforcing the required `acl` semantics for items (Everyone)
   - documenting the required post-provision registration steps (profile source + prioritized sources)
@@ -73,7 +73,7 @@ The generated project also contains a `cocogen.json` file that records which `.t
 - calls `POST /external/connections` (create connection)
 - calls `PATCH /external/connections/{id}/schema` (register schema)
 
-- set `contentCategory` on the connection to `people` (Graph beta)
+- set `contentCategory` on the connection to `people`
 - `cocogen update`
   - regenerates TypeSpec-derived code inside an existing generated project
 
@@ -142,12 +142,13 @@ Notes on People connectors:
 - People connectors do not support `externalItem.content`; all data must be represented as schema properties.
 
 People connectors (preview) helpers:
-- `@coco.connection({ contentCategory?, name, connectionId, connectionDescription })` on the item model: sets connection-level settings in IR (Graph /beta `externalConnection.contentCategory`).
-- `contentCategory` MUST be specified in the TypeSpec input (not as a `cocogen` CLI flag) because it changes downstream validation and may require Graph beta.
+- `@coco.connection({ contentCategory?, name, connectionId, connectionDescription })` on the item model: sets connection-level settings in IR (`externalConnection.contentCategory`).
+- `contentCategory` MUST be specified in the TypeSpec input (not as a `cocogen` CLI flag) because it changes downstream validation and may require Graph beta when combined with beta-only labels.
 - Graph beta usage requires `cocogen --use-preview-features` so that beta endpoints and SDKs are explicitly opt-in.
 - People-domain labels are validated against the supported set (preview):
   - `personAccount`, `personName`, `personCurrentPosition`, `personAddresses`, `personEmails`, `personPhones`,
-    `personAwards`, `personCertifications`, `personProjects`, `personSkills`, `personWebAccounts`, `personWebSite`,
+    `personAwards`, `personCertifications`, `personEducationalActivities`, `personInterests`, `personLanguages`,
+    `personPatents`, `personProjects`, `personPublications`, `personSkills`, `personWebAccounts`, `personWebSite`,
     `personAnniversaries`, `personNote`.
 - Repeated `@coco.source(...)` (with `to`) builds JSON-serialized profile entities. The entity is inferred from the people label:
   - personAccount → userAccountInformation
@@ -158,7 +159,12 @@ People connectors (preview) helpers:
   - personPhones → itemPhone
   - personAwards → personAward
   - personCertifications → personCertification
+  - personEducationalActivities → educationalActivity
+  - personInterests → personInterest
+  - personLanguages → languageProficiency
+  - personPatents → itemPatent
   - personProjects → projectParticipation
+  - personPublications → itemPublication
   - personSkills → skillProficiency
   - personWebAccounts → webAccount
   - personWebSite → personWebsite
@@ -198,8 +204,8 @@ TypeSpec → Graph `propertyType` mapping (initial):
 - `string[]` → `stringCollection`
 
 Additional scalar mappings:
-- `coco.Principal` (custom scalar) → `principal` (Graph /beta)
-- `coco.Principal[]` → `principalCollection` (Graph /beta)
+- `coco.Principal` (custom scalar) → `principal`
+- `coco.Principal[]` → `principalCollection`
 
 Constraints enforced:
 - Only `string` and `stringCollection` can be `searchable`.
@@ -209,8 +215,8 @@ Constraints enforced:
 - Semantic labels must match expected property types (for example, `createdDateTime` → `dateTime`).
 
 Notes on `principalCollection`:
-- Microsoft Graph external connectors schema `propertyType` (beta) includes `principalCollection`.
-- `cocogen` supports mapping `coco.Principal[]` to `principalCollection` when preview features are enabled.
+- Microsoft Graph external connectors schema `propertyType` includes `principalCollection` in `v1.0`.
+- `cocogen` supports mapping `coco.Principal[]` to `principalCollection` without requiring preview features.
 
 ### 5.4 Flattening policy
 Initial version: **no nested objects**.
@@ -365,7 +371,7 @@ Graph ingestion will be throttled.
 
 ### 11.1 Graph API versioning strategy (beta vs v1.0)
 - Generated projects should default to calling Microsoft Graph `v1.0`.
-- If `contentCategory` is set (Graph exposes this property on `/beta`), generated provisioning must use Graph `beta` for the connection create/update call.
+- `contentCategory` can be provisioned with Graph `v1.0`.
 - Schema patch and item ingestion endpoints should use the minimum required version; if the generated project uses a single base URL for simplicity, it may use `beta` throughout in people mode.
 - Config surface (generated project runtime only):
   - TS: `GRAPH_API_VERSION=v1.0|beta` env var override.

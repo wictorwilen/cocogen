@@ -91,12 +91,17 @@ export type ConnectorIr = {
         | "itemPhone"
         | "personAward"
         | "personCertification"
+        | "educationalActivity"
+        | "personInterest"
+        | "languageProficiency"
+        | "itemPatent"
         | "projectParticipation"
+        | "itemPublication"
         | "skillProficiency"
         | "webAccount"
-         | "personWebsite"
-         | "personAnnualEvent"
-         | "personAnnotation";
+        | "personWebsite"
+        | "personAnnualEvent"
+        | "personAnnotation";
       fields: Array<{
         path: string;
         source: {

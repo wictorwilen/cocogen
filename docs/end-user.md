@@ -106,7 +106,7 @@ Starter schemas created by `init` include `tspconfig.yaml` and a local `package.
 npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp
 ```
 
-If you use Graph beta features (for example `contentCategory: "people"`), pass:
+If you use Graph beta features such as beta-only people labels, pass:
 ```bash
 npx @wictorwilen/cocogen@latest validate --tsp ./schema.tsp --use-preview-features
 ```
