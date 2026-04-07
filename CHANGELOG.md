@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-preview.5] - 2026-04-07
+
 ### Changed
 - Generated people connector `provision` commands no longer auto-register the connection as a profile source; use the dedicated `register-profile-source` command instead.
 
@@ -359,6 +361,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.1.0-preview.5]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.5
 [1.1.0-preview.4]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.4
 [1.1.0-preview.3]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.3
 [1.1.0-preview.2]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.2
