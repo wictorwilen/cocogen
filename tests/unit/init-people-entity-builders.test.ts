@@ -864,7 +864,7 @@ describe("init people entity builders", () => {
       ];
 
       const expression = buildCsPersonEntityExpression(fields, undefined, csPersonType, csTypeMap);
-      expect(expression).toContain("PeoplePayload.SerializePeopleEntity(");
+      expect(expression).toContain("JsonSerializer.Serialize(");
       expect(expression).toContain("string GetValue(List<string> values, int index)");
       expect(expression).toContain("string GetValue(List<string> values, int index)");
       expect(expression).toContain("RowParser.ParseStringCollection");
@@ -1370,7 +1370,7 @@ describe("init people entity builders", () => {
         csTypeMap,
         "csv"
       );
-      expect(expression).toContain(".Select(value => PeoplePayload.SerializePeopleEntity(");
+      expect(expression).toContain(".Select(value => JsonSerializer.Serialize(");
     });
 
     test("flattens JSON array roots", () => {
@@ -1386,7 +1386,7 @@ describe("init people entity builders", () => {
         "json"
       );
       expect(expression).toContain("RowParser.ReadArrayEntries");
-      expect(expression).toContain("results.Add(PeoplePayload.SerializePeopleEntity(");
+      expect(expression).toContain("results.Add(JsonSerializer.Serialize(");
     });
 
     test("handles JSON array roots with different roots (no common root)", () => {
@@ -1476,7 +1476,7 @@ describe("init people entity builders", () => {
         csTypeMap,
         "csv"
       );
-      expect(expression).toContain(".Select(value => PeoplePayload.SerializePeopleEntity(");
+      expect(expression).toContain(".Select(value => JsonSerializer.Serialize(");
       expect(expression).toContain("new List<string> { value }");
     });
 
@@ -1528,7 +1528,7 @@ describe("init people entity builders", () => {
         properties: new Map([["empty", { csName: "Empty", csType: "List<ItemType>?" }]]),
       };
       const expression = buildCsPersonEntityCollectionExpression(fields, undefined, typeInfo, new Map(), "csv");
-      expect(expression).toContain("Select(value => PeoplePayload.SerializePeopleEntity(");
+      expect(expression).toContain("Select(value => JsonSerializer.Serialize(");
       expect(expression).toContain("if (values.Count == 0) return null");
     });
 
@@ -1571,7 +1571,7 @@ describe("init people entity builders", () => {
         "csv"
       );
       expect(expression).toContain("CustomParser(");
-      expect(expression).toContain(".Select(value => PeoplePayload.SerializePeopleEntity(");
+      expect(expression).toContain(".Select(value => JsonSerializer.Serialize(");
     });
 
     test("handles JSON common root without relative path", () => {

@@ -5,14 +5,21 @@ namespace <%= schemaNamespace %>;
 /// User-overridable transforms for schema fields.
 /// 
 /// PEOPLE ENTITIES (labels):
-/// For properties marked with @coco.people decorators, the generated Transform<PropName> methods
-/// automatically serialize using PeoplePayload.SerializePeopleEntity(), which:
-/// - Serializes to JSON using System.Text.Json with DefaultIgnoreCondition.WhenWritingNull
-/// - Strips Kiota metadata (AdditionalData, BackingStore, OdataType, @odata.type)
-/// - Converts property names to camelCase
-/// - Returns normalized JSON strings (no null values, no internal SDK properties)
+/// For properties marked with @coco.people decorators, generated Transform<PropName> methods
+/// return regular JSON strings from JsonSerializer.Serialize(...).
 /// 
-/// You can override Transform<PropName> freely; the normalization happens inside SerializePeopleEntity.
+/// Final label cleanup happens later in ItemPayload via:
+/// - PeoplePayload.SerializeStringLabel(...)
+/// - PeoplePayload.SerializeCollectionLabel(...)
+/// 
+/// This keeps your overrides working with plain JSON and lets you deserialize/re-hydrate
+/// intermediate values if you need advanced transform logic.
+/// 
+/// Normalization at the final stage includes:
+/// - Strip Kiota metadata (AdditionalData, BackingStore, OdataType, @odata.type)
+/// - Flatten useful AdditionalData fields
+/// - Convert property names to camelCase
+/// - Normalize date objects to yyyy-MM-dd
 /// 
 /// Example:
 ///   protected override string? TransformAccountInfo(object row)
@@ -22,13 +29,17 @@ namespace <%= schemaNamespace %>;
 ///       {
 ///           UserPrincipalName = RowParser.ParseString(row, new[] { "Email" })
 ///       };
-///       // SerializePeopleEntity handles serialization + normalization automatically
-///       return PeoplePayload.SerializePeopleEntity(account);
+///       // Return regular JSON. Cleanup/normalization happens in ItemPayload later.
+///       return JsonSerializer.Serialize(account, new JsonSerializerOptions
+///       {
+///           DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+///           Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+///       });
 ///   }
 /// 
 /// COLLECTIONS:
-/// For collection properties, Transform<PropName> returns a List<string> of normalized JSON strings.
-/// Each item in the collection is automatically serialized and normalized.
+/// For collection properties, Transform<PropName> returns List<string> of regular JSON strings.
+/// ItemPayload applies final cleanup to each item before Graph ingestion.
 /// 
 /// OTHER PROPERTIES (strings, dates, enums):
 /// Override Transform<PropName> to customize validation, transformation, or parsing.

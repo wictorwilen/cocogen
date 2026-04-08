@@ -849,7 +849,7 @@ model PersonProfile {
     const defaults = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(defaults).toContain("skill");
     expect(defaults).not.toContain("List<string> GetCollectionValue(List<string> values, int index)");
-    expect(defaults).toContain("PeoplePayload.SerializePeopleEntity(");
+    expect(defaults).toContain("JsonSerializer.Serialize(");
 
     const overrides = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overrides).toContain("PropertyTransform");
@@ -892,7 +892,7 @@ model PersonProfile {
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(dotnetTransforms).toContain("public T TransformProperty<T>(string name, object row)");
-    expect(dotnetTransforms).toContain("Select(value => PeoplePayload.SerializePeopleEntity(");
+    expect(dotnetTransforms).toContain("Select(value => JsonSerializer.Serialize(");
     expect(dotnetTransforms).toContain("protected virtual");
     expect(dotnetTransforms).toContain("Transform");
     expect(dotnetTransforms).toContain("default!");
@@ -969,11 +969,12 @@ model PersonProfile {
     expect(connectorCore).toContain("\"OdataType\"");
 
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
-    expect(peoplePayload).toContain("public static string SerializePeopleEntity(object entity)");
+    expect(peoplePayload).toContain("public static string? SerializeStringLabel(string? value, string propertyName, PeopleLabelSerializationOptions options)");
+    expect(peoplePayload).toContain("public static List<string>? SerializeCollectionLabel(List<string>? values, string propertyName, PeopleLabelSerializationOptions options)");
     expect(peoplePayload).toContain("public static string NormalizeSerializedLabelJson(string json)");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
-    expect(transforms).toContain("PeoplePayload.SerializePeopleEntity(");
+    expect(transforms).toContain("JsonSerializer.Serialize(");
     expect(transforms).toContain("protected virtual");
     expect(transforms).toContain("Transform");
   });
@@ -1002,7 +1003,7 @@ model PersonProfile {
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("Detail = new Microsoft.Graph.Beta.Models.PositionDetail");
-    expect(transforms).toContain("results.Add(PeoplePayload.SerializePeopleEntity(");
+    expect(transforms).toContain("results.Add(JsonSerializer.Serialize(");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.SkillProficiency");
   });
 
@@ -1104,7 +1105,7 @@ model PersonProfile {
     expect(tsTransforms).toContain("JSON.stringify(");
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
-    expect(dotnetTransforms).toContain('PeoplePayload.SerializePeopleEntity(');
+    expect(dotnetTransforms).toContain('JsonSerializer.Serialize(');
     expect(dotnetTransforms).toContain('RowParser.ReadArrayEntries(row, "$.Languages[*]")');
     expect(dotnetTransforms).toContain('RowParser.ParseString(entry, "DisplayName")');
   });

@@ -37,23 +37,12 @@ public static class PeoplePayload
         "@odata.type",
     };
 
-    /// <summary>
-    /// Default JSON serialization options for people-entity objects.
-    /// Ignores null values to reduce payload size and noise.
-    /// </summary>
-    private static readonly JsonSerializerOptions PeopleEntitySerializerOptions = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters =
-        {
-            // Match previous output shape: emit enum names (camelCase) instead of numeric values.
-            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-        },
-    };
-
     public static string? SerializeStringLabel(string? value, string propertyName, PeopleLabelSerializationOptions options)
     {
-        return value;
+        if (value is null)
+            return value;
+
+        return NormalizeSerializedLabelJson(value);
     }
 
     public static List<string>? SerializeCollectionLabel(List<string>? values, string propertyName, PeopleLabelSerializationOptions options)
@@ -65,28 +54,7 @@ public static class PeoplePayload
                 $"Property '{propertyName}' exceeds people label collection limit of {options.CollectionLimit.Value}.");
         }
 
-        return values;
-    }
-
-    /// <summary>
-    /// Serialize a people-entity object to normalized JSON.
-    /// 
-    /// This is the primary entry point for serializing profile data (labels).
-    /// Internally:
-    /// 1. Serializes the object using JsonSerializer with DefaultIgnoreCondition.WhenWritingNull
-    /// 2. Parses the resulting JSON
-    /// 3. Normalizes the tree to strip metadata and convert casing
-    /// 4. Returns a clean JSON string suitable for external connectors
-    /// </summary>
-    /// <param name="entity">The people-entity object to serialize (e.g., UserAccountInformation, SkillProficiency)</param>
-    /// <returns>A normalized JSON string with no Kiota metadata, no null values, camelCase properties</returns>
-    public static string SerializePeopleEntity(object entity)
-    {
-        if (entity is null)
-            return "null";
-        
-        var json = JsonSerializer.Serialize(entity, PeopleEntitySerializerOptions);
-        return NormalizeSerializedLabelJson(json);
+        return values.Select(NormalizeSerializedLabelJson).ToList();
     }
 
     /// <summary>
