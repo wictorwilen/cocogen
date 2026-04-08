@@ -395,6 +395,7 @@ describe("project init/update", () => {
     await initDotnetProject({ tspPath, outDir, force: false });
 
     const transformBase = await readFile(path.join(outDir, "ContentConnector", "PropertyTransformBase.cs"), "utf8");
+    expect(transformBase).toContain("public T TransformProperty<T>(string name, object row)");
     expect(transformBase).toContain("<ul>");
     expect(transformBase).toContain("\"foo\"");
     expect(transformBase).toContain("\"fum\"");
@@ -890,10 +891,15 @@ model PersonProfile {
     expect(tsTransforms).toContain("undefined as unknown as string");
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
+    expect(dotnetTransforms).toContain("public T TransformProperty<T>(string name, object row)");
     expect(dotnetTransforms).toContain("Select(value => PeoplePayload.SerializePeopleEntity(");
     expect(dotnetTransforms).toContain("protected virtual");
     expect(dotnetTransforms).toContain("Transform");
     expect(dotnetTransforms).toContain("default!");
+
+    const dotnetFromRow = await readFile(path.join(outDotnet, schemaFolder, "FromRow.cs"), "utf8");
+    expect(dotnetFromRow).toContain("transforms.TransformProperty<string>(");
+    expect(dotnetFromRow).toContain("transforms.TransformProperty<List<string>>(");
 
     const csv = await readFile(path.join(outTs, "data.csv"), "utf8");
     expect(csv).toContain("TypeScript;Python");

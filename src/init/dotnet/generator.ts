@@ -704,7 +704,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
     const propertyInitializerLines = [
       ...properties.map(
         (p) =>
-          `            ${p.csName} = (${p.csType})transforms.TransformProperty(${JSON.stringify(p.name)}, row),`
+          `            ${p.csName} = transforms.TransformProperty<${p.csType}>(${JSON.stringify(p.name)}, row),`
       ),
       `            InternalId = ${idRawExpressionDotnet},`,
     ].join("\n");

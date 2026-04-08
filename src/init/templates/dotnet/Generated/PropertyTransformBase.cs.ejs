@@ -20,16 +20,20 @@ public abstract class PropertyTransformBase
 {
     /// <summary>
     /// Transform a property by name using the generated transform methods.
+    /// The generic return type preserves nullability information so generated callers
+    /// do not need nullable object casts in FromRow.
     /// </summary>
-    public object? TransformProperty(string name, object row)
+    public T TransformProperty<T>(string name, object row)
     {
-        return name switch
+        object? value = name switch
         {
 <% for (const prop of properties) { -%>
             <%= JSON.stringify(prop.name) %> => Transform<%= prop.csName %>(row),
 <% } -%>
             _ => throw new ArgumentOutOfRangeException(nameof(name), $"Unknown property '{name}'."),
         };
+
+        return (T)value!;
     }
 
 <% for (const prop of properties) { -%>

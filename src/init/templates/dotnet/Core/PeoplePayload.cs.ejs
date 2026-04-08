@@ -44,6 +44,11 @@ public static class PeoplePayload
     private static readonly JsonSerializerOptions PeopleEntitySerializerOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters =
+        {
+            // Match previous output shape: emit enum names (camelCase) instead of numeric values.
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
+        },
     };
 
     public static string? SerializeStringLabel(string? value, string propertyName, PeopleLabelSerializationOptions options)
@@ -106,9 +111,35 @@ public static class PeoplePayload
         // Handle objects: filter metadata, convert property names to camelCase
         if (node is JsonObject jsonObject)
         {
+            // Kiota Date-like values can appear as structured objects; collapse back to date string.
+            if (TryNormalizeKiotaDateObject(jsonObject, out var dateValue))
+                return JsonValue.Create(dateValue);
+
             var result = new JsonObject();
             foreach (var (key, value) in jsonObject)
             {
+                // Preserve useful dynamic payload values by flattening AdditionalData.
+                if (string.Equals(key, "AdditionalData", StringComparison.OrdinalIgnoreCase) && value is JsonObject additionalData)
+                {
+                    foreach (var (extraKey, extraValue) in additionalData)
+                    {
+                        if (extraKey is null || KiotaMetadataKeys.Contains(extraKey))
+                            continue;
+
+                        var normalizedExtraValue = NormalizeNode(extraValue);
+                        if (normalizedExtraValue is null)
+                            continue;
+
+                        var normalizedExtraKey = extraKey.StartsWith("@", StringComparison.Ordinal)
+                            ? extraKey
+                            : JsonNamingPolicy.CamelCase.ConvertName(extraKey);
+
+                        result[normalizedExtraKey] = normalizedExtraValue;
+                    }
+
+                    continue;
+                }
+
                 // Skip Kiota metadata fields and null keys
                 if (key is null || KiotaMetadataKeys.Contains(key))
                     continue;
@@ -146,6 +177,57 @@ public static class PeoplePayload
 
         // Scalars (strings, numbers, booleans): pass through
         return node.DeepClone();
+    }
+
+    /// <summary>
+    /// Detect and normalize Kiota Date-like objects into yyyy-MM-dd.
+    /// </summary>
+    private static bool TryNormalizeKiotaDateObject(JsonObject jsonObject, out string dateValue)
+    {
+        dateValue = string.Empty;
+
+        // Expected Kiota shape: {"dateTime":"...","year":...,"month":...,"day":...}
+        // Some SDK serializers may emit PascalCase, so match keys case-insensitively.
+        if (!TryGetPropertyValueIgnoreCase(jsonObject, "dateTime", out var dateTimeNode))
+            return false;
+        if (!TryGetPropertyValueIgnoreCase(jsonObject, "year", out _)
+            || !TryGetPropertyValueIgnoreCase(jsonObject, "month", out _)
+            || !TryGetPropertyValueIgnoreCase(jsonObject, "day", out _))
+            return false;
+
+        var raw = dateTimeNode?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+
+        if (DateTimeOffset.TryParse(raw, out var dateTimeOffset))
+        {
+            dateValue = dateTimeOffset.ToString("yyyy-MM-dd");
+            return true;
+        }
+
+        if (DateTime.TryParse(raw, out var dateTime))
+        {
+            dateValue = dateTime.ToString("yyyy-MM-dd");
+            return true;
+        }
+
+        dateValue = raw.Length >= 10 ? raw[..10] : raw;
+        return true;
+    }
+
+    private static bool TryGetPropertyValueIgnoreCase(JsonObject jsonObject, string propertyName, out JsonNode? value)
+    {
+        foreach (var (key, candidate) in jsonObject)
+        {
+            if (string.Equals(key, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = candidate;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
     }
 }
 

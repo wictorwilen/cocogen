@@ -70,15 +70,15 @@ export function toGraphPropertyTypeEnumName(type: PropertyType): string {
 export function toOdataCollectionType(type: PropertyType): string | null {
   switch (type) {
     case "stringCollection":
-      return "Collection(String)";
+      return "#Collection(String)";
     case "int64Collection":
-      return "Collection(Int64)";
+      return "#Collection(Int64)";
     case "doubleCollection":
-      return "Collection(Double)";
+      return "#Collection(Double)";
     case "dateTimeCollection":
-      return "Collection(DateTimeOffset)";
+      return "#Collection(DateTimeOffset)";
     case "principalCollection":
-      return "Collection(microsoft.graph.externalConnectors.principal)";
+      return "#Collection(microsoft.graph.externalConnectors.principal)";
     default:
       return null;
   }

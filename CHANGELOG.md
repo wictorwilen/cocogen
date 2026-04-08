@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Restored `.NET` people payload serialization parity for label JSON values emitted by `PeoplePayload.SerializePeopleEntity(...)`: collection `@odata.type` values now include the leading `#` (for example `#Collection(String)`), Kiota date objects are normalized back to `yyyy-MM-dd` strings, and useful fields carried via `AdditionalData` are preserved instead of being dropped during normalization.
+- Updated generated `.NET` `FromRow.cs` assignments to use typed `TransformProperty<T>(...)` calls, removing nullable cast warnings (`CS8600`/`CS8601`) caused by the previous `object?` cast path.
+
 ## [1.1.0-preview.8] - 2026-04-08
 
 ### Changed
