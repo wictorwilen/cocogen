@@ -14,13 +14,14 @@ namespace <%= schemaNamespace %>;
 
 /// <summary>
 /// Base class for row-to-model property transforms.
+/// Override protected virtual methods to customize transforms. Public wrapper methods handle normalization.
 /// </summary>
 public abstract class PropertyTransformBase
 {
     /// <summary>
     /// Transform a property by name using the generated transform methods.
     /// </summary>
-    public object TransformProperty(string name, object row)
+    public object? TransformProperty(string name, object row)
     {
         return name switch
         {
@@ -32,9 +33,37 @@ public abstract class PropertyTransformBase
     }
 
 <% for (const prop of properties) { -%>
+<% const isPeopleEntity = prop.personEntity; -%>
+<% const isStringResult = prop.csType === "string"; -%>
+<% const isStringCollectionResult = prop.csType === "List<string>"; -%>
+<% const needsNormalization = isPeopleEntity && (isStringResult || isStringCollectionResult); -%>
+<% const resultType = needsNormalization && isStringResult ? "string?" : needsNormalization && isStringCollectionResult ? "List<string>?" : prop.csType; -%>
     /// <summary>
     /// Transform the <%= prop.name %> property from a source row.
     /// </summary>
+<%_ if (needsNormalization) { -%>
+    public <%= resultType %> Transform<%= prop.csName %>(object row)
+    {
+        var result = TransformInternal<%= prop.csName %>(row);
+<%_ if (isStringResult) { -%>
+        return result is null ? null : PeoplePayload.NormalizeSerializedLabelJson(result);
+<%_ } else if (isStringCollectionResult) { -%>
+        return result?.Select(PeoplePayload.NormalizeSerializedLabelJson).ToList();
+<%_ } -%>
+    }
+
+    /// <summary>
+    /// Override to customize <%= prop.name %> transformation.
+    /// </summary>
+    protected virtual <%= prop.csType %> TransformInternal<%= prop.csName %>(object row)
+    {
+<%_ if (prop.transformThrows) { -%>
+        <%- prop.transformExpression %>;
+<%_ } else { -%>
+        return <%- prop.transformExpression %>;
+<%_ } -%>
+    }
+<%_ } else { -%>
     protected virtual <%= prop.csType %> Transform<%= prop.csName %>(object row)
     {
 <%_ if (prop.transformThrows) { -%>
@@ -43,6 +72,7 @@ public abstract class PropertyTransformBase
         return <%- prop.transformExpression %>;
 <%_ } -%>
     }
+<%_ } -%>
 
 <% } -%>
 

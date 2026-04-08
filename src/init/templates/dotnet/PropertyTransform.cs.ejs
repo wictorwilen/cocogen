@@ -3,8 +3,22 @@ namespace <%= schemaNamespace %>;
 
 /// <summary>
 /// User-overridable transforms for schema fields.
+/// 
+/// For people-entity properties (labels), override the TransformInternal<PropName> methods.
+/// The public Transform<PropName> methods automatically normalize JSON and handle casing conversion.
+/// 
+/// For example, to customize the "title" label:
+///   protected override string? TransformInternalTitle(object row)
+///   {
+///       // Custom serialization logic here
+///       var myObj = new { name = "value" };
+///       return JsonSerializer.Serialize(myObj, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+///   }
+/// 
+/// The public Transform<PropName> method will automatically call NormalizeSerializedLabelJson.
 /// </summary>
 public sealed class PropertyTransform : PropertyTransformBase
 {
-    // Override Transform<PropName> methods to customize mapping.
+    // Override TransformInternal<PropName> methods for people properties to customize mapping,
+    // or override Transform<PropName> for other properties.
 }

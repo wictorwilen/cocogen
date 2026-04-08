@@ -890,7 +890,12 @@ model PersonProfile {
     expect(tsTransforms).toContain("undefined as unknown as string");
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
-    expect(dotnetTransforms).toContain("Select(value => PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize");
+    expect(dotnetTransforms).not.toContain("Select(value => PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize");
+    expect(dotnetTransforms).toContain("Select(value => JsonSerializer.Serialize");
+    expect(dotnetTransforms).toContain("public");
+    expect(dotnetTransforms).toContain("Transform");
+    expect(dotnetTransforms).toContain("protected virtual");
+    expect(dotnetTransforms).toContain("TransformInternal");
     expect(dotnetTransforms).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
     expect(dotnetTransforms).toContain("default!");
 
@@ -965,7 +970,11 @@ model PersonProfile {
     expect(peoplePayload).toContain("public static string NormalizeSerializedLabelJson(string json)");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
-    expect(transforms).toContain("PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
+    expect(transforms).not.toContain("PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
+    expect(transforms).toContain("public");
+    expect(transforms).toContain("Transform");
+    expect(transforms).toContain("protected virtual");
+    expect(transforms).toContain("TransformInternal");
   });
 
   test("initDotnetProject emits nullable-safe TryParseJsonPath for json input", async () => {
@@ -992,7 +1001,8 @@ model PersonProfile {
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("Detail = new Microsoft.Graph.Beta.Models.PositionDetail");
-    expect(transforms).toContain("results.Add(PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
+    expect(transforms).not.toContain("results.Add(PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
+    expect(transforms).toContain("results.Add(JsonSerializer.Serialize(");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.SkillProficiency");
   });
 
