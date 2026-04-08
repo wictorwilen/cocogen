@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-preview.8] - 2026-04-08
+
 ### Changed
 - **For .NET people connectors with custom transforms:** The generated `PropertyTransformBase.cs` no longer embeds normalization logic in each serialization expression. Instead, hand-off to `PeoplePayload.SerializePeopleEntity(object)` which handles serialization + normalization (strips Kiota metadata, removes nulls, converts to camelCase) in one call. If you have custom `PropertyTransform.cs` overrides, they will automatically benefit from normalization; no code changes required. The method signature remains `protected virtual string? Transform<PropName>(object row)`.
 
@@ -368,6 +370,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.1.0-preview.8]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.8
 [1.1.0-preview.7]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.7
 [1.1.0-preview.6]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.6
 [1.1.0-preview.5]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.5
