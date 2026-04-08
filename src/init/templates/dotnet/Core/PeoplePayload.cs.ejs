@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 <% const hasLocalGraphTypes = peopleProfileTypes.some((type) => !type.sourcePackage); -%>
 <% if (hasLocalGraphTypes) { -%>
-using System.Text.Json.Serialization;
 using Date = System.DateOnly;
 <% } -%>
 
@@ -14,14 +14,36 @@ public sealed record PeopleLabelSerializationOptions(
     int? CollectionLimit
 );
 
+/// <summary>
+/// Handles serialization and normalization of people-entity profile data.
+/// 
+/// People-entity objects (e.g., UserAccountInformation, SkillProficiency from Microsoft Graph)
+/// contain internal Kiota SDK metadata (AdditionalData, BackingStore, etc.) when serialized.
+/// This class provides utilities to produce clean JSON output suitable for external connectors:
+/// - Removes null values
+/// - Strips Kiota internals (AdditionalData, BackingStore, OdataType, @odata.type)
+/// - Converts PascalCase property names to camelCase
+/// </summary>
 public static class PeoplePayload
 {
+    /// <summary>
+    /// Kiota SDK metadata keys that should be stripped from serialized JSON.
+    /// </summary>
     private static readonly HashSet<string> KiotaMetadataKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "AdditionalData",
         "BackingStore",
         "OdataType",
         "@odata.type",
+    };
+
+    /// <summary>
+    /// Default JSON serialization options for people-entity objects.
+    /// Ignores null values to reduce payload size and noise.
+    /// </summary>
+    private static readonly JsonSerializerOptions PeopleEntitySerializerOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     public static string? SerializeStringLabel(string? value, string propertyName, PeopleLabelSerializationOptions options)
@@ -41,6 +63,31 @@ public static class PeoplePayload
         return values;
     }
 
+    /// <summary>
+    /// Serialize a people-entity object to normalized JSON.
+    /// 
+    /// This is the primary entry point for serializing profile data (labels).
+    /// Internally:
+    /// 1. Serializes the object using JsonSerializer with DefaultIgnoreCondition.WhenWritingNull
+    /// 2. Parses the resulting JSON
+    /// 3. Normalizes the tree to strip metadata and convert casing
+    /// 4. Returns a clean JSON string suitable for external connectors
+    /// </summary>
+    /// <param name="entity">The people-entity object to serialize (e.g., UserAccountInformation, SkillProficiency)</param>
+    /// <returns>A normalized JSON string with no Kiota metadata, no null values, camelCase properties</returns>
+    public static string SerializePeopleEntity(object entity)
+    {
+        if (entity is null)
+            return "null";
+        
+        var json = JsonSerializer.Serialize(entity, PeopleEntitySerializerOptions);
+        return NormalizeSerializedLabelJson(json);
+    }
+
+    /// <summary>
+    /// Normalize an already-serialized people-entity JSON string.
+    /// Useful if you need to customize serialization but still apply normalization separately.
+    /// </summary>
     public static string NormalizeSerializedLabelJson(string json)
     {
         var node = JsonNode.Parse(json);
@@ -48,16 +95,21 @@ public static class PeoplePayload
         return normalized?.ToJsonString() ?? "{}";
     }
 
+    /// <summary>
+    /// Recursively walk a JsonNode tree, removing Kiota metadata and converting casing.
+    /// </summary>
     private static JsonNode? NormalizeNode(JsonNode? node)
     {
         if (node is null)
             return null;
 
+        // Handle objects: filter metadata, convert property names to camelCase
         if (node is JsonObject jsonObject)
         {
             var result = new JsonObject();
             foreach (var (key, value) in jsonObject)
             {
+                // Skip Kiota metadata fields and null keys
                 if (key is null || KiotaMetadataKeys.Contains(key))
                     continue;
 
@@ -65,6 +117,7 @@ public static class PeoplePayload
                 if (normalizedValue is null)
                     continue;
 
+                // Preserve @ prefixes (e.g., for OData annotations if needed), otherwise camelCase
                 var normalizedKey = key.StartsWith("@", StringComparison.Ordinal)
                     ? key
                     : JsonNamingPolicy.CamelCase.ConvertName(key);
@@ -75,6 +128,7 @@ public static class PeoplePayload
             return result;
         }
 
+        // Handle arrays: recursively normalize each item, skip nulls
         if (node is JsonArray jsonArray)
         {
             var result = new JsonArray();
@@ -90,6 +144,7 @@ public static class PeoplePayload
             return result;
         }
 
+        // Scalars (strings, numbers, booleans): pass through
         return node.DeepClone();
     }
 }

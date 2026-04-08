@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **For .NET people connectors with custom transforms:** The generated `PropertyTransformBase.cs` no longer embeds normalization logic in each serialization expression. Instead, hand-off to `PeoplePayload.SerializePeopleEntity(object)` which handles serialization + normalization (strips Kiota metadata, removes nulls, converts to camelCase) in one call. If you have custom `PropertyTransform.cs` overrides, they will automatically benefit from normalization; no code changes required. The method signature remains `protected virtual string? Transform<PropName>(object row)`.
+
 ## [1.1.0-preview.7] - 2026-04-08
 
 ## [1.1.0-preview.6] - 2026-04-07

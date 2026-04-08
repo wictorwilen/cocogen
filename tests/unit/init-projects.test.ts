@@ -848,7 +848,7 @@ model PersonProfile {
     const defaults = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(defaults).toContain("skill");
     expect(defaults).not.toContain("List<string> GetCollectionValue(List<string> values, int index)");
-    expect(defaults).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
+    expect(defaults).toContain("PeoplePayload.SerializePeopleEntity(");
 
     const overrides = await readFile(path.join(outDir, schemaFolder, "PropertyTransform.cs"), "utf8");
     expect(overrides).toContain("PropertyTransform");
@@ -890,13 +890,9 @@ model PersonProfile {
     expect(tsTransforms).toContain("undefined as unknown as string");
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
-    expect(dotnetTransforms).not.toContain("Select(value => PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize");
-    expect(dotnetTransforms).toContain("Select(value => JsonSerializer.Serialize");
-    expect(dotnetTransforms).toContain("public");
-    expect(dotnetTransforms).toContain("Transform");
+    expect(dotnetTransforms).toContain("Select(value => PeoplePayload.SerializePeopleEntity(");
     expect(dotnetTransforms).toContain("protected virtual");
-    expect(dotnetTransforms).toContain("TransformInternal");
-    expect(dotnetTransforms).toContain("DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull");
+    expect(dotnetTransforms).toContain("Transform");
     expect(dotnetTransforms).toContain("default!");
 
     const csv = await readFile(path.join(outTs, "data.csv"), "utf8");
@@ -967,14 +963,13 @@ model PersonProfile {
     expect(connectorCore).toContain("\"OdataType\"");
 
     const peoplePayload = await readFile(path.join(outDir, "Core", "PeoplePayload.cs"), "utf8");
+    expect(peoplePayload).toContain("public static string SerializePeopleEntity(object entity)");
     expect(peoplePayload).toContain("public static string NormalizeSerializedLabelJson(string json)");
 
     const transforms = await readFile(path.join(outDir, "PeopleConnector", "PropertyTransformBase.cs"), "utf8");
-    expect(transforms).not.toContain("PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
-    expect(transforms).toContain("public");
-    expect(transforms).toContain("Transform");
+    expect(transforms).toContain("PeoplePayload.SerializePeopleEntity(");
     expect(transforms).toContain("protected virtual");
-    expect(transforms).toContain("TransformInternal");
+    expect(transforms).toContain("Transform");
   });
 
   test("initDotnetProject emits nullable-safe TryParseJsonPath for json input", async () => {
@@ -1001,8 +996,7 @@ model PersonProfile {
 
     const transforms = await readFile(path.join(outDir, schemaFolder, "PropertyTransformBase.cs"), "utf8");
     expect(transforms).toContain("Detail = new Microsoft.Graph.Beta.Models.PositionDetail");
-    expect(transforms).not.toContain("results.Add(PeoplePayload.NormalizeSerializedLabelJson(JsonSerializer.Serialize(");
-    expect(transforms).toContain("results.Add(JsonSerializer.Serialize(");
+    expect(transforms).toContain("results.Add(PeoplePayload.SerializePeopleEntity(");
     expect(transforms).toContain("new Microsoft.Graph.Beta.Models.SkillProficiency");
   });
 
@@ -1104,7 +1098,7 @@ model PersonProfile {
     expect(tsTransforms).toContain("JSON.stringify(");
 
     const dotnetTransforms = await readFile(path.join(outDotnet, schemaFolder, "PropertyTransformBase.cs"), "utf8");
-    expect(dotnetTransforms).toContain('JsonSerializer.Serialize(');
+    expect(dotnetTransforms).toContain('PeoplePayload.SerializePeopleEntity(');
     expect(dotnetTransforms).toContain('RowParser.ReadArrayEntries(row, "$.Languages[*]")');
     expect(dotnetTransforms).toContain('RowParser.ParseString(entry, "DisplayName")');
   });

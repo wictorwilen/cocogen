@@ -522,7 +522,7 @@ export function buildCsPersonEntityExpression(
     2
   );
 
-  return `JsonSerializer.Serialize(\n${indentUnit.repeat(2)}${objectExpression},\n${indentUnit.repeat(2)}${jsonSerializeWithoutNullsOptions}\n${indentUnit.repeat(2)})`;
+  return `PeoplePayload.SerializePeopleEntity(\n${indentUnit.repeat(2)}${objectExpression}\n${indentUnit.repeat(2)})`;
 }
 
 /** Build a C# JSON string list expression for person-entity collections. */
@@ -585,7 +585,7 @@ export function buildCsPersonEntityCollectionExpression(
 
       const formattedObjectExpression = formatCsEmbeddedExpression(typedObjectExpression, "                ");
 
-      return `new Func<List<string>>(() =>\n    {\n        var results = new List<string>();\n        foreach (var entry in RowParser.ReadArrayEntries(row, ${JSON.stringify(common.root)}))\n        {\n            results.Add(JsonSerializer.Serialize(\n${formattedObjectExpression},\n                ${jsonSerializeWithoutNullsOptions}\n            ));\n        }\n        return results;\n    }).Invoke()`;
+      return `new Func<List<string>>(() =>\n    {\n        var results = new List<string>();\n        foreach (var entry in RowParser.ReadArrayEntries(row, ${JSON.stringify(common.root)}))\n        {\n            results.Add(PeoplePayload.SerializePeopleEntity(\n${formattedObjectExpression}\n            ));\n        }\n        return results;\n    }).Invoke()`;
     }
   }
 
@@ -606,7 +606,7 @@ export function buildCsPersonEntityCollectionExpression(
     const formattedObjectExpression = formatCsEmbeddedExpression(typedObjectExpression, `${indentUnit.repeat(4)}`);
 
         return `${applySourceCollectionExpression(collectionExpressionBuilder(sourceLiteral), field.source)}
-          .Select(value => JsonSerializer.Serialize(\n${formattedObjectExpression},\n                    ${jsonSerializeWithoutNullsOptions}\n                ))
+          .Select(value => PeoplePayload.SerializePeopleEntity(\n${formattedObjectExpression}\n                  ))
             .ToList()`;
   }
 
@@ -631,5 +631,5 @@ export function buildCsPersonEntityCollectionExpression(
 
   const formattedObjectExpression = formatCsEmbeddedExpression(typedObjectExpression, "                ");
 
-  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n${indexedValueHelpers}\n${maxLenLine}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(JsonSerializer.Serialize(\n${formattedObjectExpression},\n                ${jsonSerializeWithoutNullsOptions}\n            ));\n        }\n        return results;\n    }).Invoke()`;
+  return `new Func<List<string>>(() =>\n    {\n${fieldLines.join("\n")}\n${indexedValueHelpers}\n${maxLenLine}\n        var results = new List<string>();\n        for (var index = 0; index < maxLen; index++)\n        {\n            results.Add(PeoplePayload.SerializePeopleEntity(\n${formattedObjectExpression}\n            ));\n        }\n        return results;\n    }).Invoke()`;
 }
