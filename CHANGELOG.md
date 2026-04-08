@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-preview.9] - 2026-04-08
+
 ### Fixed
 - Restored `.NET` people payload serialization parity for label JSON values emitted by `PeoplePayload.SerializePeopleEntity(...)`: collection `@odata.type` values now include the leading `#` (for example `#Collection(String)`), Kiota date objects are normalized back to `yyyy-MM-dd` strings, and useful fields carried via `AdditionalData` are preserved instead of being dropped during normalization.
 - Updated generated `.NET` `FromRow.cs` assignments to use typed `TransformProperty<T>(...)` calls, removing nullable cast warnings (`CS8600`/`CS8601`) caused by the previous `object?` cast path.
@@ -374,6 +376,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.1.0-preview.9]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.9
 [1.1.0-preview.8]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.8
 [1.1.0-preview.7]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.7
 [1.1.0-preview.6]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.6
