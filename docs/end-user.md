@@ -198,6 +198,7 @@ Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
 - `--limit <n>` limits items ingested
 - `--batch-size <n>` sends up to `n` concurrent PUT requests per batch (`1` by default, max `20`)
+- `--retry-attempts <n>` retries failed items from a queue after the initial pass (`2` by default, max `10`)
 - `--verbose` prints item payloads
 - `--input <path>` overrides the input file path
 
@@ -243,6 +244,7 @@ Ingest debugging flags:
 - `--dry-run` builds payloads but does not send to Graph
 - `--limit <n>` limits items ingested
 - `--batch-size <n>` sends up to `n` concurrent PUT requests per batch (`1` by default, max `20`)
+- `--retry-attempts <n>` retries failed items from a queue after the initial pass (`2` by default, max `10`)
 - `--verbose` prints item payloads
 - `--input <path>` overrides the input file path
 

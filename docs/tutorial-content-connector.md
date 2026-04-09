@@ -324,6 +324,7 @@ Helpful flags:
 - `--verbose` (print payloads)
 - `--limit 10` (limit items)
 - `--batch-size 5` (send up to 5 PUT requests in parallel before waiting for the next batch)
+- `--retry-attempts 2` (queue failed items after the first pass and retry them with backoff)
 
 ---
 

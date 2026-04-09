@@ -180,6 +180,7 @@ Helpful flags:
 - `--verbose`
 - `--limit 10`
 - `--batch-size 5`
+- `--retry-attempts 2`
 
 ---
 
