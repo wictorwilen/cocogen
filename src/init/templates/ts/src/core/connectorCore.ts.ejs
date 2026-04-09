@@ -41,6 +41,7 @@ export type IngestOptions<Item> = {
   dryRun?: boolean;
   limit?: number;
   batchSize?: number;
+  retryAttempts?: number;
   verbose?: boolean;
   failFast?: boolean;
   toExternalItem: (item: Item) => unknown;
@@ -229,24 +230,34 @@ export class ConnectorCore<Item> {
     if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 20) {
       throw new Error("Invalid batch size: expected integer between 1 and 20.");
     }
+    const retryAttempts = options.retryAttempts ?? DEFAULT_ITEM_RETRY_ATTEMPTS;
+    if (!Number.isInteger(retryAttempts) || retryAttempts < 0 || retryAttempts > MAX_ITEM_RETRY_ATTEMPTS) {
+      throw new Error(`Invalid retry attempts: expected integer between 0 and ${MAX_ITEM_RETRY_ATTEMPTS}.`);
+    }
+
+    type PendingItem = { index: number; id: string; item: Item; attempt: number };
 
     let count = 0;
     let successCount = 0;
-    const failures: Array<{ index: number; id: string; message: string }> = [];
-    const pending: Array<{ index: number; id: string; item: Item }> = [];
+    const failures: Array<{ index: number; id: string; attempts: number; message: string }> = [];
+    const pending: PendingItem[] = [];
+    let retryQueue: PendingItem[] = [];
 
-    const flushBatch = async (): Promise<void> => {
-      if (pending.length === 0) {
+    const flushBatch = async (batch: PendingItem[]): Promise<void> => {
+      if (batch.length === 0) {
         return;
       }
 
-      for (const entry of pending) {
-        console.log(`info: ingesting item ${entry.index} (id=${entry.id})`);
+      for (const entry of batch) {
+        if (entry.attempt === 0) {
+          console.log(`info: ingesting item ${entry.index} (id=${entry.id})`);
+          continue;
+        }
+        console.log(`info: retrying item ${entry.index} (id=${entry.id}) attempt ${entry.attempt}/${retryAttempts}`);
       }
 
-      const currentBatch = pending.splice(0, pending.length);
       const results = await Promise.all(
-        currentBatch.map(async (entry) => {
+        batch.map(async (entry) => {
           try {
             await this.putItem(options.connectionId, entry.item, Boolean(options.verbose));
             return { ...entry, success: true as const };
@@ -266,7 +277,13 @@ export class ConnectorCore<Item> {
 
         const message = result.error instanceof Error ? result.error.message : String(result.error);
         console.error(`error: failed item ${result.index} (id=${result.id})`);
-        failures.push({ index: result.index, id: result.id, message });
+
+        if (!options.failFast && result.attempt < retryAttempts) {
+          retryQueue.push({ index: result.index, id: result.id, item: result.item, attempt: result.attempt + 1 });
+          continue;
+        }
+
+        failures.push({ index: result.index, id: result.id, attempts: result.attempt + 1, message });
         if (options.failFast && firstError === null) {
           firstError = result.error;
         }
@@ -282,9 +299,10 @@ export class ConnectorCore<Item> {
       const index = count + 1;
       const itemId = this.getItemId(item as Item);
       if (!options.dryRun) {
-        pending.push({ index, id: itemId, item: item as Item });
+        pending.push({ index, id: itemId, item: item as Item, attempt: 0 });
         if (pending.length >= batchSize) {
-          await flushBatch();
+          const batch = pending.splice(0, pending.length);
+          await flushBatch(batch);
         }
       } else if (options.verbose) {
         const payload = options.toExternalItem(item as Item) as any;
@@ -299,7 +317,36 @@ export class ConnectorCore<Item> {
     }
 
     if (!options.dryRun) {
-      await flushBatch();
+      const batch = pending.splice(0, pending.length);
+      await flushBatch(batch);
+
+      for (let retryAttempt = 1; retryAttempt <= retryAttempts && retryQueue.length > 0; retryAttempt++) {
+        const queue = retryQueue;
+        retryQueue = [];
+        console.warn(`warn: retry pass ${retryAttempt}/${retryAttempts} for ${queue.length} item(s)`);
+
+        for (let index = 0; index < queue.length; index += batchSize) {
+          const batchSlice = queue.slice(index, index + batchSize);
+          await flushBatch(batchSlice);
+        }
+
+        if (retryQueue.length > 0 && retryAttempt < retryAttempts) {
+          const delayMs = computeRetryDelayMs(retryAttempt - 1);
+          console.warn(`warn: waiting ${delayMs}ms before next retry pass`);
+          await sleep(delayMs);
+        }
+      }
+
+      if (retryQueue.length > 0) {
+        for (const entry of retryQueue) {
+          failures.push({
+            index: entry.index,
+            id: entry.id,
+            attempts: entry.attempt,
+            message: `exhausted retry queue after ${entry.attempt} attempt(s)`,
+          });
+        }
+      }
     }
 
     if (!options.dryRun) {
@@ -311,7 +358,7 @@ export class ConnectorCore<Item> {
     if (failures.length > 0) {
       console.warn(`warn: ${failures.length} item(s) failed`);
       for (const failure of failures) {
-        console.warn(`warn: failed item ${failure.index} (id=${failure.id}) - ${failure.message}`);
+        console.warn(`warn: failed item ${failure.index} (id=${failure.id}) after ${failure.attempts} attempt(s) - ${failure.message}`);
       }
     }
   }
@@ -518,6 +565,8 @@ const SCHEMA_POLL_DELAY_MS = 30000;
 const MAX_RETRIES = 6;
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 30000;
+const DEFAULT_ITEM_RETRY_ATTEMPTS = 2;
+const MAX_ITEM_RETRY_ATTEMPTS = 10;
 const SCHEMA_READY_STATES = new Set(["completed", "ready", "succeeded", "success"]);
 const SCHEMA_PENDING_STATES = new Set(["inprogress", "pending", "running", "updating"]);
 

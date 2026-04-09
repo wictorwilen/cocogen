@@ -362,6 +362,8 @@ Type conversion rules (generated code):
 Graph ingestion will be throttled.
 - Provide exponential backoff for 429/5xx.
 - Concurrency control (configurable batch size, parallelism).
+- Failed items should be queued and retried after the initial pass completes.
+- Retry queue passes should be bounded (`--retry-attempts`) and use backoff between retry rounds.
 
 ## 11. Operational concerns
 - Provisioning is idempotent: if connection exists, continue; if schema exists, update.
@@ -369,6 +371,7 @@ Graph ingestion will be throttled.
   - `--dry-run`
   - `--limit N`
   - `--batch-size N` (default `1`, max `20`, flushes concurrent PUTs in batches)
+  - `--retry-attempts N` (default `2`, max `10`, retries queued failed items after initial pass)
   - `--since` (future)
 - Logging: structured logs to stdout.
 

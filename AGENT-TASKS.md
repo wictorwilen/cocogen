@@ -45,6 +45,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Add generated TS/.NET ingest retry queues so failed batch items are retried after the initial pass with bounded `--retry-attempts` rounds and failure summaries ✅
 - Stop generated people connector `provision` commands from auto-registering profile sources; keep that behavior behind the dedicated `register-profile-source` command ✅
 - Move people profile source registration and stable people connector operation routing to Graph `v1.0`, keeping `--use-preview-features` only for beta-only people labels ✅
 - Refresh Graph people-label metadata to pick up beta-only `personEducationalActivities`, `personInterests`, `personLanguages`, `personPatents`, and `personPublications`, and wire them through capability detection + validation ✅

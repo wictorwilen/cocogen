@@ -118,6 +118,14 @@ function parseBatchSize(value: string): number {
   return parsed;
 }
 
+function parseRetryAttempts(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10) {
+    throw new InvalidArgumentError("expected an integer between 0 and 10");
+  }
+  return parsed;
+}
+
 function buildItemSource(path: string): ItemSource<<%= itemTypeName %>> {
 <% if (inputFormat === "rest") { -%>
   return new RestItemSource(resolveRestOptions(path));
@@ -224,6 +232,7 @@ async function ingest(options: {
   dryRun?: boolean;
   limit?: number;
   batchSize?: number;
+  retryAttempts?: number;
   verbose?: boolean;
   failFast?: boolean;
 }): Promise<void> {
@@ -237,6 +246,7 @@ async function ingest(options: {
     dryRun: options.dryRun,
     limit: options.limit,
     batchSize: options.batchSize,
+    retryAttempts: options.retryAttempts,
     verbose: options.verbose,
     failFast: options.failFast,
     toExternalItem
@@ -259,14 +269,16 @@ program
   .option("--fail-fast", "Abort on the first item failure")
   .option("--limit <n>", "Limit number of items", (value) => Number(value))
   .option("--batch-size <n>", "Number of concurrent PUT requests to send per batch (1-20)", parseBatchSize, 1)
+  .option("--retry-attempts <n>", "Retry failed items after initial pass (0-10, default 2)", parseRetryAttempts, 2)
   .option("--verbose", "Print payloads sent to Graph")
-  .action((options: { input?: string; dryRun?: boolean; limit?: number; batchSize?: number; verbose?: boolean; failFast?: boolean }) =>
+  .action((options: { input?: string; dryRun?: boolean; limit?: number; batchSize?: number; retryAttempts?: number; verbose?: boolean; failFast?: boolean }) =>
     ingest({
       inputPath: options.input,
       dryRun: options.dryRun,
       failFast: options.failFast,
       limit: options.limit,
       batchSize: options.batchSize,
+      retryAttempts: options.retryAttempts,
       verbose: options.verbose,
     })
   );

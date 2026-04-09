@@ -269,43 +269,54 @@ public sealed class ConnectorCore<TItem>
     /// <summary>
     /// Ingest items from a datasource.
     /// </summary>
-    public async Task IngestAsync(IItemSource<TItem> source, bool dryRun, int? limit, int batchSize, bool verbose, bool failFast)
+    public async Task IngestAsync(IItemSource<TItem> source, bool dryRun, int? limit, int batchSize, int retryAttempts, bool verbose, bool failFast)
     {
         if (batchSize < 1 || batchSize > 20)
             throw new InvalidOperationException("Invalid batch size: expected integer between 1 and 20.");
+        if (retryAttempts < 0 || retryAttempts > MaxItemRetryAttempts)
+            throw new InvalidOperationException($"Invalid retry attempts: expected integer between 0 and {MaxItemRetryAttempts}.");
+
+        var retryQueueDelayAttempts = Math.Max(0, retryAttempts);
 
         var count = 0;
         var successCount = 0;
-        var failures = new List<(int Index, string Id, string Message)>();
-        var pending = new List<(int Index, string Id, TItem Item)>();
+        var failures = new List<(int Index, string Id, int Attempts, string Message)>();
+        var pending = new List<(int Index, string Id, TItem Item, int Attempt)>();
+        var retryQueue = new List<(int Index, string Id, TItem Item, int Attempt)>();
 
-        async Task<(int Index, string Id, bool Success, string Message, Exception? Error)> ProcessPendingItemAsync(
-            (int Index, string Id, TItem Item) pendingItem)
+        async Task<(int Index, string Id, int Attempt, bool Success, string Message, Exception? Error, TItem Item)> ProcessPendingItemAsync(
+            (int Index, string Id, TItem Item, int Attempt) pendingItem)
         {
             try
             {
                 await PutItemAsync(pendingItem.Item, verbose);
-                return (pendingItem.Index, pendingItem.Id, true, string.Empty, null);
+                return (pendingItem.Index, pendingItem.Id, pendingItem.Attempt, true, string.Empty, null, pendingItem.Item);
             }
             catch (Exception ex)
             {
-                return (pendingItem.Index, pendingItem.Id, false, ex.Message, ex);
+                return (pendingItem.Index, pendingItem.Id, pendingItem.Attempt, false, ex.Message, ex, pendingItem.Item);
             }
         }
 
-        async Task FlushBatchAsync()
+        async Task FlushBatchAsync(IReadOnlyList<(int Index, string Id, TItem Item, int Attempt)> batch)
         {
-            if (pending.Count == 0)
+            if (batch.Count == 0)
                 return;
 
-            var tasks = new List<Task<(int Index, string Id, bool Success, string Message, Exception? Error)>>();
-            foreach (var pendingItem in pending)
+            var tasks = new List<Task<(int Index, string Id, int Attempt, bool Success, string Message, Exception? Error, TItem Item)>>();
+            foreach (var pendingItem in batch)
             {
-                Console.WriteLine($"info: ingesting item {pendingItem.Index} (id={pendingItem.Id})");
+                if (pendingItem.Attempt == 0)
+                {
+                    Console.WriteLine($"info: ingesting item {pendingItem.Index} (id={pendingItem.Id})");
+                }
+                else
+                {
+                    Console.WriteLine($"info: retrying item {pendingItem.Index} (id={pendingItem.Id}) attempt {pendingItem.Attempt}/{retryAttempts}");
+                }
                 tasks.Add(ProcessPendingItemAsync(pendingItem));
             }
 
-            pending.Clear();
             var results = await Task.WhenAll(tasks);
             Exception? firstError = null;
 
@@ -319,7 +330,13 @@ public sealed class ConnectorCore<TItem>
                 }
 
                 Console.Error.WriteLine($"error: failed item {result.Index} (id={result.Id})");
-                failures.Add((result.Index, result.Id, result.Message));
+                if (!failFast && result.Attempt < retryAttempts)
+                {
+                    retryQueue.Add((result.Index, result.Id, result.Item, result.Attempt + 1));
+                    continue;
+                }
+
+                failures.Add((result.Index, result.Id, result.Attempt + 1, result.Message));
                 if (failFast && firstError is null)
                 {
                     firstError = result.Error;
@@ -340,9 +357,13 @@ public sealed class ConnectorCore<TItem>
 
             if (!dryRun)
             {
-                pending.Add((index, itemId, item));
+                pending.Add((index, itemId, item, 0));
                 if (pending.Count >= batchSize)
-                    await FlushBatchAsync();
+                {
+                    var batch = pending.ToArray();
+                    pending.Clear();
+                    await FlushBatchAsync(batch);
+                }
             }
             else if (verbose)
             {
@@ -354,7 +375,46 @@ public sealed class ConnectorCore<TItem>
         }
 
         if (!dryRun)
-            await FlushBatchAsync();
+        {
+            var batch = pending.ToArray();
+            pending.Clear();
+            await FlushBatchAsync(batch);
+
+            for (var retryAttempt = 1; retryAttempt <= retryAttempts && retryQueue.Count > 0; retryAttempt++)
+            {
+                var queue = retryQueue.ToArray();
+                retryQueue.Clear();
+                Console.WriteLine($"warn: retry pass {retryAttempt}/{retryAttempts} for {queue.Length} item(s)");
+
+                for (var offset = 0; offset < queue.Length; offset += batchSize)
+                {
+                    var length = Math.Min(batchSize, queue.Length - offset);
+                    var chunk = new (int Index, string Id, TItem Item, int Attempt)[length];
+                    Array.Copy(queue, offset, chunk, 0, length);
+                    await FlushBatchAsync(chunk);
+                }
+
+                if (retryQueue.Count > 0 && retryAttempt < retryQueueDelayAttempts)
+                {
+                    var delay = ComputeDelayMs(retryAttempt - 1, (int?)null);
+                    Console.WriteLine($"warn: waiting {delay}ms before next retry pass");
+                    await Task.Delay(delay);
+                }
+            }
+
+            if (retryQueue.Count > 0)
+            {
+                foreach (var item in retryQueue)
+                {
+                    failures.Add((
+                        item.Index,
+                        item.Id,
+                        item.Attempt,
+                        $"exhausted retry queue after {item.Attempt} attempt(s)"
+                    ));
+                }
+            }
+        }
 
         if (!dryRun)
         {
@@ -370,7 +430,7 @@ public sealed class ConnectorCore<TItem>
             Console.WriteLine($"warn: {failures.Count} item(s) failed");
             foreach (var failure in failures)
             {
-                Console.WriteLine($"warn: failed item {failure.Index} (id={failure.Id}) - {failure.Message}");
+                Console.WriteLine($"warn: failed item {failure.Index} (id={failure.Id}) after {failure.Attempts} attempt(s) - {failure.Message}");
             }
         }
     }
@@ -643,6 +703,7 @@ public sealed class ConnectorCore<TItem>
     private const int MaxRetries = 6;
     private const int BaseDelayMs = 1000;
     private const int MaxDelayMs = 30000;
+    private const int MaxItemRetryAttempts = 10;
 
 <% if (isPeopleConnector) { -%>
     /// <summary>

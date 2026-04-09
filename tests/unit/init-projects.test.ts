@@ -479,14 +479,20 @@ describe("project init/update", () => {
 
     const core = await readFile(path.join(outDir, "src", "core", "connectorCore.ts"), "utf8");
     expect(core).toContain("const batchSize = options.batchSize ?? 1");
+    expect(core).toContain("const retryAttempts = options.retryAttempts ?? DEFAULT_ITEM_RETRY_ATTEMPTS");
     expect(core).toContain("await Promise.all(");
     expect(core).toContain("pending.length >= batchSize");
+    expect(core).toContain("warn: retry pass");
+    expect(core).toContain("await sleep(delayMs);");
     expect(core).toContain("Invalid batch size: expected integer between 1 and 20.");
 
     const cli = await readFile(path.join(outDir, "src", "cli.ts"), "utf8");
     expect(cli).toContain('option("--batch-size <n>"');
+    expect(cli).toContain('option("--retry-attempts <n>"');
     expect(cli).toContain("parseBatchSize");
+    expect(cli).toContain("parseRetryAttempts");
     expect(cli).toContain("batchSize: options.batchSize");
+    expect(cli).toContain("retryAttempts: options.retryAttempts");
   });
 
   test("updateProject regenerates schema from updated tsp", async () => {
@@ -635,14 +641,19 @@ model Item {
 
     const core = await readFile(path.join(outDir, "Core", "ConnectorCore.cs"), "utf8");
     expect(core).toContain("int batchSize");
+    expect(core).toContain("int retryAttempts");
     expect(core).toContain("Task.WhenAll(tasks)");
     expect(core).toContain("pending.Count >= batchSize");
+    expect(core).toContain("warn: retry pass");
+    expect(core).toContain("MaxItemRetryAttempts = 10");
     expect(core).toContain("Invalid batch size: expected integer between 1 and 20.");
 
     const program = await readFile(path.join(outDir, "Program.cs"), "utf8");
     expect(program).toContain('new Option<int?>("--batch-size")');
+    expect(program).toContain('new Option<int?>("--retry-attempts")');
     expect(program).toContain("ValidateBatchSize");
-    expect(program).toContain("await IngestAsync(input, dryRun, limit, batchSize, verbose, failFast);");
+    expect(program).toContain("ValidateRetryAttempts");
+    expect(program).toContain("await IngestAsync(input, dryRun, limit, batchSize, retryAttempts, verbose, failFast);");
   });
 
   test("initDotnetProject avoids property name matching model name", async () => {
