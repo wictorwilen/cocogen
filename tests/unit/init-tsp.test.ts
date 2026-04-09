@@ -53,9 +53,9 @@ describe("initStarterTsp", () => {
     expect(contents).toContain("account: string;");
 
     const agents = await readFile(path.join(dir, "AGENTS.md"), "utf8");
-    expect(agents).toContain("People connectors (preview)");
+    expect(agents).toContain("People connectors use Microsoft Graph **v1.0** unless they use beta-only labels.");
     expect(agents).toContain("--use-preview-features");
-    expect(agents).toContain("Microsoft Graph **/beta**");
+    expect(agents).toContain("Graph beta requirement");
   });
 
   test("fails when file exists and force is false", async () => {

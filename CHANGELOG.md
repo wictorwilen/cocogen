@@ -7,82 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.0-preview.11] - 2026-04-09
+## [1.1.0] - 2026-04-09
+
+### Added
+- Generated TypeScript and .NET connector CLIs now support `--batch-size` (default `1`, max `20`) for bounded parallel ingestion of external item PUT requests.
+- Generated TypeScript and .NET connector CLIs now support `--retry-attempts` (default `2`, max `10`) to queue failed items after the initial pass and retry them with bounded backoff rounds.
 
 ### Changed
-- Generated TypeScript and .NET connector CLIs now support `--retry-attempts` (default `2`, max `10`) for ingestion; failed items are queued and retried after the initial batch pass completes, with retry-round backoff and final failed-item summaries.
-
-## [1.1.0-preview.10] - 2026-04-08
-
-## [1.1.0-preview.9] - 2026-04-08
-
-### Fixed
-- Restored `.NET` people payload serialization parity using final-stage label cleanup in `PeoplePayload.SerializeStringLabel(...)` and `PeoplePayload.SerializeCollectionLabel(...)`: collection `@odata.type` values now include the leading `#` (for example `#Collection(String)`), Kiota date objects are normalized back to `yyyy-MM-dd` strings, enum values are serialized as strings, and useful fields carried via `AdditionalData` are preserved instead of being dropped during normalization.
-- Updated generated `.NET` `FromRow.cs` assignments to use typed `TransformProperty<T>(...)` calls, removing nullable cast warnings (`CS8600`/`CS8601`) caused by the previous `object?` cast path.
-
-## [1.1.0-preview.8] - 2026-04-08
-
-### Changed
-- **For .NET people connectors with custom transforms:** The generated `PropertyTransformBase.cs` no longer embeds normalization logic in each serialization expression. Instead, hand-off to `PeoplePayload.SerializePeopleEntity(object)` which handles serialization + normalization (strips Kiota metadata, removes nulls, converts to camelCase) in one call. If you have custom `PropertyTransform.cs` overrides, they will automatically benefit from normalization; no code changes required. The method signature remains `protected virtual string? Transform<PropName>(object row)`.
-
-## [1.1.0-preview.7] - 2026-04-08
-
-## [1.1.0-preview.6] - 2026-04-07
-
-## [1.1.0-preview.5] - 2026-04-07
-
-### Changed
-- Generated people connector `provision` commands no longer auto-register the connection as a profile source; use the dedicated `register-profile-source` command instead.
-
-## [1.1.0-preview.4] - 2026-04-07
+- People connector profile source registration now stays explicit behind the dedicated `register-profile-source` command instead of running during `provision`.
+- People connector capability resolution now defaults to Graph `v1.0` for stable schemas, requiring preview mode only for beta-only labels.
+- People connector metadata refresh and validation now recognize the current beta-only labels documented for people connectors: `personEducationalActivities`, `personInterests`, `personLanguages`, `personPatents`, and `personPublications`.
+- `externalConnection.contentCategory`, profile source registration, and principal/principal-collection schema capability resolution now target Graph `v1.0` for stable schemas.
+- Principal helper templates for generated TS and .NET connectors are now derived from live Graph metadata with a checked-in snapshot fallback.
+- Generated `.NET` people `PropertyTransformBase.cs` now routes normalization through `PeoplePayload.SerializePeopleEntity(object)` instead of embedding normalization per expression.
+- Generated TypeScript and .NET people payload/transform bindings now prefer official Microsoft Graph SDK model/type packages and remove redundant local SDK-backed boilerplate.
 
 ### Fixed
-- Generated `.NET` people payload helpers no longer re-validate serialized JSON field names and read-only item facet fields at runtime; they now rely on schema validation and typed construction, while still enforcing collection limits.
-
-## [1.1.0-preview.3] - 2026-04-07
-
-### Fixed
-- `cocogen update` now refreshes generated `.NET` `Program.cs` files even without `--include-scaffold`, so schema-driven entrypoint changes do not stay stale after updates.
-- Validation now warns when people-label `@coco.source(..., to)` mappings reference unknown Graph target paths (for example `program.fieldOfStudy` instead of `program.fieldsOfStudy`) so fallback object generation is easier to diagnose.
-
-## [1.1.0-preview.2] - 2026-04-07
-
-### Fixed
-- `npm run update-graph-profile-schema` now refreshes the profile CSDL snapshot from the official `microsoftgraph/msgraph-metadata` raw schema files because the live Graph `$metadata` endpoints no longer return XML reliably for this workflow.
-
-### Changed
-- People connector metadata refresh and validation now recognize the five current beta-only labels documented for people connectors: `personEducationalActivities`, `personInterests`, `personLanguages`, `personPatents`, and `personPublications`.
-- `externalConnection.contentCategory` now resolves to Graph `v1.0` capability in the generator metadata, matching `principal` and `principalCollection`.
-- People profile source registration now resolves to Graph `v1.0` capability as well, so stable people schemas no longer require preview features unless they use beta-only labels.
-
-## [1.1.0-preview.1] - 2026-03-31
-
-### Changed
-- Principal helper templates for generated TS and .NET connectors are now derived from the live Graph `microsoft.graph.externalConnectors.principal` metadata during `prebuild`, with a checked-in snapshot used as a fallback when metadata refresh is unavailable.
-- Principal and principal-collection schema property types now resolve to `v1.0` Graph capability instead of being treated as beta-only.
-
-### Fixed
-- Generated .NET `PropertyTransformBase` files now indent multi-line people transform expressions consistently, including nested serializer calls and collection object initializers.
-
-### Changed
-- Generated TS and .NET connector CLIs now support `--batch-size` for bounded parallel ingestion, with a default of `1` and a maximum of `20` concurrent item PUT requests per batch.
-
-### Fixed
-- Generated TS and .NET Graph transport layers now retry transient 408/429/5xx responses with exponential backoff, jitter, and `Retry-After`/`x-ms-retry-after-ms` handling, including raw profile-source admin HTTP calls.
-- Generated TypeScript people connectors now reference official stable and beta Microsoft Graph type packages for Graph profile payload models instead of fully redefining those models in generated code.
-- Generated TypeScript people helpers no longer emit redundant field-by-field runtime validation for SDK-backed Graph profile models; they keep only minimal object and read-only checks and still fully validate locally derived helper shapes.
-- Generated TypeScript people payload and transform files now import official stable and beta Microsoft Graph profile types directly instead of routing them through re-exports from `src/core/people.ts`.
-- Generated TypeScript people label serializers now route SDK-backed Graph profile payloads through shared generic SDK serialization helpers instead of emitting per-type validation wrappers.
-- Generated TypeScript connector runtimes now send Graph requests through the official Microsoft Graph client instead of a custom fetch-based transport layer.
-- Generated .NET people property transforms now instantiate official Microsoft Graph SDK profile model types for SDK-backed people payload shapes instead of emitting local copies of those Graph models.
-- Generated .NET people helpers no longer emit duplicate local Graph enum declarations when the generated payloads already bind to the official Microsoft Graph SDK enum types.
-- Generated TS and .NET people helpers now bind Graph `itemBody` through the official Microsoft Graph SDK model types instead of treating it as a local string-like special case.
-- Generated TS and .NET people helpers now omit local model and enum boilerplate when a connector is fully SDK-backed and only needs shared people payload validation/serialization utilities.
-- Generated .NET people payloads now pass inline per-property serialization options into a generic shared people helper instead of relying on emitted label-definition dictionaries and payload-kind enums.
-- Generated .NET people transforms no longer wrap SDK model object initializers in redundant outer casts before serializing them.
-- Generated TypeScript people helpers no longer export the internal label-serialization options type, and generated TS item payloads now avoid importing `contentPropertyName` when the schema has no content field.
-- Generated TypeScript property-transform files now import only the datasource and validation helpers that their rendered transform expressions actually use.
-- Generated TS and .NET people collection transforms no longer emit local `getCollectionValue` helpers when the rendered object graph only needs scalar per-index lookups.
+- Generated TS/.NET Graph transport retries now consistently handle transient `408`/`429`/`5xx` responses with exponential backoff and `Retry-After`/`x-ms-retry-after-ms` headers.
+- Restored generated `.NET` people payload serialization parity, including `#Collection(...)` `@odata.type` handling and typed transform assignment safety.
+- Generated `.NET` people payload helpers now rely on schema validation and typed construction instead of re-validating serialized JSON field names/read-only item facet fields at runtime while still enforcing collection limits.
+- `cocogen update` now refreshes generated `.NET` `Program.cs` files even without `--include-scaffold`.
+- Validation now warns when people-label `@coco.source(..., to)` mappings reference unknown Graph target paths.
+- `npm run update-graph-profile-schema` now refreshes the profile CSDL snapshot from official `microsoftgraph/msgraph-metadata` raw schema files when live Graph `$metadata` XML is unavailable.
+- Generated `.NET` `PropertyTransformBase` indentation for multi-line people transform expressions was normalized for readability.
+- Generated TS people helpers now use leaner SDK-backed validation/serialization paths, import official Graph profile types directly, and trim redundant imports/exports.
+- Generated `.NET` people transforms/helpers now avoid redundant SDK casts/enums and use simpler SDK-backed serialization paths.
+- Generated TS/.NET people helper code now trims unnecessary local helper boilerplate when not needed (for example collection/scalar helper paths).
 
 ## [1.0.50] - 2026-03-26
 
@@ -382,18 +332,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@coco.profileSource.displayName` is now required for people connectors.
 - Collection values no longer split on commas; use semicolons instead.
 
-[Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
-[1.1.0-preview.11]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.11
-[1.1.0-preview.10]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.10
-[1.1.0-preview.9]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.9
-[1.1.0-preview.8]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.8
-[1.1.0-preview.7]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.7
-[1.1.0-preview.6]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.6
-[1.1.0-preview.5]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.5
-[1.1.0-preview.4]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.4
-[1.1.0-preview.3]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.3
-[1.1.0-preview.2]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.2
-[1.1.0-preview.1]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.1
+[Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/wictorwilen/cocogen/compare/v1.0.50...v1.1.0
 [1.0.50]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.50
 [1.0.49]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.49
 [1.0.48]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.48

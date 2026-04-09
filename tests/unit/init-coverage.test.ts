@@ -381,9 +381,9 @@ describe("init coverage", () => {
     const itemPayload = parseHttpJson(ingestHttp);
     expect(itemPayload.id).toBe("ID-1");
     expect(itemPayload.content).toEqual({ type: "html", value: "Hello" });
-    expect(itemPayload.properties["tags@odata.type"]).toBe("Collection(String)");
+    expect(itemPayload.properties["tags@odata.type"]).toBe("#Collection(String)");
     expect(itemPayload.properties["principals@odata.type"]).toBe(
-      "Collection(microsoft.graph.externalConnectors.principal)"
+      "#Collection(microsoft.graph.externalConnectors.principal)"
     );
     expect(typeof itemPayload.properties.profile).toBe("string");
     const profilePayload = JSON.parse(itemPayload.properties.profile as string) as { userPrincipalName?: string };
