@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-preview.11] - 2026-04-09
+
+### Changed
+- Generated TypeScript and .NET connector CLIs now support `--retry-attempts` (default `2`, max `10`) for ingestion; failed items are queued and retried after the initial batch pass completes, with retry-round backoff and final failed-item summaries.
+
 ## [1.1.0-preview.10] - 2026-04-08
 
 ## [1.1.0-preview.9] - 2026-04-08
@@ -378,6 +383,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collection values no longer split on commas; use semicolons instead.
 
 [Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.0.16...HEAD
+[1.1.0-preview.11]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.11
 [1.1.0-preview.10]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.10
 [1.1.0-preview.9]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.9
 [1.1.0-preview.8]: https://github.com/wictorwilen/cocogen/compare/main...v1.1.0-preview.8
