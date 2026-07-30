@@ -207,6 +207,8 @@ Ingest debugging flags:
 - Generated mapping helpers live in `src/<ConnectionName>/*` and are overwritten on update.
 - People payload helpers live in `src/core/people.ts` and enforce JSON string payloads for people labels.
 - Use `src/<ConnectionName>/propertyTransform.ts` for manual mapping tweaks (safe file).
+- Override `transformAcl(item)` in that safe file to build a per-item ACL from the parsed model. The default grants Everyone access.
+- For people connectors, run both `generate` and subsequent `update` commands with `--use-preview-features` to enable custom ACLs; without it, generated payloads enforce Everyone access.
 - For advanced transforms, extend the ingestion pipeline in `src/index.ts` or `src/datasource/*`.
 
 ### Switching from the generated datasource (TypeScript)
@@ -252,6 +254,8 @@ Ingest debugging flags:
 - Prefer editing the TypeSpec file and re-running `cocogen update`.
 - Generated mapping helpers live in `<ConnectionName>/*` and are overwritten on update.
 - Use `<ConnectionName>/PropertyTransform.cs` for manual mapping tweaks (safe file).
+- Override `TransformAcl(item)` in that safe file to build a per-item ACL from the parsed model. The default grants Everyone access.
+- For people connectors, run both `generate` and subsequent `update` commands with `--use-preview-features` to enable custom ACLs; without it, generated payloads enforce Everyone access.
 - For advanced transforms, extend the ingestion pipeline in `Program.cs` or `Datasource/*`.
 
 ### Switching from the generated datasource (.NET)

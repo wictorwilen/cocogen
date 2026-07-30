@@ -42,6 +42,7 @@ import { applyCsValidationExpression, buildCsStringConstraintsLiteral } from "./
 export type DotnetGeneratorSettings = {
   projectName: string;
   tspPath: string;
+  allowCustomItemAcl: boolean;
 };
 
 function formatCsTransformExpression(expression: string, continuationIndent: number): string {
@@ -217,6 +218,16 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         itemTypeName: this.ir.item.typeName,
         schemaFolderName,
         inputFormat: this.ir.connection.inputFormat,
+      }),
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(this.outDir, "AGENTS.md"),
+      await renderTemplate("dotnet/AGENTS.md.ejs", {
+        schemaFolderName,
+        itemTypeName: this.ir.item.typeName,
+        isPeopleConnector: this.ir.connection.contentCategory === "people",
       }),
       "utf8"
     );
@@ -827,6 +838,8 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
       await renderTemplate("dotnet/Generated/PropertyTransformBase.cs.ejs", {
         namespaceName,
         schemaNamespace,
+        itemTypeName: this.ir.item.typeName,
+        graphApiVersion: this.ir.connection.graphApiVersion,
         properties,
         usesPersonEntity: this.ir.properties.some((p) => p.personEntity || p.mappedObject),
         usesLinq: properties.some(
@@ -849,6 +862,9 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         transformOverridesPath,
         await renderTemplate("dotnet/PropertyTransform.cs.ejs", {
           schemaNamespace,
+          graphApiVersion: this.ir.connection.graphApiVersion,
+          allowCustomItemAcl: this.settings.allowCustomItemAcl,
+          isPeopleConnector: this.ir.connection.contentCategory === "people",
         }),
         "utf8"
       );
@@ -878,6 +894,7 @@ export class DotnetGenerator extends CoreGenerator<DotnetGeneratorSettings> {
         contentBlock,
         graphApiVersion: this.ir.connection.graphApiVersion,
         idEncoding: this.ir.item.idEncoding,
+        allowCustomItemAcl: this.settings.allowCustomItemAcl,
       }),
       "utf8"
     );

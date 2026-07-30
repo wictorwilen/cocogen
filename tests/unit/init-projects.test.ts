@@ -270,6 +270,92 @@ describe("project init/update", () => {
     expect(result.ir.item.typeName).toBe("Item");
   });
 
+  test("init projects generate overridable per-item ACL defaults", async () => {
+    const tspPath = await writeTempTspFile(baseSchema);
+    const outRoot = await writeTempDir();
+    const outTs = path.join(outRoot, "acl-ts");
+    const outDotnet = path.join(outRoot, "acl-dotnet");
+
+    await initTsProject({ tspPath, outDir: outTs, force: false });
+    await initDotnetProject({ tspPath, outDir: outDotnet, force: false });
+
+    const tsTransformBase = await readFile(
+      path.join(outTs, "src", "TestConnector", "propertyTransformBase.ts"),
+      "utf8"
+    );
+    expect(tsTransformBase).toContain("public transformAcl(_item: Item): ExternalItemAcl[]");
+    expect(tsTransformBase).toContain('{ type: "everyone", value: "everyone", accessType: "grant" }');
+
+    const tsPayload = await readFile(path.join(outTs, "src", "TestConnector", "itemPayload.ts"), "utf8");
+    expect(tsPayload).toContain('import { PropertyTransform } from "./propertyTransform.js";');
+    expect(tsPayload).toContain("acl: transforms.transformAcl(item)");
+
+    const dotnetTransformBase = await readFile(
+      path.join(outDotnet, "TestConnector", "PropertyTransformBase.cs"),
+      "utf8"
+    );
+    expect(dotnetTransformBase).toContain("public virtual List<Acl> TransformAcl(Item item)");
+    expect(dotnetTransformBase).toContain("Type = AclType.Everyone");
+    expect(dotnetTransformBase).toContain('Value = "everyone"');
+    expect(dotnetTransformBase).toContain("AccessType = AccessType.Grant");
+
+    const dotnetPayload = await readFile(path.join(outDotnet, "TestConnector", "ItemPayload.cs"), "utf8");
+    expect(dotnetPayload).toContain("private static readonly PropertyTransform Transforms = new()");
+    expect(dotnetPayload).toContain("Acl = Transforms.TransformAcl(item)");
+  });
+
+  test("people ACL overrides require preview generation", async () => {
+    const tspPath = await writeTempTspFile(peopleSchema);
+    const outRoot = await writeTempDir();
+    const outTsStable = path.join(outRoot, "people-acl-ts-stable");
+    const outTsPreview = path.join(outRoot, "people-acl-ts-preview");
+    const outDotnetStable = path.join(outRoot, "people-acl-dotnet-stable");
+    const outDotnetPreview = path.join(outRoot, "people-acl-dotnet-preview");
+
+    await initTsProject({ tspPath, outDir: outTsStable, force: false });
+    await initTsProject({ tspPath, outDir: outTsPreview, force: false, usePreviewFeatures: true });
+    await initDotnetProject({ tspPath, outDir: outDotnetStable, force: false });
+    await initDotnetProject({ tspPath, outDir: outDotnetPreview, force: false, usePreviewFeatures: true });
+
+    const tsStablePayload = await readFile(
+      path.join(outTsStable, "src", "PeopleConnector", "itemPayload.ts"),
+      "utf8"
+    );
+    expect(tsStablePayload).not.toContain("transforms.transformAcl(item)");
+    expect(tsStablePayload).toContain('acl: [{ type: "everyone", value: "everyone", accessType: "grant" }]');
+    const tsStableOverrides = await readFile(
+      path.join(outTsStable, "src", "PeopleConnector", "propertyTransform.ts"),
+      "utf8"
+    );
+    expect(tsStableOverrides).toContain("ACL overrides are disabled");
+    expect(tsStableOverrides).toContain("--use-preview-features");
+
+    const tsPreviewPayload = await readFile(
+      path.join(outTsPreview, "src", "PeopleConnector", "itemPayload.ts"),
+      "utf8"
+    );
+    expect(tsPreviewPayload).toContain("acl: transforms.transformAcl(item)");
+
+    const dotnetStablePayload = await readFile(
+      path.join(outDotnetStable, "PeopleConnector", "ItemPayload.cs"),
+      "utf8"
+    );
+    expect(dotnetStablePayload).not.toContain("TransformAcl(item)");
+    expect(dotnetStablePayload).toContain("Type = AclType.Everyone");
+    const dotnetStableOverrides = await readFile(
+      path.join(outDotnetStable, "PeopleConnector", "PropertyTransform.cs"),
+      "utf8"
+    );
+    expect(dotnetStableOverrides).toContain("ACL overrides are disabled");
+    expect(dotnetStableOverrides).toContain("--use-preview-features");
+
+    const dotnetPreviewPayload = await readFile(
+      path.join(outDotnetPreview, "PeopleConnector", "ItemPayload.cs"),
+      "utf8"
+    );
+    expect(dotnetPreviewPayload).toContain("Acl = Transforms.TransformAcl(item)");
+  });
+
   test("initRestProject generates REST client .http files", async () => {
     const tspPath = await writeTempTspFile(`
       @coco.connection({

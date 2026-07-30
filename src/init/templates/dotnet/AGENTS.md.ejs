@@ -15,6 +15,11 @@ Only `<%= schemaFolderName %>/**` is overwritten by `cocogen update`.
 ## Customize property transforms
 Edit `<%= schemaFolderName %>/PropertyTransform.cs` (safe file). The generated base lives in `<%= schemaFolderName %>/PropertyTransformBase.cs`.
 
+Override `TransformAcl(item)` in the same safe file to build a per-item ACL. The default grants Everyone access.
+<% if (isPeopleConnector) { -%>
+For people connectors, generate and update with `--use-preview-features` to enable the ACL override; otherwise generated payloads enforce Everyone access.
+<% } -%>
+
 ## Switch datasource / backend
 1) Implement `IItemSource` in `Datasource/`.
 2) Update `Program.commandline.cs` to use your source instead of `CsvItemSource`.

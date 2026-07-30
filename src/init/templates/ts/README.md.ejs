@@ -52,9 +52,12 @@ Run `npm install` to fetch the TypeSpec library.
 <% } -%>
 - **Input format**: fixed to `<%= inputFormat %>` for this project. Re-run `cocogen generate` to switch formats.
 - **Property transforms**: edit `src/<%= schemaFolderName %>/propertyTransform.ts` (kept on updates) to customize per-field parsing/mapping.
+- **Access control**: override `transformAcl(item)` in `src/<%= schemaFolderName %>/propertyTransform.ts` to build an ACL from each parsed item. The default grants Everyone access.
+<% if (isPeopleConnector) { -%>
+  - Per-item ACLs for people connectors are preview-only. Generate and update with `--use-preview-features`; otherwise cocogen enforces Everyone access and ignores the override.
+<% } -%>
 - **Connection defaults**: `@coco.connection` must set `name`, `connectionId`, and `connectionDescription` defaults for `.env.example`.
 - **Profile source defaults**: `@coco.profileSource` sets defaults for `PROFILE_SOURCE_*` (people connectors only).
-- **Access control**: edit `src/<%= schemaFolderName %>/itemPayload.ts` to change ACL behavior.
 
 ## Ingest debugging flags
 Use `npm run ingest --` with:

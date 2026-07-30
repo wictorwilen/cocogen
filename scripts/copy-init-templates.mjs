@@ -1,7 +1,8 @@
 import { cp, mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(new URL("..", import.meta.url).pathname);
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const srcDir = path.join(repoRoot, "src", "init", "templates");
 const destDir = path.join(repoRoot, "dist", "init", "templates");

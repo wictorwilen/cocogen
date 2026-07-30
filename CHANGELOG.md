@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Generated TypeScript and .NET projects now expose model-based per-item ACL override hooks in their safe `PropertyTransform` classes while preserving the existing Everyone/Grant default. People connector ACL overrides require `--use-preview-features`; otherwise generated payloads enforce Everyone access and cocogen warns.
+
+### Fixed
+- Template copying during builds now resolves the repository path correctly on Windows, so compiled CLI generation can find `dist/init/templates`.
+
 ## [1.1.0] - 2026-04-09
 
 ### Added

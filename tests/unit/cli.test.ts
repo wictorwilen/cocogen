@@ -11,7 +11,10 @@ const initStarterMock = vi.fn<Parameters<typeof import("../../src/tsp/init-tsp.j
 const initTsMock = vi.fn<Parameters<typeof import("../../src/init/init.js").initTsProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
 const initDotnetMock = vi.fn<Parameters<typeof import("../../src/init/init.js").initDotnetProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
 const initRestMock = vi.fn<Parameters<typeof import("../../src/init/init.js").initRestProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
-const updateProjectMock = vi.fn<Parameters<typeof import("../../src/init/init.js").updateProject>, Promise<{ outDir: string; ir: ConnectorIr }>>();
+const updateProjectMock = vi.fn<
+  Parameters<typeof import("../../src/init/init.js").updateProject>,
+  Promise<{ outDir: string; ir: ConnectorIr; lang: "ts" | "dotnet" | "rest" }>
+>();
 
 vi.mock("../../src/emit/emit.js", () => ({ writeIrJson: writeIrJsonMock }));
 vi.mock("../../src/tsp/loader.js", () => ({ loadIrFromTypeSpec: loadIrMock }));
@@ -57,6 +60,14 @@ const minimalIr: ConnectorIr = {
       source: { csvHeaders: ["id"] },
     },
   ],
+};
+
+const peopleIr: ConnectorIr = {
+  ...minimalIr,
+  connection: {
+    ...minimalIr.connection,
+    contentCategory: "people",
+  },
 };
 
 function captureStdout(fn: () => Promise<void>): Promise<string> {
@@ -222,6 +233,38 @@ describe("cli", () => {
     expect(stdout).toContain("Project generated");
     expect(stdout).toContain("/tmp/out");
     expect(process.exitCode).toBe(0);
+  });
+
+  test("generate warns when people ACL overrides are disabled", async () => {
+    initTsMock.mockResolvedValue({ outDir: "/tmp/out", ir: peopleIr });
+
+    const { main } = await import("../../src/cli.js");
+    const stdout = await captureStdout(async () => {
+      await main(["node", "cli", "generate", "--tsp", "/tmp/schema.tsp", "--out", "/tmp/out"]);
+    });
+
+    expect(stdout).toContain("Per-item ACL overrides are disabled for people connectors");
+    expect(stdout).toContain("Everyone access is enforced");
+  });
+
+  test("generate does not warn for people ACL overrides in preview mode", async () => {
+    initTsMock.mockResolvedValue({ outDir: "/tmp/out", ir: peopleIr });
+
+    const { main } = await import("../../src/cli.js");
+    const stdout = await captureStdout(async () => {
+      await main([
+        "node",
+        "cli",
+        "generate",
+        "--tsp",
+        "/tmp/schema.tsp",
+        "--out",
+        "/tmp/out",
+        "--use-preview-features",
+      ]);
+    });
+
+    expect(stdout).not.toContain("Per-item ACL overrides are disabled for people connectors");
   });
 
   test("generate passes project name when provided", async () => {
@@ -399,7 +442,7 @@ describe("cli", () => {
   });
 
   test("update prints regeneration summary", async () => {
-    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
+    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr, lang: "ts" });
 
     const { main } = await import("../../src/cli.js");
     const stdout = await captureStdout(async () => {
@@ -414,6 +457,7 @@ describe("cli", () => {
   test("update prints beta note for beta-only people labels", async () => {
     updateProjectMock.mockResolvedValue({
       outDir: "/tmp/out",
+      lang: "ts",
       ir: {
         ...minimalIr,
         connection: { ...minimalIr.connection, graphApiVersion: "beta" },
@@ -441,7 +485,7 @@ describe("cli", () => {
   });
 
   test("update passes tsp override when provided", async () => {
-    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
+    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr, lang: "ts" });
 
     const { main } = await import("../../src/cli.js");
     await main(["node", "cli", "update", "--out", "/tmp/out", "--tsp", "/tmp/override.tsp"]);
@@ -449,6 +493,28 @@ describe("cli", () => {
     expect(updateProjectMock).toHaveBeenCalled();
     const call = updateProjectMock.mock.calls[0]?.[0] as { tspPath?: string };
     expect(call.tspPath).toBe("/tmp/override.tsp");
+  });
+
+  test("update warns when people ACL overrides are disabled", async () => {
+    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: peopleIr, lang: "dotnet" });
+
+    const { main } = await import("../../src/cli.js");
+    const stdout = await captureStdout(async () => {
+      await main(["node", "cli", "update", "--out", "/tmp/out"]);
+    });
+
+    expect(stdout).toContain("Per-item ACL overrides are disabled for people connectors");
+  });
+
+  test("update does not warn for REST output", async () => {
+    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: peopleIr, lang: "rest" });
+
+    const { main } = await import("../../src/cli.js");
+    const stdout = await captureStdout(async () => {
+      await main(["node", "cli", "update", "--out", "/tmp/out"]);
+    });
+
+    expect(stdout).not.toContain("Per-item ACL overrides are disabled for people connectors");
   });
 
   test("update prints error when generation fails", async () => {
@@ -588,7 +654,7 @@ describe("cli", () => {
     delete process.env.NO_COLOR;
     Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
 
-    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr });
+    updateProjectMock.mockResolvedValue({ outDir: "/tmp/out", ir: minimalIr, lang: "ts" });
 
     const { main } = await import("../../src/cli.js");
     await main(["node", "cli", "update", "--out", "/tmp/out"]);

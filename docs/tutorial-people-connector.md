@@ -135,6 +135,8 @@ In `people-skills-connector/`:
 - `Datasource/JsonItemSource.cs` — JSON reader
 - `PropertyTransformBase.cs` — generated mapping
 - `PropertyTransform.cs` — **your customization hook**
+
+`PropertyTransform.cs` also exposes `TransformAcl(item)` for per-item access control. This people-connector capability is preview-only: generate and update with `--use-preview-features`. Without the flag, cocogen warns and generated payloads enforce Everyone access.
 - `appsettings.json` — config defaults
 
 ---

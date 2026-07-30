@@ -3,6 +3,9 @@
  */
 import type { <%= itemTypeName %> } from "./model.js";
 import { <%= hasContentProperty ? "contentPropertyName, " : "" %>idPropertyName } from "./constants.js";
+<% if (allowCustomItemAcl) { -%>
+import { PropertyTransform } from "./propertyTransform.js";
+<% } -%>
 import { getItemId as getItemIdFromCore, type IdEncoding } from "../core/itemId.js";
 <% if (usesGenericPeopleLabelSerializer) { -%>
 <% if (payloadPeopleTypeImports?.stable?.length > 0) { -%>
@@ -33,6 +36,9 @@ import { cleanPrincipal, cleanPrincipalCollection } from "../core/principal.js";
 <% } -%>
 
 const idEncoding: IdEncoding = <%= JSON.stringify(idEncoding ?? "slug") %>;
+<% if (allowCustomItemAcl) { -%>
+const transforms = new PropertyTransform();
+<% } -%>
 
 /**
  * Resolve the external item ID from the schema model.
@@ -61,7 +67,11 @@ export function toExternalItem(item: <%= itemTypeName %>): {
 
   return {
     id: getItemId(item),
+<% if (allowCustomItemAcl) { -%>
+    acl: transforms.transformAcl(item),
+<% } else { -%>
     acl: [{ type: "everyone", value: "everyone", accessType: "grant" }],
+<% } -%>
     properties,
     content: {
       type: <%= JSON.stringify(contentType ?? "text") %>,

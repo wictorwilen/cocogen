@@ -218,6 +218,20 @@ function printIssues(list: ValidationIssue[]): void {
   printGroup("warnings", warnings, pc.yellow);
 }
 
+function printPeopleAclPreviewWarning(
+  ir: { connection: { contentCategory?: string } },
+  lang: "ts" | "dotnet" | "rest",
+  usePreviewFeatures: boolean
+): void {
+  if (lang === "rest" || ir.connection.contentCategory !== "people" || usePreviewFeatures) {
+    return;
+  }
+
+  process.stdout.write(
+    `  ${pc.yellow("warning")}: Per-item ACL overrides are disabled for people connectors; Everyone access is enforced. Re-run with --use-preview-features to enable this preview capability.\n`
+  );
+}
+
 export async function main(argv: string[]): Promise<void> {
   printBanner();
   await checkForUpdates();
@@ -426,6 +440,7 @@ export async function main(argv: string[]): Promise<void> {
           for (const noteLine of getGraphBetaNoteLines(result.ir)) {
             process.stdout.write(`  ${pc.yellow("note")}: ${noteLine}\n`);
           }
+          printPeopleAclPreviewWarning(result.ir, lang, usePreviewFeatures);
           const nextCmd =
             lang === "ts"
               ? "npm install"
@@ -472,6 +487,7 @@ export async function main(argv: string[]): Promise<void> {
         for (const noteLine of getGraphBetaNoteLines(result.ir)) {
           process.stdout.write(`  ${pc.yellow("note")}: ${noteLine}\n`);
         }
+        printPeopleAclPreviewWarning(result.ir, result.lang, usePreviewFeatures);
         process.exitCode = 0;
         },
       });

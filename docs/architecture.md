@@ -320,7 +320,7 @@ Default: app-only client credentials.
 ## 10. Content ingestion details
 ### 10.1 externalItem shape
 For each item:
-- `acl`: default `[ { type: "everyone", value: "everyone", accessType: "grant" } ]` (configurable)
+- `acl`: defaults to `[ { type: "everyone", value: "everyone", accessType: "grant" } ]`. Generated TS/.NET projects expose `transformAcl(item)` / `TransformAcl(item)` in the safe `PropertyTransform` override class so developers can build ACLs from the parsed item.
 - `properties`: the mapped schema fields
 - `content`: always included. If `@coco.content` is present, `content.value` is derived from it; otherwise `content.value` is an empty string and `content.type` is "text".
   - `@coco.content({ type: "text" | "html" })` controls `content.type`.
@@ -328,8 +328,7 @@ For each item:
     - **text**: `label: value` lines joined by `\n`.
     - **html**: `<ul><li><b>label</b>: value</li>...</ul>`.
 
-People connectors (preview) overrides:
-- Item `acl` MUST grant access to everyone (generated templates should enforce this).
+People connector ACL overrides are preview-only. Without `--use-preview-features`, generated item payloads enforce the Everyone ACL even when the safe override class defines a custom method. With the flag, TS/.NET payload generation delegates to the per-item ACL override.
 
 ### 10.2 Id strategy
 - Item id is mandatory.

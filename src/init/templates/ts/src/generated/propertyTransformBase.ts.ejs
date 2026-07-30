@@ -3,6 +3,7 @@
  * Regenerated on every cocogen update.
  */
 
+import type { <%= itemTypeName %> } from "./model.js";
 <% if (rowHelperImports && rowHelperImports.length > 0) { -%>
 import {
 <% for (const helperName of rowHelperImports) { -%>
@@ -42,10 +43,23 @@ import type {
 import type { Principal } from "../core/principal.js";
 <% } -%>
 
+export type ExternalItemAcl = {
+  type: string;
+  value: string;
+  accessType: string;
+};
+
 /**
  * Base class for row-to-model transforms.
  */
 export abstract class PropertyTransformBase {
+  /**
+   * Build the access control list for an external item.
+   */
+  public transformAcl(_item: <%= itemTypeName %>): ExternalItemAcl[] {
+    return [{ type: "everyone", value: "everyone", accessType: "grant" }];
+  }
+
   /**
    * Transform a property by name using the generated transform methods.
    */
