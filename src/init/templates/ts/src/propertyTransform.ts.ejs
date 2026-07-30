@@ -13,4 +13,12 @@ export class PropertyTransform extends PropertyTransformBase {
   //   const value = super.transformTitle(row);
   //   return value;
   // }
+  //
+<% if (allowCustomItemAcl) { -%>
+  // Override transformAcl(item) to build a per-item ACL from parsed model values.
+  // The default grants Everyone access, preserving cocogen's standard behavior.
+<% } else if (isPeopleConnector) { -%>
+  // People connector ACL overrides are disabled in this generated output.
+  // Re-run cocogen update with --use-preview-features before overriding transformAcl(item).
+<% } -%>
 }

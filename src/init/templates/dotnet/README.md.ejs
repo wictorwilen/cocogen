@@ -63,9 +63,12 @@ Run `npm install` in this folder to fetch the TypeSpec library.
 <% } -%>
 - **Input format**: fixed to `<%= inputFormat %>` for this project. Re-run `cocogen generate` to switch formats.
 - **Property transforms**: edit `<%= schemaFolderName %>/PropertyTransform.cs` (kept on updates) to customize per-field parsing/mapping.
+- **Access control**: override `TransformAcl(item)` in `<%= schemaFolderName %>/PropertyTransform.cs` to build an ACL from each parsed item. The default grants Everyone access.
+<% if (isPeopleConnector) { -%>
+  - Per-item ACLs for people connectors are preview-only. Generate and update with `--use-preview-features`; otherwise cocogen enforces Everyone access and ignores the override.
+<% } -%>
 - **Connection defaults**: `@coco.connection` must set `name`, `connectionId`, and `connectionDescription` defaults for `appsettings.json`.
 - **Profile source defaults**: `@coco.profileSource` sets defaults for `ProfileSource` settings (people connectors only).
-- **Access control**: edit `<%= schemaFolderName %>/ItemPayload.cs` to change ACL behavior.
 
 ## Ingest debugging flags
 Use `dotnet run -- ingest` with:
@@ -91,4 +94,3 @@ To customize method, pagination, headers, or JSONPath selectors, edit the defaul
 3) Update `Program.cs` to instantiate your new source instead of the generated source.
 
 Tip: keep the `IAsyncEnumerable<<%= itemTypeName %>>` pattern for large datasets.
-

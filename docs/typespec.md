@@ -172,6 +172,7 @@ People connectors:
    - `personAccount`
    - `personName`
    - `personCurrentPosition`
+   - `personWorkPositions`
    - `personAddresses`
    - `personEmails`
    - `personPhones`
@@ -335,6 +336,15 @@ Example (current position / workPosition):
 workPosition: string;
 ```
 
+Example (work history / workPosition collection):
+
+```tsp
+@coco.label("personWorkPositions")
+@coco.source("previous job title", "detail.jobTitle")
+@coco.source("previous company", "detail.company.displayName")
+workPositions: string[];
+```
+
 Example (skills / skillProficiency):
 
 ```tsp
@@ -350,6 +360,7 @@ Notes:
   - `personAccount` → `userAccountInformation`
   - `personName` → `personName`
   - `personCurrentPosition` → `workPosition`
+  - `personWorkPositions` → `workPosition`
   - `personAddresses` → `itemAddress`
   - `personEmails` → `itemEmail`
   - `personPhones` → `itemPhone`
@@ -363,6 +374,8 @@ Notes:
   - `personNote` → `personAnnotation`
 
 Generated projects include a `PropertyTransformBase` (regenerated) and `PropertyTransform` override (kept) under the schema folder (TS: `src/<ConnectionName>` derived from `@coco.connection.name`, .NET: `<ConnectionName>/` derived from `@coco.connection.name`). Customize `PropertyTransform` to shape entity JSON (for example, combine a skill name and proficiency into `skillProficiency`).
+
+The same safe override class controls item ACLs. Override `transformAcl(item)` in TypeScript or `TransformAcl(item)` in .NET to return ACL entries based on the parsed schema model. The generated base implementation preserves the default public ACL (`everyone` + `grant`). People connector ACL overrides are preview-only: pass `--use-preview-features` to both `generate` and `update`, otherwise generated payloads ignore the override and enforce Everyone access.
 
 ### Anonymous JSON objects with `@coco.source(..., to)`
 

@@ -26,6 +26,13 @@ describe("people label registry", () => {
     expect(def?.graphTypeName).toBe("personWebsite");
   });
 
+  test("personWorkPositions resolves to a workPosition collection", () => {
+    const info = getPeopleLabelInfo("personWorkPositions");
+    expect(info.payloadType).toBe("stringCollection");
+    expect(info.graphTypeName).toBe("workPosition");
+    expect(info.minGraphApiVersion).toBe("v1.0");
+  });
+
   test("blocked labels include actionable messaging", () => {
     const blocked = getBlockedPeopleLabel("personManager");
     expect(blocked?.message).toContain("blocked");
@@ -40,6 +47,7 @@ describe("people label registry", () => {
     const labels = supportedPeopleLabels();
     expect(labels).toContain("personAccount");
     expect(labels).toContain("personEducationalActivities");
+    expect(labels).toContain("personWorkPositions");
     expect(labels).toContain("personNote");
   });
 

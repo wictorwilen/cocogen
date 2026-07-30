@@ -1,4 +1,10 @@
 // Customize row-to-model property transforms.
+<% if (graphApiVersion === "beta") { -%>
+using Microsoft.Graph.Beta.Models.ExternalConnectors;
+<% } else { -%>
+using Microsoft.Graph.Models.ExternalConnectors;
+<% } -%>
+
 namespace <%= schemaNamespace %>;
 
 /// <summary>
@@ -48,4 +54,11 @@ namespace <%= schemaNamespace %>;
 public sealed class PropertyTransform : PropertyTransformBase
 {
     // Override Transform<PropName> methods to customize mapping for any property.
+<% if (allowCustomItemAcl) { -%>
+    // Override TransformAcl(item) to build a per-item ACL from parsed model values.
+    // The default grants Everyone access, preserving cocogen's standard behavior.
+<% } else if (isPeopleConnector) { -%>
+    // People connector ACL overrides are disabled in this generated output.
+    // Re-run cocogen update with --use-preview-features before overriding TransformAcl(item).
+<% } -%>
 }

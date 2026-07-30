@@ -384,6 +384,14 @@
       "minGraphApiVersion": "v1.0",
       "kind": "people"
     },
+    "personWorkPositions": {
+      "availableIn": [
+        "v1.0",
+        "beta"
+      ],
+      "minGraphApiVersion": "v1.0",
+      "kind": "people"
+    },
     "priority": {
       "availableIn": [
         "v1.0",
@@ -492,6 +500,15 @@
     "personCurrentPosition": {
       "availableIn": [
         "v1.0"
+      ],
+      "minGraphApiVersion": "v1.0",
+      "planTypeName": "workPosition",
+      "graphTypeName": "workPosition"
+    },
+    "personWorkPositions": {
+      "availableIn": [
+        "v1.0",
+        "beta"
       ],
       "minGraphApiVersion": "v1.0",
       "planTypeName": "workPosition",

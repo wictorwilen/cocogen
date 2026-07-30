@@ -33,6 +33,7 @@ import {
 export type TsGeneratorSettings = {
   projectName: string;
   tspPath: string;
+  allowCustomItemAcl: boolean;
 };
 
 type TsPeopleTypeImports = {
@@ -178,6 +179,16 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
     await writeFile(
       path.join(this.outDir, "src", "index.ts"),
       await renderTemplate("ts/src/index.ts.ejs", { schemaFolderName }),
+      "utf8"
+    );
+
+    await writeFile(
+      path.join(this.outDir, "AGENTS.md"),
+      await renderTemplate("ts/AGENTS.md.ejs", {
+        schemaFolderName,
+        itemTypeName: this.ir.item.typeName,
+        isPeopleConnector: this.ir.connection.contentCategory === "people",
+      }),
       "utf8"
     );
   }
@@ -649,6 +660,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
       path.join(this.outDir, "src", schemaFolderName, "propertyTransformBase.ts"),
       await renderTemplate("ts/src/generated/propertyTransformBase.ts.ejs", {
         properties: transformProperties,
+        itemTypeName: this.ir.item.typeName,
         usesPrincipal,
         peopleEntityTypeImports,
         rowHelperImports: tsRowHelperImports,
@@ -663,7 +675,10 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
     } catch {
       await writeFile(
         transformOverridesPath,
-        await renderTemplate("ts/src/propertyTransform.ts.ejs", {}),
+        await renderTemplate("ts/src/propertyTransform.ts.ejs", {
+          allowCustomItemAcl: this.settings.allowCustomItemAcl,
+          isPeopleConnector: this.ir.connection.contentCategory === "people",
+        }),
         "utf8"
       );
     }
@@ -695,6 +710,7 @@ export class TsGenerator extends CoreGenerator<TsGeneratorSettings> {
         itemTypeName: this.ir.item.typeName,
         idEncoding: this.ir.item.idEncoding,
         usesPrincipal,
+        allowCustomItemAcl: this.settings.allowCustomItemAcl,
       }),
       "utf8"
     );

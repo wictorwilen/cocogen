@@ -1,6 +1,11 @@
 // Generated property transforms derived from TypeSpec.
 using System;
 using System.Collections.Generic;
+<% if (graphApiVersion === "beta") { -%>
+using Microsoft.Graph.Beta.Models.ExternalConnectors;
+<% } else { -%>
+using Microsoft.Graph.Models.ExternalConnectors;
+<% } -%>
 <% if (usesPersonEntity || usesLinq) { -%>
 using System.Linq;
 <% } -%>
@@ -18,6 +23,22 @@ namespace <%= schemaNamespace %>;
 /// </summary>
 public abstract class PropertyTransformBase
 {
+    /// <summary>
+    /// Build the access control list for an external item.
+    /// </summary>
+    public virtual List<Acl> TransformAcl(<%= itemTypeName %> item)
+    {
+        return new List<Acl>
+        {
+            new Acl
+            {
+                Type = AclType.Everyone,
+                Value = "everyone",
+                AccessType = AccessType.Grant,
+            }
+        };
+    }
+
     /// <summary>
     /// Transform a property by name using the generated transform methods.
     /// The generic return type preserves nullability information so generated callers

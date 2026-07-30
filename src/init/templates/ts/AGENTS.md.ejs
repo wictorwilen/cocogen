@@ -15,6 +15,11 @@ Only `src/<%= schemaFolderName %>/**` is overwritten by `cocogen update`.
 ## Customize property transforms
 Edit `src/<%= schemaFolderName %>/propertyTransform.ts` (safe file). The generated base lives in `src/<%= schemaFolderName %>/propertyTransformBase.ts`.
 
+Override `transformAcl(item)` in the same safe file to build a per-item ACL. The default grants Everyone access.
+<% if (isPeopleConnector) { -%>
+For people connectors, generate and update with `--use-preview-features` to enable the ACL override; otherwise generated payloads enforce Everyone access.
+<% } -%>
+
 ## Switch datasource / backend
 1) Implement `ItemSource<<%= itemTypeName %>>` in `src/datasource`.
 2) Update `src/cli.ts` to use your source instead of `CsvItemSource`.

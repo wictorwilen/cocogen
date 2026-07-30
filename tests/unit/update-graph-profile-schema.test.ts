@@ -177,6 +177,7 @@ const v1OpenApiYaml = `components:
         - title
         - url
         - iconUrl
+        - personWorkPositions
       type: string
     microsoft.graph.externalConnectors.property:
       properties:
@@ -282,6 +283,9 @@ describe("scripts/update-graph-profile-schema", () => {
 
     expect(capabilities.peopleLabels.personAccount.minGraphApiVersion).toBe("v1.0");
     expect(capabilities.peopleLabels.personWebSite.minGraphApiVersion).toBe("v1.0");
+    expect(capabilities.peopleLabels.personWorkPositions.minGraphApiVersion).toBe("v1.0");
+    expect(capabilities.peopleLabels.personWorkPositions.graphTypeName).toBe("workPosition");
+    expect(capabilities.labels.personWorkPositions.kind).toBe("people");
     expect(capabilities.peopleLabels.personEducationalActivities.minGraphApiVersion).toBe("beta");
     expect(capabilities.peopleLabels.personLanguages.minGraphApiVersion).toBe("beta");
     expect(capabilities.labels.personManager.minGraphApiVersion).toBe("beta");

@@ -42,6 +42,22 @@ describe("cocogen generate + npm install + npm run build (e2e)", () => {
 
       expect(initResult.code).toBe(0);
 
+      await writeFile(
+        path.join(outDir, "src", "TestConnector", "propertyTransform.ts"),
+        [
+          'import type { Item } from "./model.js";',
+          'import { PropertyTransformBase, type ExternalItemAcl } from "./propertyTransformBase.js";',
+          "",
+          "export class PropertyTransform extends PropertyTransformBase {",
+          "  public transformAcl(item: Item): ExternalItemAcl[] {",
+          '    return [{ type: "user", value: item.title, accessType: "grant" }];',
+          "  }",
+          "}",
+          "",
+        ].join("\n"),
+        "utf8"
+      );
+
       // Sanity check: package.json exists and is parseable before we install.
       const pkgJson = await readFile(path.join(outDir, "package.json"), "utf8");
       const pkg = JSON.parse(pkgJson) as { devDependencies?: Record<string, string> };

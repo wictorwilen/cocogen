@@ -40,6 +40,10 @@ export type UpdateOptions = {
   includeScaffold?: boolean;
 };
 
+function allowCustomItemAcl(ir: ConnectorIr, usePreviewFeatures: boolean | undefined): boolean {
+  return ir.connection.contentCategory !== "people" || Boolean(usePreviewFeatures);
+}
+
 /** Build the REST connection payload from the IR. */
 function buildRestConnectionPayload(ir: ConnectorIr): Record<string, unknown> {
   const payload: Record<string, unknown> = {
@@ -184,7 +188,9 @@ function throwIfPreviewFeaturesRequired(ir: ConnectorIr, allowPreviewFeatures: b
 }
 
 /** Update an existing TS project from a schema. */
-export async function updateTsProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
+export async function updateTsProject(
+  options: UpdateOptions
+): Promise<{ outDir: string; ir: ConnectorIr; lang: "ts" }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
   const tspPath = options.tspPath ? path.resolve(options.tspPath) : path.resolve(outDir, config.tsp);
@@ -205,7 +211,11 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
   const generator = new TsGenerator({
     outDir,
     ir,
-    settings: { projectName: path.basename(outDir), tspPath },
+    settings: {
+      projectName: path.basename(outDir),
+      tspPath,
+      allowCustomItemAcl: allowCustomItemAcl(ir, options.usePreviewFeatures),
+    },
   });
   if (options.includeScaffold) {
     await generator.writeScaffold();
@@ -220,13 +230,13 @@ export async function updateTsProject(options: UpdateOptions): Promise<{ outDir:
     );
   }
 
-  return { outDir, ir };
+  return { outDir, ir, lang: "ts" };
 }
 
 /** Update an existing .NET project from a schema. */
 export async function updateDotnetProject(
   options: UpdateOptions
-): Promise<{ outDir: string; ir: ConnectorIr }> {
+): Promise<{ outDir: string; ir: ConnectorIr; lang: "dotnet" }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
   const tspPath = options.tspPath ? path.resolve(options.tspPath) : path.resolve(outDir, config.tsp);
@@ -247,7 +257,11 @@ export async function updateDotnetProject(
   const generator = new DotnetGenerator({
     outDir,
     ir,
-    settings: { projectName: path.basename(outDir), tspPath },
+    settings: {
+      projectName: path.basename(outDir),
+      tspPath,
+      allowCustomItemAcl: allowCustomItemAcl(ir, options.usePreviewFeatures),
+    },
   });
   await generator.writeProgramFile();
   if (options.includeScaffold) {
@@ -263,11 +277,13 @@ export async function updateDotnetProject(
     );
   }
 
-  return { outDir, ir };
+  return { outDir, ir, lang: "dotnet" };
 }
 
 /** Update an existing REST project from a schema. */
-export async function updateRestProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
+export async function updateRestProject(
+  options: UpdateOptions
+): Promise<{ outDir: string; ir: ConnectorIr; lang: "rest" }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
   const tspPath = options.tspPath ? path.resolve(options.tspPath) : path.resolve(outDir, config.tsp);
@@ -294,11 +310,13 @@ export async function updateRestProject(options: UpdateOptions): Promise<{ outDi
     );
   }
 
-  return { outDir, ir };
+  return { outDir, ir, lang: "rest" };
 }
 
 /** Update an existing project based on its cocogen config. */
-export async function updateProject(options: UpdateOptions): Promise<{ outDir: string; ir: ConnectorIr }> {
+export async function updateProject(
+  options: UpdateOptions
+): Promise<{ outDir: string; ir: ConnectorIr; lang: "ts" | "dotnet" | "rest" }> {
   const outDir = path.resolve(options.outDir);
   const { config } = await loadProjectConfig(outDir);
   if (config.lang === "dotnet") {
@@ -353,7 +371,11 @@ export async function initTsProject(options: InitOptions): Promise<{ outDir: str
   const generator = new TsGenerator({
     outDir,
     ir,
-    settings: { projectName, tspPath: copiedTspPath },
+    settings: {
+      projectName,
+      tspPath: copiedTspPath,
+      allowCustomItemAcl: allowCustomItemAcl(ir, options.usePreviewFeatures),
+    },
   });
   await generator.writeScaffold();
 
@@ -391,7 +413,11 @@ export async function initDotnetProject(
   const generator = new DotnetGenerator({
     outDir,
     ir,
-    settings: { projectName, tspPath: copiedTspPath },
+    settings: {
+      projectName,
+      tspPath: copiedTspPath,
+      allowCustomItemAcl: allowCustomItemAcl(ir, options.usePreviewFeatures),
+    },
   });
   await generator.writeScaffold();
 

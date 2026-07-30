@@ -11,6 +11,9 @@ namespace <%= schemaNamespace %>;
 public static class ItemPayload
 {
     private const string IdEncoding = "<%= idEncoding ?? "slug" %>";
+<% if (allowCustomItemAcl) { -%>
+    private static readonly PropertyTransform Transforms = new();
+<% } -%>
 
     /// <summary>
     /// Resolve the external item ID for a schema model instance.
@@ -42,6 +45,9 @@ public static class ItemPayload
         var externalItem = new ExternalItem
         {
             Id = GetItemId(item),
+<% if (allowCustomItemAcl) { -%>
+            Acl = Transforms.TransformAcl(item),
+<% } else { -%>
             Acl = new List<Acl>
             {
                 new Acl
@@ -51,6 +57,7 @@ public static class ItemPayload
                     AccessType = AccessType.Grant,
                 }
             },
+<% } -%>
             Properties = props,
         };
 

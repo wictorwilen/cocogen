@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-30
+
+### Added
+- Generated TypeScript and .NET projects now expose model-based per-item ACL override hooks in their safe `PropertyTransform` classes while preserving the existing Everyone/Grant default. People connector ACL overrides require `--use-preview-features`; otherwise generated payloads enforce Everyone access and cocogen warns.
+- People connectors now support the stable `personWorkPositions` label as a `string[]` collection of `workPosition` profile entities.
+- `cocogen init --kind people` now includes `personWorkPositions` guidance in the starter schema and generated `AGENTS.md`, along with the people ACL preview rule.
+
+### Fixed
+- Template copying during builds now resolves the repository path correctly on Windows, so compiled CLI generation can find `dist/init/templates`.
+- Generated .NET projects now use Microsoft Graph SDK 6.2 packages and Kiota 2.0 dependencies, removing the vulnerable `Microsoft.Kiota.Abstractions` 1.21.1 package warning.
+
 ## [1.1.0] - 2026-04-09
 
 ### Added
@@ -332,7 +343,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@coco.profileSource.displayName` is now required for people connectors.
 - Collection values no longer split on commas; use semicolons instead.
 
-[Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/wictorwilen/cocogen/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/wictorwilen/cocogen/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/wictorwilen/cocogen/compare/v1.0.50...v1.1.0
 [1.0.50]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.50
 [1.0.49]: https://github.com/wictorwilen/cocogen/compare/main...v1.0.49

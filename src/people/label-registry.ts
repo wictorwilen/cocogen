@@ -48,6 +48,7 @@ const RAW_LABELS: RawPeopleLabel[] = [
   { label: "personAccount", payloadTypes: ["string"], graphType: "userAccountInformation" },
   { label: "personName", payloadTypes: ["string"], graphType: "personName" },
   { label: "personCurrentPosition", payloadTypes: ["string"], graphType: "workPosition" },
+  { label: "personWorkPositions", payloadTypes: ["stringCollection"], graphType: "workPosition" },
   { label: "personAddresses", payloadTypes: ["stringCollection"], graphType: "itemAddress", constraints: { collectionLimit: 3 } },
   { label: "personEmails", payloadTypes: ["stringCollection"], graphType: "itemEmail", constraints: { collectionLimit: 3 } },
   { label: "personPhones", payloadTypes: ["stringCollection"], graphType: "itemPhone" },

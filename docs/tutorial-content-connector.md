@@ -255,6 +255,8 @@ In `incident-connector/`:
 - `Datasource/JsonItemSource.cs` — reads JSON rows
 - `PropertyTransformBase.cs` — generated mapping
 - `PropertyTransform.cs` — **your customization hook**
+
+`PropertyTransform.cs` also exposes `TransformAcl(item)` for per-item access control. Its default grants Everyone access; override it to derive user or group ACL entries from the parsed item.
 - `appsettings.json` — config defaults
 
 ---
