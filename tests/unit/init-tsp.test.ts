@@ -51,11 +51,16 @@ describe("initStarterTsp", () => {
     expect(contents).toContain("model Profile");
     expect(contents).toContain("@coco.source(\"UPN\", \"userPrincipalName\")");
     expect(contents).toContain("account: string;");
+    expect(contents).toContain("@coco.label(\"personWorkPositions\")");
+    expect(contents).toContain("workPositions: string[];");
 
     const agents = await readFile(path.join(dir, "AGENTS.md"), "utf8");
     expect(agents).toContain("People connectors use Microsoft Graph **v1.0** unless they use beta-only labels.");
     expect(agents).toContain("--use-preview-features");
     expect(agents).toContain("Graph beta requirement");
+    expect(agents).toContain("personWorkPositions");
+    expect(agents).toContain("Per-item ACL overrides are preview-only");
+    expect(agents).toContain("TransformAcl(item)");
   });
 
   test("fails when file exists and force is false", async () => {

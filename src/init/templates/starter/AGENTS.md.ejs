@@ -120,11 +120,21 @@ Common fixes:
 - Optional properties → make required (connectors require non-optional schema properties)
 - Schemas with beta-only labels and no preview flag → re-run with `--use-preview-features`
 
+## Generated project customization
+
+Generated TypeScript and .NET projects include a safe `PropertyTransform` override file that is preserved by `cocogen update`.
+
+- Override field transform methods to customize source-to-model mapping.
+- Override `transformAcl(item)` (TypeScript) or `TransformAcl(item)` (.NET) to build an ACL from each parsed item.
+- The default ACL grants Everyone access.
+
 <% if (kind === "people") { %>
 ## People connectors
 
 People connectors use Microsoft Graph **v1.0** unless they use beta-only labels.
 
 - Use `--use-preview-features` only when cocogen reports a Graph beta requirement
+- Use `personCurrentPosition` for the current role and `personWorkPositions` (`string[]`) for work history
+- Per-item ACL overrides are preview-only for people connectors; generate and update with `--use-preview-features`, otherwise Everyone access is enforced
 - Expect breaking changes only for beta-only Graph labels and models
 <% } %>

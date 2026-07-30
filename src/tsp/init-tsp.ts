@@ -109,6 +109,12 @@ model ${modelName} {
   // @coco.label("personCurrentPosition")
   // @coco.source("job title", "detail.jobTitle")
   // workPosition: string;
+
+  // Work history uses a collection of workPosition entities.
+  // @coco.label("personWorkPositions")
+  // @coco.source("previous job title", "detail.jobTitle")
+  // @coco.source("previous company", "detail.company.displayName")
+  // workPositions: string[];
 }
 `;
   }
