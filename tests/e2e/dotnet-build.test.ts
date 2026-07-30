@@ -122,6 +122,7 @@ describe("cocogen generate (dotnet) + dotnet build (e2e)", () => {
       }
 
       expect(build.code).toBe(0);
+      expect(`${build.stdout}\n${build.stderr}`).not.toContain("NU1903");
     }
   );
 });

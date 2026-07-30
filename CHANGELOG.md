@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Template copying during builds now resolves the repository path correctly on Windows, so compiled CLI generation can find `dist/init/templates`.
+- Generated .NET projects now use Microsoft Graph SDK 6.2 packages and Kiota 2.0 dependencies, removing the vulnerable `Microsoft.Kiota.Abstractions` 1.21.1 package warning.
 
 ## [1.1.0] - 2026-04-09
 

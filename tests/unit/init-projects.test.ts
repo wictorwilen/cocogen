@@ -655,8 +655,8 @@ model Item {
     await initDotnetProject({ tspPath, outDir, force: false, usePreviewFeatures: true });
 
     const csproj = await readFile(path.join(outDir, "people-dotnet-packages.csproj"), "utf8");
-    expect(csproj).toContain('PackageReference Include="Microsoft.Graph" Version="5.100.0"');
-    expect(csproj).toContain('PackageReference Include="Microsoft.Graph.Beta" Version="5.129.0-preview"');
+    expect(csproj).toContain('PackageReference Include="Microsoft.Graph" Version="6.2.0"');
+    expect(csproj).toContain('PackageReference Include="Microsoft.Graph.Beta" Version="6.2.0-preview"');
   });
 
   test("initDotnetProject includes throttling retries", async () => {

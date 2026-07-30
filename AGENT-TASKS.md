@@ -45,6 +45,7 @@ This is the living task list for the `cocogen` repo. Keep it current as work pro
 - Moved .NET config to appsettings.json ✅
 
 ## Recently done
+- Upgrade generated .NET projects to Microsoft Graph SDK 6.2 and remove the vulnerable Kiota 1.21.1 package warning ✅
 - Add stable `personWorkPositions` people-label support mapped to `workPosition` collections ✅
 - Add model-based per-item ACL override hooks for generated TS/.NET projects, with preview gating for people connectors ✅
 - Prepare 1.1.0 GA release readiness: fix stale unit assertions, align docs, and update package/changelog release metadata ✅
