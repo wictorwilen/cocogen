@@ -8,6 +8,7 @@ Supported labels (must be enforced):
 - personAccount → userAccountInformation (string)
 - personName → personName (string)
 - personCurrentPosition → workPosition (string)
+- personWorkPositions → workPosition (string[])
 - personAddresses → itemAddress (stringCollection, max 3: Home/Work/Other)
 - personEmails → itemEmail (stringCollection, max 3)
 - personPhones → itemPhone (stringCollection)

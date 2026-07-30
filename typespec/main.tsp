@@ -86,6 +86,7 @@ namespace coco {
     | "personAccount"
     | "personName"
     | "personCurrentPosition"
+    | "personWorkPositions"
     | "personAddresses"
     | "personEmails"
     | "personPhones"

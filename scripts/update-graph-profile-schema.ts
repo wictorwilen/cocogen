@@ -15,6 +15,7 @@ const labelTypeMap = {
   personAccount: "userAccountInformation",
   personName: "personName",
   personCurrentPosition: "workPosition",
+  personWorkPositions: "workPosition",
   personAddresses: "itemAddress",
   personEmails: "itemEmail",
   personPhones: "itemPhone",
@@ -393,20 +394,24 @@ export const buildGraphCapabilitySnapshot = (
         {
           ...computeAvailability(v1Labels.allLabels.includes(label), betaLabels.allLabels.includes(label)),
           kind:
-            v1Labels.peopleLabels.includes(label) || betaLabels.peopleLabels.includes(label) ? "people" : "semantic",
+            label in labelTypeMap ||
+            v1Labels.peopleLabels.includes(label) ||
+            betaLabels.peopleLabels.includes(label)
+              ? "people"
+              : "semantic",
         } as const,
       ])
   );
 
   const peopleLabels = Object.fromEntries(
     Object.entries(betaSnapshot.labelTypeMap)
-      .filter(([label]) => betaLabels.peopleLabels.includes(label) || v1Labels.peopleLabels.includes(label))
+      .filter(([label]) => betaLabels.allLabels.includes(label) || v1Labels.allLabels.includes(label))
       .map(([label, planTypeName]) => {
       const resolvedTypeName = toResolvedTypeName(betaSnapshot, planTypeName);
       return [
         label,
         {
-          ...computeAvailability(v1Labels.peopleLabels.includes(label), betaLabels.peopleLabels.includes(label)),
+          ...computeAvailability(v1Labels.allLabels.includes(label), betaLabels.allLabels.includes(label)),
           planTypeName,
           graphTypeName: resolvedTypeName,
         },

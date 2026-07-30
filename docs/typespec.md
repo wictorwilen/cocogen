@@ -172,6 +172,7 @@ People connectors:
    - `personAccount`
    - `personName`
    - `personCurrentPosition`
+   - `personWorkPositions`
    - `personAddresses`
    - `personEmails`
    - `personPhones`
@@ -335,6 +336,15 @@ Example (current position / workPosition):
 workPosition: string;
 ```
 
+Example (work history / workPosition collection):
+
+```tsp
+@coco.label("personWorkPositions")
+@coco.source("previous job title", "detail.jobTitle")
+@coco.source("previous company", "detail.company.displayName")
+workPositions: string[];
+```
+
 Example (skills / skillProficiency):
 
 ```tsp
@@ -350,6 +360,7 @@ Notes:
   - `personAccount` → `userAccountInformation`
   - `personName` → `personName`
   - `personCurrentPosition` → `workPosition`
+  - `personWorkPositions` → `workPosition`
   - `personAddresses` → `itemAddress`
   - `personEmails` → `itemEmail`
   - `personPhones` → `itemPhone`

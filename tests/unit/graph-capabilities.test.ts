@@ -25,10 +25,13 @@ describe("graph capabilities snapshot", () => {
 
   test("exposes people label capability metadata", () => {
     expect(getPeopleLabelCapability("personAccount")?.graphTypeName).toBe("userAccountInformation");
+    expect(getPeopleLabelCapability("personWorkPositions")?.graphTypeName).toBe("workPosition");
+    expect(getPeopleLabelCapability("personWorkPositions")?.minGraphApiVersion).toBe("v1.0");
   });
 
   test("exposes dynamic label capability metadata", () => {
     expect(getLabelCapability("personWebSite")?.kind).toBe("people");
+    expect(getLabelCapability("personWorkPositions")?.kind).toBe("people");
   });
 
   test("maxGraphApiVersion prefers beta when any requirement is beta", () => {

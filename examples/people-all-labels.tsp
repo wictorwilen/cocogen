@@ -47,6 +47,12 @@ model PeopleAllLabelsProfile {
   @coco.source("assistantType", {to: "colleagues.relationship", default: "assistant"})
   currentPosition: string;
 
+  @coco.label("personWorkPositions")
+  @doc("Previous work positions.")
+  @coco.source("previous job title", "detail.jobTitle")
+  @coco.source("previous company", "detail.company.displayName")
+  workPositions: string[];
+
   @coco.label("personAddresses")
   @doc("Physical addresses.")
   @example(#["{\"displayName\":\"HQ\",\"detail\":{\"street\":\"1 Main St\",\"city\":\"Redmond\"}}"])

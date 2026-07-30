@@ -1638,6 +1638,7 @@
     "personAccount": "userAccountInformation",
     "personName": "personName",
     "personCurrentPosition": "workPosition",
+    "personWorkPositions": "workPosition",
     "personAddresses": "itemAddress",
     "personEmails": "itemEmail",
     "personPhones": "itemPhone",

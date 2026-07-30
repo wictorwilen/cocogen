@@ -47,6 +47,11 @@ describe("people connector job title mapping", () => {
         @coco.source("company", "detail.company.displayName")
         @coco.source("employee id", "detail.employeeId")
         workPosition: string;
+
+        @coco.label("personWorkPositions")
+        @coco.source("previous job title", "detail.jobTitle")
+        @coco.source("previous company", "detail.company.displayName")
+        workPositions: string[];
       }
     `);
 
@@ -71,11 +76,15 @@ describe("people connector job title mapping", () => {
 
     const positionProp = schema.properties?.find((prop) => prop.name === "workPosition");
     expect(positionProp?.labels).toContain("personCurrentPosition");
+    const positionsProp = schema.properties?.find((prop) => prop.name === "workPositions");
+    expect(positionsProp?.labels).toContain("personWorkPositions");
 
     const defaultsPath = path.join(outDir, "src", schemaFolder, "propertyTransformBase.ts");
     const defaultsSource = await readFile(defaultsPath, "utf8");
     expect(defaultsSource).toContain("detail");
     expect(defaultsSource).toContain("jobTitle");
     expect(defaultsSource).toContain("\"job title\"");
+    expect(defaultsSource).toContain("\"previous job title\"");
+    expect(defaultsSource).toContain("\"previous company\"");
   });
 });

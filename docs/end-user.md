@@ -276,7 +276,7 @@ Ingest debugging flags:
 - Update your input file to match the new paths.
 
 ### Add/modify people profile data
-- Use people labels like `personName` or `personCurrentPosition`.
+- Use people labels like `personName`, `personCurrentPosition`, or `personWorkPositions` for work history.
 - Use `@coco.source("header", "entity.path")` to map CSV columns into the profile entity fields.
 
 ## 8) Azure Functions migration (Node + .NET)

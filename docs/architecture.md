@@ -147,7 +147,7 @@ People connectors (preview) helpers:
 - `contentCategory` MUST be specified in the TypeSpec input (not as a `cocogen` CLI flag) because it changes downstream validation and may require Graph beta when combined with beta-only labels.
 - Graph beta usage requires `cocogen --use-preview-features` so that beta endpoints and SDKs are explicitly opt-in.
 - People-domain labels are validated against the supported set (preview):
-  - `personAccount`, `personName`, `personCurrentPosition`, `personAddresses`, `personEmails`, `personPhones`,
+  - `personAccount`, `personName`, `personCurrentPosition`, `personWorkPositions`, `personAddresses`, `personEmails`, `personPhones`,
     `personAwards`, `personCertifications`, `personEducationalActivities`, `personInterests`, `personLanguages`,
     `personPatents`, `personProjects`, `personPublications`, `personSkills`, `personWebAccounts`, `personWebSite`,
     `personAnniversaries`, `personNote`.
@@ -155,6 +155,7 @@ People connectors (preview) helpers:
   - personAccount → userAccountInformation
   - personName → personName
   - personCurrentPosition → workPosition
+  - personWorkPositions → workPosition collection
   - personAddresses → itemAddress
   - personEmails → itemEmail
   - personPhones → itemPhone
